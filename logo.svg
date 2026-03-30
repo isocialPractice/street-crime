@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 200" width="640" height="200">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#04091a"/>
+      <stop offset="100%" stop-color="#111d34"/>
+    </linearGradient>
+    <linearGradient id="glowS" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffd966"/>
+      <stop offset="100%" stop-color="#e07b30"/>
+    </linearGradient>
+    <linearGradient id="glowC" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#b0c5c8"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="640" height="200" fill="url(#sky)"/>
+
+  <!-- City skyline silhouette -->
+  <rect x="0"   y="130" width="40"  height="70" fill="#0a1020"/>
+  <rect x="10"  y="110" width="20"  height="90" fill="#0a1020"/>
+  <rect x="50"  y="120" width="30"  height="80" fill="#0c1428"/>
+  <rect x="60"  y="100" width="10"  height="30" fill="#0c1428"/>
+  <rect x="90"  y="135" width="45"  height="65" fill="#0a1020"/>
+  <rect x="100" y="115" width="25"  height="85" fill="#0a1020"/>
+  <rect x="145" y="125" width="35"  height="75" fill="#0c1428"/>
+  <rect x="160" y="105" width="10"  height="20" fill="#0c1428"/>
+  <rect x="490" y="130" width="40"  height="70" fill="#0a1020"/>
+  <rect x="500" y="108" width="20"  height="92" fill="#0a1020"/>
+  <rect x="540" y="120" width="30"  height="80" fill="#0c1428"/>
+  <rect x="550" y="100" width="10"  height="30" fill="#0c1428"/>
+  <rect x="575" y="135" width="45"  height="65" fill="#0a1020"/>
+  <rect x="585" y="115" width="30"  height="85" fill="#0a1020"/>
+
+  <!-- Ground strip -->
+  <rect x="0" y="168" width="640" height="32" fill="#0d1625"/>
+  <rect x="0" y="168" width="640" height="2"  fill="#1d2f56"/>
+
+  <!-- Street lane dashes -->
+  <rect x="80"  y="183" width="40" height="3" fill="#2a3a5a" rx="1"/>
+  <rect x="160" y="183" width="40" height="3" fill="#2a3a5a" rx="1"/>
+  <rect x="240" y="183" width="40" height="3" fill="#2a3a5a" rx="1"/>
+  <rect x="320" y="183" width="40" height="3" fill="#2a3a5a" rx="1"/>
+  <rect x="400" y="183" width="40" height="3" fill="#2a3a5a" rx="1"/>
+  <rect x="480" y="183" width="40" height="3" fill="#2a3a5a" rx="1"/>
+
+  <!-- Stars -->
+  <rect x="220" y="18" width="2" height="2" fill="#fff" opacity=".6"/>
+  <rect x="300" y="30" width="1" height="1" fill="#fff" opacity=".8"/>
+  <rect x="370" y="12" width="2" height="2" fill="#fff" opacity=".5"/>
+  <rect x="430" y="25" width="1" height="1" fill="#fff" opacity=".7"/>
+  <rect x="200" y="40" width="1" height="1" fill="#fff" opacity=".5"/>
+  <rect x="460" y="14" width="2" height="2" fill="#fff" opacity=".6"/>
+
+  <!-- STREET — warm gold, thick block letters -->
+  <text x="320" y="108"
+        font-family="Impact, Arial Black, sans-serif"
+        font-size="82"
+        font-weight="900"
+        letter-spacing="8"
+        text-anchor="middle"
+        fill="url(#glowS)"
+        filter="url(#glow)">STREET</text>
+
+  <!-- CRIME — cool white/steel, slightly smaller, offset right for tension -->
+  <text x="324" y="162"
+        font-family="Impact, Arial Black, sans-serif"
+        font-size="60"
+        font-weight="900"
+        letter-spacing="18"
+        text-anchor="middle"
+        fill="url(#glowC)"
+        opacity=".92">CRIME</text>
+
+  <!-- Thin underline accent -->
+  <rect x="140" y="168" width="360" height="2" fill="#e07b30" opacity=".7" rx="1"/>
+</svg>

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Street Crime</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Loading screen — covers everything until all SVG sprites are decoded -->
+    <div id="loading-screen">
+        <div id="loading-text">LOADING...</div>
+    </div>
+
+    <!-- Title / mode-select screen (shown before game starts) -->
+    <div id="title-screen">
+        <h1 id="title-heading">STREET<br>CRIME</h1>
+        <div id="title-buttons">
+            <button class="title-btn" id="btn-game">&#9654; GAME</button>
+            <button class="title-btn" id="btn-debug">&#9881; DEBUG MODE</button>
+            <button class="title-btn" id="btn-viewer">&#9706; SPRITE VIEWER</button>
+        </div>
+    </div>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+        <div id="ui">
+            <!-- Left HUD: score + lives -->
+            <div id="hud-left">
+                <div id="score-label">SCORE</div>
+                <div id="score">000000</div>
+                <div id="lives-row">
+                    <span class="hud-label">LIVES</span>
+                    <span id="lives">3</span>
+                </div>
+            </div>
+
+            <!-- Centre HUD: stage + combo -->
+            <div id="hud-center">
+                <div id="stage-row">
+                    <span class="hud-label">STAGE</span>
+                    <span id="stage">1</span>
+                </div>
+                <div id="combo-display" class="hidden">
+                    COMBO <span id="combo">0</span>×!
+                </div>
+            </div>
+
+            <!-- Right HUD: health bar -->
+            <div id="hud-right">
+                <span class="hud-label">HP</span>
+                <div id="health-bar">
+                    <div id="health-fill"></div>
+                </div>
+            </div>
+
+            <!-- Boss health bar (bottom centre) -->
+            <div id="boss-hud" class="hidden">
+                <div id="boss-name"></div>
+                <div id="boss-health-bar">
+                    <div id="boss-health-fill"></div>
+                </div>
+            </div>
+
+            <!-- Full-screen overlay (stage clear / game over / victory) -->
+            <div id="overlay" class="hidden">
+                <h1 id="overlay-title"></h1>
+                <p  id="overlay-sub"></p>
+                <p  id="overlay-prompt" class="blink">PRESS ENTER</p>
+            </div>
+
+            <!-- Pause button (top-right, below HP bar) -->
+            <button id="pause-btn" class="hidden">&#9646;&#9646;</button>
+
+            <!-- Pause overlay -->
+            <div id="pause-overlay" class="hidden">
+                <h2>PAUSED</h2>
+                <p class="blink">PRESS P TO RESUME</p>
+            </div>
+
+            <!-- Controls hint (bottom-left, small) -->
+            <div id="controls-hint">
+                Move: ←↑↓→ / WASD &nbsp;|&nbsp; Run: SHIFT + direction &nbsp;|&nbsp;
+                Punch: J/Z &nbsp;|&nbsp; Kick: K/X &nbsp;|&nbsp; Jump: SPACE
+            </div>
+        </div>
+    </div>
+
+    <div id="debug-left-panel" class="hidden"></div>
+    <div id="debug-panel" class="hidden"></div>
+
+    <script src="assets.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>

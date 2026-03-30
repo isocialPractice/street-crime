@@ -1,0 +1,502 @@
+{
+  "__player__": {
+    "idle": {
+      "sx": 1,
+      "sy": 1
+    },
+    "walk": {
+      "sx": 1,
+      "sy": 1
+    },
+    "run": {
+      "sx": 1,
+      "sy": 1
+    },
+    "jump": {
+      "sx": 1,
+      "sy": 1
+    },
+    "jumpkick": {
+      "sx": 1,
+      "sy": 1
+    },
+    "punch1": {
+      "sx": 1,
+      "sy": 1
+    },
+    "punch2": {
+      "sx": 1,
+      "sy": 1
+    },
+    "kick1": {
+      "sx": 1,
+      "sy": 1
+    },
+    "kick2": {
+      "sx": 1,
+      "sy": 1
+    },
+    "uppercut": {
+      "sx": 1,
+      "sy": 1
+    },
+    "runningkick": {
+      "sx": 1,
+      "sy": 1
+    },
+    "knockdown": {
+      "sx": 1,
+      "sy": 1
+    }
+  },
+  "CrimeGuy": {
+    "idle": {
+      "sx": 1,
+      "sy": 1
+    },
+    "walk": {
+      "sx": 1,
+      "sy": 1
+    },
+    "attack": {
+      "sx": 1,
+      "sy": 1
+    },
+    "defeat": {
+      "sx": 0.45,
+      "sy": 0.45
+    }
+  },
+  "BadGirl": {
+    "idle": {
+      "sx": 1,
+      "sy": 1
+    },
+    "walk": {
+      "sx": 1,
+      "sy": 1
+    },
+    "attack": {
+      "sx": 1,
+      "sy": 1
+    },
+    "defeat": {
+      "sx": 0.45,
+      "sy": 0.45
+    }
+  },
+  "SassyGirl": {
+    "idle": {
+      "sx": 1,
+      "sy": 1
+    },
+    "walk": {
+      "sx": 1,
+      "sy": 1
+    },
+    "attack": {
+      "sx": 1,
+      "sy": 1
+    },
+    "defeat": {
+      "sx": 1,
+      "sy": 1
+    }
+  },
+  "JammingJabber": {
+    "idle": {
+      "sx": 1,
+      "sy": 1
+    },
+    "walk": {
+      "sx": 1,
+      "sy": 1
+    },
+    "attack": {
+      "sx": 1,
+      "sy": 1
+    },
+    "defeat": {
+      "sx": 0.5,
+      "sy": 0.45
+    }
+  },
+  "JumpingJunkie": {
+    "idle": {
+      "sx": 1,
+      "sy": 1
+    },
+    "walk": {
+      "sx": 1,
+      "sy": 1
+    },
+    "attack": {
+      "sx": 1,
+      "sy": 1
+    },
+    "defeat": {
+      "sx": 1,
+      "sy": 1
+    }
+  },
+  "KingBruteBreaker": {
+    "idle": {
+      "sx": 1,
+      "sy": 1
+    },
+    "walk": {
+      "sx": 1,
+      "sy": 1
+    },
+    "attack": {
+      "sx": 1,
+      "sy": 1
+    },
+    "defeat": {
+      "sx": 0.5,
+      "sy": 0.45
+    }
+  },
+  "BadOne": {
+    "idle": {
+      "sx": 1,
+      "sy": 1
+    },
+    "walk": {
+      "sx": 1,
+      "sy": 1
+    },
+    "attack": {
+      "sx": 1,
+      "sy": 1
+    },
+    "defeat": {
+      "sx": 1,
+      "sy": 1
+    }
+  },
+  "TightRomper": {
+    "idle": {
+      "sx": 1,
+      "sy": 1
+    },
+    "walk": {
+      "sx": 1,
+      "sy": 1
+    },
+    "attack": {
+      "sx": 1,
+      "sy": 1
+    },
+    "defeat": {
+      "sx": 1,
+      "sy": 1
+    }
+  },
+  "GreenJetter": {
+    "idle": {
+      "sx": 1,
+      "sy": 1
+    },
+    "walk": {
+      "sx": 1,
+      "sy": 1
+    },
+    "attack": {
+      "sx": 1,
+      "sy": 1
+    },
+    "defeat": {
+      "sx": 1,
+      "sy": 1
+    }
+  },
+  "RoadFighter": {
+    "idle": {
+      "sx": 1,
+      "sy": 1
+    },
+    "walk": {
+      "sx": 1,
+      "sy": 1
+    },
+    "attack": {
+      "sx": 1,
+      "sy": 1
+    },
+    "defeat": {
+      "sx": 1,
+      "sy": 1
+    }
+  },
+  "Stomper": {
+    "idle": {
+      "sx": 1,
+      "sy": 1
+    },
+    "walk": {
+      "sx": 1,
+      "sy": 1
+    },
+    "attack": {
+      "sx": 1,
+      "sy": 1
+    },
+    "defeat": {
+      "sx": 1,
+      "sy": 1
+    }
+  },
+  "GreenStomper": {
+    "idle": {
+      "sx": 1,
+      "sy": 1
+    },
+    "walk": {
+      "sx": 1,
+      "sy": 1
+    },
+    "attack": {
+      "sx": 1,
+      "sy": 1
+    },
+    "defeat": {
+      "sx": 1,
+      "sy": 1
+    }
+  },
+  "SoldierCrime": {
+    "idle": {
+      "sx": 1,
+      "sy": 1
+    },
+    "walk": {
+      "sx": 1,
+      "sy": 1
+    },
+    "attack": {
+      "sx": 1,
+      "sy": 1
+    },
+    "defeat": {
+      "sx": 1,
+      "sy": 1
+    }
+  },
+  "RedRowRonda": {
+    "idle": {
+      "sx": 1,
+      "sy": 1
+    },
+    "walk": {
+      "sx": 1,
+      "sy": 1
+    },
+    "attack": {
+      "sx": 1,
+      "sy": 1
+    },
+    "defeat": {
+      "sx": 1,
+      "sy": 1
+    }
+  },
+  "BadBlob": {
+    "idle": {
+      "sx": 1,
+      "sy": 1
+    },
+    "walk": {
+      "sx": 1,
+      "sy": 1
+    },
+    "attack": {
+      "sx": 1,
+      "sy": 1
+    },
+    "defeat": {
+      "sx": 1,
+      "sy": 1
+    }
+  },
+  "NastyKnifer": {
+    "idle": {
+      "sx": 1,
+      "sy": 1
+    },
+    "walk": {
+      "sx": 1,
+      "sy": 1
+    },
+    "attack": {
+      "sx": 1,
+      "sy": 1
+    },
+    "defeat": {
+      "sx": 1,
+      "sy": 1
+    }
+  },
+  "LowGoblin": {
+    "idle": {
+      "sx": 1,
+      "sy": 1
+    },
+    "walk": {
+      "sx": 1,
+      "sy": 1
+    },
+    "attack": {
+      "sx": 1,
+      "sy": 1
+    },
+    "defeat": {
+      "sx": 1,
+      "sy": 1
+    }
+  },
+  "NunChuckLarry": {
+    "idle": {
+      "sx": 1,
+      "sy": 1
+    },
+    "walk": {
+      "sx": 1,
+      "sy": 1
+    },
+    "attack": {
+      "sx": 1,
+      "sy": 1
+    },
+    "defeat": {
+      "sx": 1,
+      "sy": 1
+    }
+  },
+  "DivaMohawk": {
+    "idle": {
+      "sx": 1,
+      "sy": 1
+    },
+    "walk": {
+      "sx": 1,
+      "sy": 1
+    },
+    "attack": {
+      "sx": 1,
+      "sy": 1
+    },
+    "defeat": {
+      "sx": 1,
+      "sy": 1
+    }
+  },
+  "SlenderCriminal": {
+    "idle": {
+      "sx": 1,
+      "sy": 1
+    },
+    "walk": {
+      "sx": 1,
+      "sy": 1
+    },
+    "attack": {
+      "sx": 1,
+      "sy": 1
+    },
+    "defeat": {
+      "sx": 1,
+      "sy": 1
+    }
+  },
+  "MaskedMayhem": {
+    "idle": {
+      "sx": 1,
+      "sy": 1
+    },
+    "walk": {
+      "sx": 1,
+      "sy": 1
+    },
+    "attack": {
+      "sx": 1,
+      "sy": 1
+    },
+    "defeat": {
+      "sx": 1,
+      "sy": 1
+    }
+  },
+  "HyJungScout": {
+    "idle": {
+      "sx": 1,
+      "sy": 1
+    },
+    "walk": {
+      "sx": 1,
+      "sy": 1
+    },
+    "attack": {
+      "sx": 1,
+      "sy": 1
+    },
+    "defeat": {
+      "sx": 1,
+      "sy": 1
+    }
+  },
+  "NinjaWarriorOfCrime": {
+    "idle": {
+      "sx": 1,
+      "sy": 1
+    },
+    "walk": {
+      "sx": 1,
+      "sy": 1
+    },
+    "attack": {
+      "sx": 1,
+      "sy": 1
+    },
+    "defeat": {
+      "sx": 1,
+      "sy": 1
+    }
+  },
+  "SquirrlyGambler": {
+    "idle": {
+      "sx": 1,
+      "sy": 1
+    },
+    "walk": {
+      "sx": 1,
+      "sy": 1
+    },
+    "attack": {
+      "sx": 1,
+      "sy": 1
+    },
+    "defeat": {
+      "sx": 1,
+      "sy": 1
+    }
+  },
+  "BruteBreaker": {
+    "idle": {
+      "sx": 1,
+      "sy": 1
+    },
+    "walk": {
+      "sx": 1,
+      "sy": 1
+    },
+    "attack": {
+      "sx": 1,
+      "sy": 1
+    },
+    "defeat": {
+      "sx": 1,
+      "sy": 1
+    }
+  }
+}

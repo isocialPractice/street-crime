@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- Dark navy background -->
+  <rect width="32" height="32" rx="4" fill="#0d1625"/>
+
+  <!-- Fist silhouette — simplified pixel-art style -->
+  <!-- Fingers (top knuckle row) -->
+  <rect x="8"  y="10" width="5" height="5" rx="1" fill="#d9714d"/>
+  <rect x="14" y="9"  width="5" height="6" rx="1" fill="#d9714d"/>
+  <rect x="20" y="10" width="5" height="5" rx="1" fill="#d9714d"/>
+
+  <!-- Palm / lower fist -->
+  <rect x="8"  y="15" width="17" height="8" rx="1" fill="#cb6848"/>
+
+  <!-- Thumb (left side, tucked) -->
+  <rect x="5"  y="16" width="4"  height="5" rx="1" fill="#b05038"/>
+
+  <!-- Knuckle highlight line -->
+  <rect x="9"  y="13" width="3" height="1" fill="#e8956a" rx="0.5"/>
+  <rect x="15" y="12" width="3" height="1" fill="#e8956a" rx="0.5"/>
+  <rect x="21" y="13" width="3" height="1" fill="#e8956a" rx="0.5"/>
+
+  <!-- Ground shadow strip -->
+  <rect x="0" y="27" width="32" height="5" rx="0" fill="#172644"/>
+</svg>
