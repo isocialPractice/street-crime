@@ -2,7 +2,7 @@
   <img src="logo.svg" alt="Street Crime" width="480"/>
   <br/><br/>
 
-  **[▶ Play now on GitHub Pages](https://isocialPractice.github.io/street-crime/)**
+  **[▶ Play now on GitHub Pages](https://isocialpractice.github.io/steet-crime/)**
 
 </div>
 
