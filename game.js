@@ -901,9 +901,10 @@ class Enemy extends Entity {
     }
 
     _die() {
-        this.dead  = true;
-        this.deadT = 0;
-        this.state = 'dead';
+        this.dead    = true;
+        this.deadT   = 0;
+        this.state   = 'dead';
+        this.stTimer = 0;
         addScore(this.def.pts);
     }
 

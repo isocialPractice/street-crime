@@ -64,7 +64,7 @@
     },
     "defeat": {
       "sx": 0.45,
-      "sy": 0.45
+      "sy": 0.25
     }
   },
   "BadGirl": {
@@ -82,7 +82,7 @@
     },
     "defeat": {
       "sx": 0.45,
-      "sy": 0.45
+      "sy": 0.35
     }
   },
   "SassyGirl": {
@@ -118,7 +118,7 @@
     },
     "defeat": {
       "sx": 0.5,
-      "sy": 0.45
+      "sy": 0.3
     }
   },
   "JumpingJunkie": {
@@ -135,8 +135,8 @@
       "sy": 1
     },
     "defeat": {
-      "sx": 1,
-      "sy": 1
+      "sx": 0.55,
+      "sy": 0.5
     }
   },
   "KingBruteBreaker": {
@@ -171,8 +171,8 @@
       "sy": 1
     },
     "defeat": {
-      "sx": 1,
-      "sy": 1
+      "sx": 0.45,
+      "sy": 0.2
     }
   },
   "TightRomper": {
@@ -189,8 +189,8 @@
       "sy": 1
     },
     "defeat": {
-      "sx": 1,
-      "sy": 1
+      "sx": 0.5,
+      "sy": 0.25
     }
   },
   "GreenJetter": {
@@ -207,8 +207,8 @@
       "sy": 1
     },
     "defeat": {
-      "sx": 1,
-      "sy": 1
+      "sx": 0.55,
+      "sy": 0.2
     }
   },
   "RoadFighter": {
@@ -225,8 +225,8 @@
       "sy": 1
     },
     "defeat": {
-      "sx": 1,
-      "sy": 1
+      "sx": 0.6,
+      "sy": 0.25
     }
   },
   "Stomper": {
@@ -243,8 +243,8 @@
       "sy": 1
     },
     "defeat": {
-      "sx": 1,
-      "sy": 1
+      "sx": 0.8,
+      "sy": 0.5
     }
   },
   "GreenStomper": {
@@ -261,8 +261,8 @@
       "sy": 1
     },
     "defeat": {
-      "sx": 1,
-      "sy": 1
+      "sx": 0.8,
+      "sy": 0.35
     }
   },
   "SoldierCrime": {
@@ -279,8 +279,8 @@
       "sy": 1
     },
     "defeat": {
-      "sx": 1,
-      "sy": 1
+      "sx": 0.7,
+      "sy": 0.25
     }
   },
   "RedRowRonda": {
@@ -297,8 +297,8 @@
       "sy": 1
     },
     "defeat": {
-      "sx": 1,
-      "sy": 1
+      "sx": 0.55,
+      "sy": 0.25
     }
   },
   "BadBlob": {
@@ -315,8 +315,8 @@
       "sy": 1
     },
     "defeat": {
-      "sx": 1,
-      "sy": 1
+      "sx": 0.5,
+      "sy": 0.05
     }
   },
   "NastyKnifer": {
@@ -333,8 +333,8 @@
       "sy": 1
     },
     "defeat": {
-      "sx": 1,
-      "sy": 1
+      "sx": 0.6,
+      "sy": 0.2
     }
   },
   "LowGoblin": {
@@ -351,8 +351,8 @@
       "sy": 1
     },
     "defeat": {
-      "sx": 1,
-      "sy": 1
+      "sx": 0.65,
+      "sy": 0.05
     }
   },
   "NunChuckLarry": {
@@ -369,8 +369,8 @@
       "sy": 1
     },
     "defeat": {
-      "sx": 1,
-      "sy": 1
+      "sx": 0.65,
+      "sy": 0.25
     }
   },
   "DivaMohawk": {
@@ -387,8 +387,8 @@
       "sy": 1
     },
     "defeat": {
-      "sx": 1,
-      "sy": 1
+      "sx": 0.6,
+      "sy": 0.25
     }
   },
   "SlenderCriminal": {
@@ -405,8 +405,8 @@
       "sy": 1
     },
     "defeat": {
-      "sx": 1,
-      "sy": 1
+      "sx": 0.5,
+      "sy": 0.5
     }
   },
   "MaskedMayhem": {
@@ -423,8 +423,8 @@
       "sy": 1
     },
     "defeat": {
-      "sx": 1,
-      "sy": 1
+      "sx": 0.55,
+      "sy": 0.4
     }
   },
   "HyJungScout": {
@@ -441,8 +441,8 @@
       "sy": 1
     },
     "defeat": {
-      "sx": 1,
-      "sy": 1
+      "sx": 0.8,
+      "sy": 0.35
     }
   },
   "NinjaWarriorOfCrime": {
@@ -459,8 +459,8 @@
       "sy": 1
     },
     "defeat": {
-      "sx": 1,
-      "sy": 1
+      "sx": 0.7,
+      "sy": 0.25
     }
   },
   "SquirrlyGambler": {
@@ -477,8 +477,8 @@
       "sy": 1
     },
     "defeat": {
-      "sx": 1,
-      "sy": 1
+      "sx": 0.55,
+      "sy": 0.35
     }
   },
   "BruteBreaker": {
@@ -495,8 +495,8 @@
       "sy": 1
     },
     "defeat": {
-      "sx": 1,
-      "sy": 1
+      "sx": 0.55,
+      "sy": 0.35
     }
   }
 }
