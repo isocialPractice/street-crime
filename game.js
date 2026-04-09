@@ -394,6 +394,7 @@ class Player extends Entity {
 
         const canMove = !this.busy || this.state === 'jump' || this.state === 'jumpkick';
         const canAct  = !this.busy;
+        const preX = this.x;   // captured before any movement this frame
 
         // ── Movement ──────────────────────────────────────────────────────────
         if (canMove) {
@@ -431,6 +432,27 @@ class Player extends Entity {
             // so the player cannot walk off the right edge and get stuck off-screen.
             if (levelMgr?.locked) {
                 this.x = Math.min(cam.x + W - this.w, this.x);
+            }
+        }
+
+        // ── Body collision: player vs breakable objects ────────────────────────
+        // Walk-in-place: restore pre-movement X when blocked; never push the player
+        // to a position they weren't already at. Depth check uses AABB overlap so
+        // the collision zone matches the actual object footprint, not a loose radius.
+        if (this.grounded) {
+            for (const obj of breakables) {
+                if (obj.broken) continue;
+                // AABB depth overlap: entity Y-range [y, y+h] vs box Y-range [obj.y-obj.h, obj.y]
+                if (this.y >= obj.y || (this.y + this.h) <= (obj.y - obj.h)) continue;
+                // Horizontal overlap
+                if ((this.x + this.w) <= obj.x || this.x >= (obj.x + obj.w)) continue;
+                // Restore X to pre-movement position, clamped to the near box edge
+                const pcx = this.x + this.w * 0.5;
+                const bcx = obj.x  + obj.w * 0.5;
+                this.x = (pcx < bcx)
+                    ? Math.min(preX, obj.x - this.w)   // left of box
+                    : Math.max(preX, obj.x + obj.w);   // right of box
+                this.vx = 0;
             }
         }
 
@@ -640,6 +662,7 @@ class Player extends Entity {
         if (this.invT > 0 && Math.floor(this.invT * 12) % 2 === 0) return;
         this.drawShadow();
         const img = this.getImg();
+        if (!img || img.naturalWidth === 0) return;
         const dw = img.naturalWidth  || this.w;
         const dh = img.naturalHeight || this.h;
         const sc = _charScale('__player__', _playerStateKey(this.state));
@@ -728,6 +751,7 @@ class Enemy extends Entity {
     update(dt, player, allEnemies = []) {
         this.stepState(dt);
         this.applyGravity(dt);
+        const preX = this.x;   // captured before any AI movement this frame
         if (this.dead) { this.deadT += dt; return; }
         if (this.atkCD > 0) this.atkCD -= dt;
 
@@ -848,6 +872,24 @@ class Enemy extends Entity {
 
         // Push this enemy away from any overlapping enemies
         this._separate(allEnemies);
+
+        // vs breakable objects — walk in place: restore pre-movement X when blocked
+        if (this.grounded) {
+            for (const obj of breakables) {
+                if (obj.broken) continue;
+                // AABB depth overlap: entity Y-range [y, y+h] vs box Y-range [obj.y-obj.h, obj.y]
+                if (this.y >= obj.y || (this.y + this.h) <= (obj.y - obj.h)) continue;
+                // Horizontal overlap
+                if ((this.x + this.w) <= obj.x || this.x >= (obj.x + obj.w)) continue;
+                // Restore X to pre-movement position, clamped to the near box edge
+                const ecx = this.x + this.w * 0.5;
+                const bcx = obj.x  + obj.w * 0.5;
+                this.x = (ecx < bcx)
+                    ? Math.min(preX, obj.x - this.w)   // left of box
+                    : Math.max(preX, obj.x + obj.w);   // right of box
+                this.vx = 0;
+            }
+        }
     }
 
     // Resolve overlap with other enemies by nudging positions apart.
@@ -938,7 +980,7 @@ class Enemy extends Entity {
         this.drawShadow();
 
         const img = this.getImg();
-        if (!img) return;
+        if (!img || img.naturalWidth === 0) return;
 
         // Hurt flash
         const flash = this.state === 'hurt' && Math.floor(this.animT * CFG.enemyHurtFlashFPS) % 2 === 0;
@@ -1655,6 +1697,9 @@ function update(dt) {
 }
 
 function draw() {
+    // Reset any accumulated ctx state from a frame that threw mid-render
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
     ctx.save();
     // Note 65: ctx.translate(shakeX, shakeY) shifts every subsequent draw call by the
     // shake offset, so the entire scene vibrates together. The -10 margin on clearRect
@@ -1664,16 +1709,21 @@ function draw() {
 
     drawBg(STAGES[currentStageIdx].bgIdx);
 
-    // Breakable objects (behind characters)
-    breakables.forEach(o => o.draw());
-
-    // Note 66: Sorting entities by their Y (depth) value before drawing creates the
-    // painter's algorithm: entities further back (smaller Y) are drawn first and
-    // appear behind entities further forward (larger Y). The +0.5 bias for the player
-    // ensures the player draws on top of enemies at the exact same depth lane.
-    [player, ...enemies]
-        .sort((a, b) => (a === player ? a.y + 0.5 : a.y) - (b === player ? b.y + 0.5 : b.y))
-        .forEach(e => e.draw());
+    // Note 66: All entities and breakable objects participate in a single depth sort
+    // using each element's FEET position (ground contact Y) as the sort key.
+    // This ensures correct painter's-algorithm layering: elements whose feet are
+    // further back (smaller Y) draw first and appear behind those further forward.
+    // Breakable objects use obj.y directly (it IS their feet/bottom coordinate).
+    // Entities use entity.y + entity.h for their feet. The +0.5 player bias keeps
+    // the player drawn on top when exactly depth-matched with an enemy.
+    const depthKey = item => {
+        if (item === player)           return player.y + player.h + 0.5;
+        if (item instanceof Enemy)     return item.y + item.h;
+        /* BreakableObj */             return item.y;          // obj.y is already feet
+    };
+    [...enemies, player, ...breakables]
+        .sort((a, b) => depthKey(a) - depthKey(b))
+        .forEach(item => item.draw());
 
     // Pickups and effects on top
     pickups.forEach(p => p.draw());
@@ -2081,31 +2131,35 @@ function gameLoop(ts) {
     const dt = Math.min((ts - lastTime) / 1000, 0.05);
     lastTime = ts;
 
-    if (gameState === 'title') {
-        drawTitle();
-    } else if (gameState === 'viewer') {
-        drawSpriteViewer();
-        if (JustPressed['Escape']) {
-            gameState = 'title';
-            document.getElementById('debug-left-panel').classList.add('hidden');
-            document.getElementById('title-screen').classList.remove('hidden');
-        }
-    } else if (gameState === 'playing') {
-        update(dt);
-        draw();
-    } else if (gameState === 'paused') {
-        draw(); // keep canvas alive, no logic update
-    } else {
-        draw(); // stageclear / gameover / victory
-        if (JustPressed['Enter']) {
-            if (gameState === 'stageclear' && !debugMode) {
-                advanceStage();
-            } else if (debugMode) {
-                initDebugArena();
-            } else {
-                newGame();
+    try {
+        if (gameState === 'title') {
+            drawTitle();
+        } else if (gameState === 'viewer') {
+            drawSpriteViewer();
+            if (JustPressed['Escape']) {
+                gameState = 'title';
+                document.getElementById('debug-left-panel').classList.add('hidden');
+                document.getElementById('title-screen').classList.remove('hidden');
+            }
+        } else if (gameState === 'playing') {
+            update(dt);
+            draw();
+        } else if (gameState === 'paused') {
+            draw(); // keep canvas alive, no logic update
+        } else {
+            draw(); // stageclear / gameover / victory
+            if (JustPressed['Enter']) {
+                if (gameState === 'stageclear' && !debugMode) {
+                    advanceStage();
+                } else if (debugMode) {
+                    initDebugArena();
+                } else {
+                    newGame();
+                }
             }
         }
+    } catch (e) {
+        console.error('[gameLoop]', e);
     }
 
     // Note 68: clearJustPressed must run AFTER all game logic for the frame, so that
