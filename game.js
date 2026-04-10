@@ -873,23 +873,6 @@ class Enemy extends Entity {
         // Push this enemy away from any overlapping enemies
         this._separate(allEnemies);
 
-        // vs breakable objects — walk in place: restore pre-movement X when blocked
-        if (this.grounded) {
-            for (const obj of breakables) {
-                if (obj.broken) continue;
-                // AABB depth overlap: entity Y-range [y, y+h] vs box Y-range [obj.y-obj.h, obj.y]
-                if (this.y >= obj.y || (this.y + this.h) <= (obj.y - obj.h)) continue;
-                // Horizontal overlap
-                if ((this.x + this.w) <= obj.x || this.x >= (obj.x + obj.w)) continue;
-                // Restore X to pre-movement position, clamped to the near box edge
-                const ecx = this.x + this.w * 0.5;
-                const bcx = obj.x  + obj.w * 0.5;
-                this.x = (ecx < bcx)
-                    ? Math.min(preX, obj.x - this.w)   // left of box
-                    : Math.max(preX, obj.x + obj.w);   // right of box
-                this.vx = 0;
-            }
-        }
     }
 
     // Resolve overlap with other enemies by nudging positions apart.
@@ -955,6 +938,10 @@ class Enemy extends Entity {
         if (!c) return null;
         switch (this.state) {
             case 'walk':
+                if (c.walk2) {
+                    // 3-frame walk cycle: walk → walk2 → walk → walk2 …
+                    return Math.floor(this.animT * CFG.enemyWalkFPS) % 2 === 0 ? c.walk : c.walk2;
+                }
                 if (c.walk) return Math.floor(this.animT * CFG.enemyWalkFPS) % 2 === 0 ? c.idle : c.walk;
                 return c.idle;
             case 'attack': {
@@ -964,10 +951,14 @@ class Enemy extends Entity {
                 return atk;  // hold the frame for the full attack duration, like player punch/kick
             }
             case 'hurt':
+                // Alternate between damage frames if they exist, else flash idle
+                if (c.damage2) return Math.floor(this.animT * CFG.enemyHurtFlashFPS) % 2 === 0 ? c.damage : c.damage2;
+                return c.damage || c.idle;
             case 'knockedUp':
-            case 'getup':
             case 'knockdown':
-                return c.idle;
+                return c.preDefeat || c.damage || c.idle;
+            case 'getup':
+                return c.preDefeat || c.idle;
             case 'dead':
                 return c.defeat || c.idle;
             default:
