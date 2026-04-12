@@ -517,3 +517,53 @@ canvas {
     background: #ffd700;
     color: #000;
 }
+
+/* ── Debug Focus dropdown ─────────────────────────────────────────────── */
+.dbg-focus-dropdown {
+    width: 100%;
+    background: #111;
+    color: #ffd700;
+    border: 1px solid #ffd700;
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    padding: 5px 4px;
+    margin-bottom: 8px;
+    box-sizing: border-box;
+    cursor: pointer;
+    letter-spacing: 1px;
+}
+
+#dbg-focus-content {
+    border-bottom: 1px solid #333;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+}
+
+.dbg-focus-export {
+    display: block;
+    width: 100%;
+    margin-top: 12px;
+    margin-bottom: 4px;
+    padding: 7px 0;
+    background: transparent;
+    border: 1px solid #ffd700;
+    color: #ffd700;
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    text-transform: uppercase;
+}
+
+.dbg-focus-export:hover {
+    background: #ffd700;
+    color: #000;
+}
+
+.dbg-subsection {
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: #888;
+    margin: 8px 0 2px;
+    text-transform: uppercase;
+}

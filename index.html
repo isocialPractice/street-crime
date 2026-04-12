@@ -91,7 +91,42 @@
     <div id="debug-left-panel" class="hidden"></div>
     <div id="debug-panel" class="hidden"></div>
 
-    <script src="assets.js"></script>
+    <!-- ── Sprite loading (must be first — all asset modules depend on loader) ── -->
+    <script src="js/sprites/loader.js"></script>
+    <script src="js/sprites/player.js"></script>
+    <script src="js/sprites/enemies.js"></script>
+    <script src="js/sprites/objects.js"></script>
+    <script src="js/sprites/backgrounds.js"></script>
+    <script src="js/sprites/ready.js"></script>
+
+    <!-- ── Core: canvas refs, config, input, camera ─────────────────────────── -->
+    <script src="js/core/canvas.js"></script>
+    <script src="js/core/config.js"></script>
+    <script src="js/core/input.js"></script>
+    <script src="js/core/camera.js"></script>
+
+    <!-- ── Entities: base class, effects, pickups, objects, player, enemy ────── -->
+    <script src="js/entities/entity.js"></script>
+    <script src="js/entities/hitfx.js"></script>
+    <script src="js/entities/pickup.js"></script>
+    <script src="js/entities/breakable.js"></script>
+    <script src="js/entities/player.js"></script>
+    <script src="js/entities/enemy.js"></script>
+
+    <!-- ── Level: stage data and level manager FSM ───────────────────────────── -->
+    <script src="js/level/data.js"></script>
+    <script src="js/level/manager.js"></script>
+
+    <!-- ── UI: HUD helpers, debug panel, sprite viewer ───────────────────────── -->
+    <script src="js/ui/hud.js"></script>
+    <script src="js/ui/debug.js"></script>
+    <script src="js/ui/viewer.js"></script>
+
+    <!-- ── Rendering: background draw, main scene draw, debug overlay ────────── -->
+    <script src="js/rendering/background.js"></script>
+    <script src="js/rendering/draw.js"></script>
+
+    <!-- ── Main entry: game state, loop, init, boot ──────────────────────────── -->
     <script src="game.js"></script>
 </body>
 </html>

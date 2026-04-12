@@ -1,0 +1,9 @@
+{
+  "objBlockDepthExpand": 2,
+  "objCollisionRange": 72,
+  "objCollisionOverlap": 15,
+  "objCollisionDepthTol": 55,
+  "objBreakDropChance": 0.65,
+  "pickupRange": 55,
+  "pickupDepthTol": 60
+}
