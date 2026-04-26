@@ -1,7 +1,7 @@
 // js/entities/enemy.js — Enemy definitions table and Enemy class
 // ENEMY_DEFS is a data-driven lookup table; Enemy reads from it at spawn time.
 // To add a new enemy: add an entry here, create the SVG in assets/, add a matching
-// entry to ENEMY_CHARS in js/sprites/enemies.js, and place it in a STAGES wave.
+// entry to config/enemy-assets.json, and place it in a STAGES wave.
 
 // ── Enemy definitions ─────────────────────────────────────────────────────────
 const ENEMY_DEFS = {
@@ -35,6 +35,49 @@ const ENEMY_DEFS = {
     // ── Final Boss ────────────────────────────────────────────────────────────
     kingbrute:   { img:'KingBruteBreaker',    hp:550,  spd: 85,  dmg:30,  pts:2000,w:92, h:148, boss:true },
 };
+
+const ENEMY_HURT_DURATION = 0.35;
+
+function _enemyAnimationState(charKey, stateKey, visited = new Set()) {
+    const animDef = ENEMY_CHARS[charKey]?.animations?.[stateKey];
+    if (!animDef || visited.has(stateKey)) return null;
+
+    const readyFrames = (animDef.frames || []).filter(img => img && img.naturalWidth > 0);
+    if (readyFrames.length) {
+        return { mode: animDef.mode, frames: readyFrames };
+    }
+    if (animDef.fallbackState) {
+        visited.add(stateKey);
+        return _enemyAnimationState(charKey, animDef.fallbackState, visited);
+    }
+    return null;
+}
+
+function _enemyHasDirectFrames(charKey, stateKey) {
+    const frames = ENEMY_CHARS[charKey]?.animations?.[stateKey]?.frames || [];
+    return frames.some(img => img && img.naturalWidth > 0);
+}
+
+function _enemyPickFrame(charKey, stateKey, animT, { fps = 0, duration = 0, holdTail = 0 } = {}) {
+    const anim = _enemyAnimationState(charKey, stateKey);
+    const frames = anim?.frames || [];
+    if (!frames.length) return null;
+    if (frames.length === 1) return frames[0];
+
+    switch (anim.mode) {
+        case 'loop':
+            return fps > 0 ? frames[Math.floor(animT * fps) % frames.length] : frames[0];
+        case 'sequence': {
+            if (duration <= 0) return frames[frames.length - 1];
+            const activeDuration = Math.max(0.001, duration - holdTail);
+            if (animT >= activeDuration) return frames[frames.length - 1];
+            const index = Math.min(frames.length - 1, Math.floor((animT / activeDuration) * frames.length));
+            return frames[index];
+        }
+        default:
+            return frames[0];
+    }
+}
 
 // ── Enemy class ───────────────────────────────────────────────────────────────
 // AI is a multi-phase state machine:
@@ -209,7 +252,7 @@ class Enemy extends Entity {
             this.invincible = true;
         } else {
             this.x += dir * CFG.enemyKnockbackDist;
-            this.setState('hurt', 0.35);
+            this.setState('hurt', ENEMY_HURT_DURATION);
         }
     }
 
@@ -222,34 +265,31 @@ class Enemy extends Entity {
     }
 
     getImg() {
-        const c = ENEMY_CHARS[this.def.img];
-        if (!c) return null;
+        const charKey = this.def.img;
+        const idleImg = _enemyPickFrame(charKey, 'idle', this.animT, { fps: CFG.enemyIdleFPS });
+        if (!idleImg) return null;
+
         switch (this.state) {
             case 'walk':
-                if (c.walk2) {
-                    return Math.floor(this.animT * CFG.enemyWalkFPS) % 2 === 0 ? c.walk : c.walk2;
-                }
-                if (c.walk) return Math.floor(this.animT * CFG.enemyWalkFPS) % 2 === 0 ? c.idle : c.walk;
-                return c.idle;
-            case 'attack': {
-                const atk = c.punch || c.kick || c.attack;
-                if (!(atk && atk.naturalWidth > 0)) return c.idle;
-                return atk;
-            }
+                return _enemyPickFrame(charKey, 'walk', this.animT, { fps: CFG.enemyWalkFPS }) || idleImg;
+            case 'attack':
+                return _enemyPickFrame(charKey, 'attack', this.animT, {
+                    duration: CFG.enemyAttackDuration,
+                    holdTail: CFG.enemyAttackFrameHold,
+                }) || idleImg;
             case 'hurt':
-                if (c.damage2) return Math.floor(this.animT * CFG.enemyHurtFlashFPS) % 2 === 0 ? c.damage : c.damage2;
-                return c.damage || c.idle;
+                return _enemyPickFrame(charKey, 'damage', this.animT, { duration: ENEMY_HURT_DURATION }) || idleImg;
             case 'knockedUp':
             case 'knockdown':
-                return c.preDefeat || c.damage || c.idle;
+                return _enemyPickFrame(charKey, 'preDefeat', this.animT) ||
+                    _enemyPickFrame(charKey, 'damage', this.animT, { duration: ENEMY_HURT_DURATION }) ||
+                    idleImg;
             case 'getup':
-                return c.preDefeat || c.idle;
+                return _enemyPickFrame(charKey, 'preDefeat', this.animT) || idleImg;
             case 'dead':
-                return c.defeat || c.idle;
+                return _enemyPickFrame(charKey, 'defeat', this.animT) || idleImg;
             default:
-                // If the character has a secondary idle frame, cycle at enemyIdleFPS
-                if (c.idle2) return Math.floor(this.animT * CFG.enemyIdleFPS) % 2 === 0 ? c.idle : c.idle2;
-                return c.idle;
+                return idleImg;
         }
     }
 
@@ -268,8 +308,7 @@ class Enemy extends Entity {
         if (flash) ctx.globalAlpha = CFG.hitFlashAlpha;
         ctx.translate(this.screenX + this.w / 2, this.drawY + this.h);
 
-        const charDef = ENEMY_CHARS[this.def.img];
-        const useRotateDeath = !charDef?.defeat && this.dead;
+        const useRotateDeath = !_enemyHasDirectFrames(this.def.img, 'defeat') && this.dead;
 
         if (this.dead) {
             const csc    = _charScale(this.def.img, 'defeat');
@@ -285,7 +324,7 @@ class Enemy extends Entity {
         } else {
             const csc = _charScale(this.def.img, _enemyStateKey(this.state));
             ctx.scale(this.facing * csc.sx, csc.sy);
-            if (this.state === 'attack' && !(charDef?.punch?.naturalWidth > 0) && !(charDef?.kick?.naturalWidth > 0) && !(charDef?.attack?.naturalWidth > 0)) {
+            if (this.state === 'attack' && !_enemyHasDirectFrames(this.def.img, 'attack')) {
                 const maxAngle = Math.PI / 18;
                 if (this.animT < 0.5) {
                     ctx.rotate(maxAngle);

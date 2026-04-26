@@ -1,84 +1,123 @@
 // js/sprites/enemies.js — Enemy character sprite sets
 // ENEMY_CHARS keys must exactly match the 'img' field in ENEMY_DEFS (in js/entities/enemy.js).
-// Each entry: { idle, walk?, walk2?, punch?, kick?, punch2?, attack?, damage?, damage2?, preDefeat?, defeat? }
-// The '?' means the field is optional. Enemy.getImg() falls back to 'idle' when a state sprite
-// is absent, so you can ship a minimal { idle } entry and the enemy will still work visually.
+// Enemy asset states are configured in config/enemy-assets.json using the enemy name
+// as the base for sprite filenames so new frames can be wired in without editing JS.
 
-const ENEMY_CHARS = {
-    // ── Full animation sets ───────────────────────────────────────────────────
-    CrimeGuy:           { idle:    loadSvgFile('assets/CrimeGuy.svg'),
-                          walk:    loadSvgFile('assets/CrimeGuy_walk_1.svg'),
-                          walk2:   loadSvgFile('assets/CrimeGuy_walk_2.svg'),
-                          punch:   loadSvgFile('assets/CrimeGuy_punch.svg'),
-                          defeat:  loadSvgFile('assets/CrimeGuy_defeat.svg') },
-    BadGirl:            { idle:    loadSvgFile('assets/BadGirl.svg'),
-                          walk:    loadSvgFile('assets/BadGirl_walk_1.svg'),
-                          walk2:   loadSvgFile('assets/BadGirl_walk_2.svg'),
-                          kick:    loadSvgFile('assets/BadGirl_kick.svg'),
-                          defeat:  loadSvgFile('assets/BadGilr_defeat.svg') }, // filename typo preserved
-    SassyGirl:          { idle:    loadSvgFile('assets/SassyGirl.svg'),
-                          walk:    loadSvgFile('assets/SassyGirl_walk_1.svg'),
-                          walk2:   loadSvgFile('assets/SassyGirl_walk_2.svg'),
-                          punch:   loadSvgFile('assets/SassyGirl_punch_1.svg'),
-                          punch2:  loadSvgFile('assets/SassyGirl_punch_2.svg'),
-                          defeat:  loadSvgFile('assets/SassyGirl_defeat.svg') },
-    JammingJabber:      { idle:    loadSvgFile('assets/JammingJabber.svg'),
-                          walk:    loadSvgFile('assets/JammingJabber_walk_1.svg'),
-                          walk2:   loadSvgFile('assets/JammingJabber_walk_2.svg'),
-                          punch:   loadSvgFile('assets/JammingJabber_punch.svg'),
-                          defeat:  loadSvgFile('assets/JammingJabber_defeat.svg') },
-    JumpingJunkie:      { idle:      loadSvgFile('assets/JumpingJunkie.svg'),
-                          walk:      loadSvgFile('assets/JumpingJunkie_walk_1.svg'),
-                          walk2:     loadSvgFile('assets/JumpingJunkie_walk_2.svg'),
-                          attack:    loadSvgFile('assets/JumpingJunkie_attack.svg'),
-                          damage:    loadSvgFile('assets/JumpingJunkie_damage_1.svg'),
-                          damage2:   loadSvgFile('assets/JumpingJunkie_damage_2.svg'),
-                          preDefeat: loadSvgFile('assets/JumpingJunkie_preDefeat.svg'),
-                          defeat:    loadSvgFile('assets/JumpingJunkie_defeat.svg') },
-    KingBruteBreaker:   { idle:    loadSvgFile('assets/KingBruteBreaker.svg'),
-                          walk:    loadSvgFile('assets/KingBruteBreaker_walk.svg'),
-                          attack:  loadSvgFile('assets/KingBruteBreaker_attack.svg'),
-                          defeat:  loadSvgFile('assets/KingBruteBreaker_defeat.svg') },
-    // ── Characters with idle + defeat only (no animation variants exist yet) ────
-    BadOne:             { idle:    loadSvgFile('assets/BadOne.svg'),
-                          defeat:  loadSvgFile('assets/BadOne_defeat.svg') },
-    TightRomper:        { idle:    loadSvgFile('assets/TightRomper.svg'),
-                          defeat:  loadSvgFile('assets/TightRomper_defeat.svg') },
-    GreenJetter:        { idle:    loadSvgFile('assets/GreenJetter.svg'),
-                          defeat:  loadSvgFile('assets/GreenJetter_defeat.svg') },
-    RoadFighter:        { idle:    loadSvgFile('assets/RoadFighter.svg'),
-                          defeat:  loadSvgFile('assets/RoadFighter_defeat.svg') },
-    Stomper:            { idle:    loadSvgFile('assets/Stomper.svg'),
-                          defeat:  loadSvgFile('assets/Stomper_defeat.svg') },
-    GreenStomper:       { idle:    loadSvgFile('assets/GreenStomper.svg'),
-                          defeat:  loadSvgFile('assets/GreenStomper_defeat.svg') },
-    SoldierCrime:       { idle:    loadSvgFile('assets/SoldierCrime.svg'),
-                          defeat:  loadSvgFile('assets/SoldierCrime_defeat.svg') },
-    RedRowRonda:        { idle:    loadSvgFile('assets/RedRowRonda.svg'),
-                          defeat:  loadSvgFile('assets/RedRowRonda_defeat.svg') },
-    BadBlob:            { idle:    loadSvgFile('assets/BadBlob.svg'),
-                          defeat:  loadSvgFile('assets/BadBlob_defeat.svg') },
-    NastyKnifer:        { idle:    loadSvgFile('assets/NastyKnifer.svg'),
-                          defeat:  loadSvgFile('assets/NastyKnifer_defeat.svg') },
-    LowGoblin:          { idle:    loadSvgFile('assets/LowGoblin.svg'),
-                          defeat:  loadSvgFile('assets/LowGoblin_defeat.svg') },
-    NunChuckLarry:      { idle:    loadSvgFile('assets/NunChuckLarry.svg'),
-                          defeat:  loadSvgFile('assets/NunChuckLarry_defeat.svg') },
-    DivaMohawk:         { idle:    loadSvgFile('assets/DivaMohawk.svg'),
-                          defeat:  loadSvgFile('assets/DivaMohawk_defeat.svg') },
-    SlenderCriminal:    { idle:    loadSvgFile('assets/SlenderCriminal.svg'),
-                          defeat:  loadSvgFile('assets/SlenderCriminal_defeat.svg') },
-    MaskedMayhem:       { idle:    loadSvgFile('assets/MaskedMayhem.svg'),
-                          defeat:  loadSvgFile('assets/MaskedMayhem_defeat.svg') },
-    HyJungScout:        { idle:    loadSvgFile('assets/HyJungScout.svg'),
-                          walk:    loadSvgFile('assets/HyJungScout_walk_1.svg'),
-                          walk2:   loadSvgFile('assets/HyJungScout_walk_2.svg'),
-                          attack:  loadSvgFile('assets/HyJungScout_attack.svg'),
-                          defeat:  loadSvgFile('assets/HyJungScout_defeat.svg') },
-    NinjaWarriorOfCrime:{ idle:    loadSvgFile('assets/NinjaWarriorOfCrime.svg'),
-                          defeat:  loadSvgFile('assets/NinjaWarriorOfCrime_defeat.svg') },
-    SquirrlyGambler:    { idle:    loadSvgFile('assets/SquirrlyGambler.svg'),
-                          defeat:  loadSvgFile('assets/SquirrlyGambler_defeat.svg') },
-    BruteBreaker:       { idle:    loadSvgFile('assets/BruteBreaker.svg'),
-                          defeat:  loadSvgFile('assets/BruteBreaker_defeat.svg') },
-};
+function _loadEnemyAssetConfig() {
+    try {
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', 'config/enemy-assets.json', false);
+        xhr.send();
+        const parsed = xhr.responseText ? JSON.parse(xhr.responseText) : {};
+        return {
+            defaults: parsed.defaults || {},
+            wipEnemies: Array.isArray(parsed.wipEnemies) ? parsed.wipEnemies : [],
+            enemies: parsed.enemies || {},
+        };
+    } catch (e) {
+        console.warn('[enemy-assets] Could not load config/enemy-assets.json', e);
+        return { defaults: {}, wipEnemies: [], enemies: {} };
+    }
+}
+
+function _cloneEnemyAnimDef(def = {}) {
+    return {
+        mode: def.mode || 'hold',
+        suffixes: Array.isArray(def.suffixes) ? [...def.suffixes] : [],
+        files: Array.isArray(def.files) ? [...def.files] : null,
+        fallbackState: def.fallbackState || null,
+    };
+}
+
+function _mergeEnemyAssetEntry(defaults = {}, entry = {}) {
+    const merged = {
+        attackType: entry.attackType || defaults.attackType || 'bodyAttack',
+        animations: {},
+    };
+    const defaultAnimations = defaults.animations || {};
+    const overrideAnimations = entry.animations || {};
+    const stateKeys = new Set([
+        ...Object.keys(defaultAnimations),
+        ...Object.keys(overrideAnimations),
+    ]);
+
+    for (const stateKey of stateKeys) {
+        const animDef = _cloneEnemyAnimDef(defaultAnimations[stateKey]);
+        const override = overrideAnimations[stateKey] || {};
+        if (Object.prototype.hasOwnProperty.call(override, 'mode')) {
+            animDef.mode = override.mode || animDef.mode;
+        }
+        if (Object.prototype.hasOwnProperty.call(override, 'fallbackState')) {
+            animDef.fallbackState = override.fallbackState || null;
+        }
+        if (Object.prototype.hasOwnProperty.call(override, 'suffixes')) {
+            animDef.suffixes = Array.isArray(override.suffixes) ? [...override.suffixes] : [];
+            animDef.files = null;
+        }
+        if (Object.prototype.hasOwnProperty.call(override, 'files')) {
+            animDef.files = Array.isArray(override.files) ? [...override.files] : [];
+            animDef.suffixes = [];
+        }
+        merged.animations[stateKey] = animDef;
+    }
+
+    return merged;
+}
+
+function _enemyAssetPath(fileBase) {
+    const assetPath = fileBase.startsWith('assets/') ? fileBase : `assets/${fileBase}`;
+    return assetPath.endsWith('.svg') ? assetPath : `${assetPath}.svg`;
+}
+
+function _loadEnemyAnimFrames(enemyKey, animDef) {
+    const fileBases = Array.isArray(animDef.files)
+        ? animDef.files
+        : (animDef.suffixes || []).map(suffix => (suffix ? `${enemyKey}_${suffix}` : enemyKey));
+    return fileBases.map(fileBase => loadSvgFile(_enemyAssetPath(fileBase)));
+}
+
+function _firstEnemyFrame(charDef, stateKey, index = 0) {
+    return charDef.animations[stateKey]?.frames?.[index] || null;
+}
+
+function _buildEnemyChar(enemyKey, defaults, entry) {
+    const merged = _mergeEnemyAssetEntry(defaults, entry);
+    const charDef = {
+        attackType: merged.attackType,
+        animations: {},
+    };
+
+    for (const [stateKey, animDef] of Object.entries(merged.animations)) {
+        charDef.animations[stateKey] = {
+            mode: animDef.mode,
+            fallbackState: animDef.fallbackState,
+            frames: _loadEnemyAnimFrames(enemyKey, animDef),
+        };
+    }
+
+    charDef.idle = _firstEnemyFrame(charDef, 'idle');
+    charDef.idle2 = _firstEnemyFrame(charDef, 'idle', 1);
+    charDef.walk = _firstEnemyFrame(charDef, 'walk');
+    charDef.walk2 = _firstEnemyFrame(charDef, 'walk', 1);
+    charDef.attack = _firstEnemyFrame(charDef, 'attack');
+    charDef.damage = _firstEnemyFrame(charDef, 'damage');
+    charDef.damage2 = _firstEnemyFrame(charDef, 'damage', 1);
+    charDef.preDefeat = _firstEnemyFrame(charDef, 'preDefeat');
+    charDef.defeat = _firstEnemyFrame(charDef, 'defeat');
+    return charDef;
+}
+
+const ENEMY_ASSET_CONFIG = _loadEnemyAssetConfig();
+
+const ENEMY_CHARS = (() => {
+    const built = {};
+    const wipEntries = {};
+    for (const enemyKey of ENEMY_ASSET_CONFIG.wipEnemies || []) {
+        wipEntries[enemyKey] = {};
+    }
+    const mergedEntries = Object.assign({}, wipEntries, ENEMY_ASSET_CONFIG.enemies || {});
+    for (const [enemyKey, entry] of Object.entries(mergedEntries)) {
+        built[enemyKey] = _buildEnemyChar(enemyKey, ENEMY_ASSET_CONFIG.defaults || {}, entry);
+    }
+    return built;
+})();

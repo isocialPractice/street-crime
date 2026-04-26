@@ -35,12 +35,14 @@ A classic 2.5D side-scrolling beat-em-up built entirely in vanilla HTML5 Canvas 
 - Enemy separation — characters spread to strategic positions rather than stacking
 - Boss and sub-boss encounters with dedicated health bars
 - Breakable objects that drop health pickups
-- Per-character sprite scaling and animation configuration
+- Per-character sprite scaling and data-driven enemy asset animation configuration
 - Debug mode with live tuning sliders and a built-in sprite viewer
 
 ## Tech
 
 Pure vanilla JavaScript — no build step, no bundler, no dependencies. Open `index.html` in a browser and play.
+
+Enemy asset wiring now lives in `config/enemy-assets.json`, while gameplay tuning remains in `config/enemies.json` and sprite scaling stays in `config/characters.json`.
 
 ```
 assets.js   — SVG sprite loader, all image assets
