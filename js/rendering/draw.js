@@ -10,7 +10,7 @@ function draw() {
     ctx.translate(cam.shakeX, cam.shakeY);
     ctx.clearRect(-10, -10, W + 20, H + 20);
 
-    drawBg(STAGES[currentStageIdx].bgIdx);
+    drawStageBackground((typeof getCurrentStageData === 'function') ? getCurrentStageData() : null);
 
     // Depth sort — all entities and objects use feet Y as the sort key so correct
     // painter's-algorithm layering is maintained. The +0.5 player bias keeps
@@ -70,6 +70,26 @@ function drawDebug() {
     ctx.save();
     ctx.lineWidth = 1;
     ctx.font = '10px monospace';
+
+    const stageData = (typeof getCurrentStageData === 'function') ? getCurrentStageData() : null;
+    const field = stageFieldPolygon(stageData);
+    if (field?.length) {
+        ctx.beginPath();
+        ctx.moveTo(field[0].x - cam.x, field[0].y);
+        for (let i = 1; i < field.length; i++) {
+            ctx.lineTo(field[i].x - cam.x, field[i].y);
+        }
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(0,210,255,0.08)';
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(0,210,255,0.78)';
+        ctx.setLineDash([8, 5]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(0,210,255,0.95)';
+        ctx.textAlign = 'left';
+        ctx.fillText('FIELD', field[0].x - cam.x + 8, Math.max(14, field[0].y - 10));
+    }
 
     // ── Player hitbox ──────────────────────────────────────────────────────
     ctx.strokeStyle = 'rgba(80,160,255,0.85)';

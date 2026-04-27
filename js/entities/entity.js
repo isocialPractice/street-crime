@@ -58,11 +58,21 @@ class Entity {
 
     _onLand() {}
 
+    clampToStageField(fromX = this.x, fromY = this.y) {
+        const stageData = (typeof getCurrentStageData === 'function') ? getCurrentStageData() : null;
+        const projected = projectStageEntityPosition(stageData,
+            this.x, this.y, this.w, this.h, fromX, fromY);
+        this.x = projected.x;
+        this.y = projected.y;
+    }
+
     // moveXY applies planar (X/Y) velocity and clamps Y to the walkable zone.
     moveXY(dt) {
+        const prevX = this.x;
+        const prevY = this.y;
         this.x += this.vx * dt;
         this.y += this.vy * dt;
-        this.y  = Math.max(CFG.groundMin, Math.min(CFG.groundMax, this.y));
+        this.clampToStageField(prevX, prevY);
     }
 
     // drawShadow — always drawn at y + h (feet/ground contact), alpha fades

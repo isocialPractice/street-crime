@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="ItWorked" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1459.9 1229.35">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #fff;
+      }
+
+      .cls-1, .cls-2, .cls-3, .cls-4, .cls-5, .cls-6, .cls-7, .cls-8 {
+        stroke: #000;
+        stroke-miterlimit: 10;
+      }
+
+      .cls-2 {
+        fill: #29abe2;
+        stroke-width: 1.17px;
+      }
+
+      .cls-3 {
+        fill: blue;
+      }
+
+      .cls-4 {
+        stroke-width: .54px;
+      }
+
+      .cls-5 {
+        fill: #2e3192;
+        stroke-width: 1.27px;
+      }
+
+      .cls-6 {
+        stroke-width: 3.05px;
+      }
+
+      .cls-7 {
+        fill: #373d42;
+        stroke-width: .5px;
+      }
+
+      .cls-8 {
+        fill: #333;
+        stroke-width: 1.21px;
+      }
+    </style>
+  </defs>
+  <g id="background">
+    <rect class="cls-6" x="1.52" y="2.13" width="1456.85" height="807.74"/>
+    <rect class="cls-3" x="1.52" y="453.7" width="356.17" height="356.17"/>
+    <rect class="cls-4" x="84.25" y="619.15" width="190.72" height="190.72"/>
+    <rect class="cls-5" x="445.01" y="233.11" width="356.17" height="576.77"/>
+    <rect class="cls-4" x="527.74" y="619.15" width="190.72" height="190.72"/>
+    <rect class="cls-2" x="801.18" y="135.02" width="356.17" height="484.85"/>
+    <rect class="cls-4" x="883.91" y="429.15" width="190.72" height="190.72"/>
+    <rect class="cls-8" x="1157.35" y=".61" width="301.02" height="619.27"/>
+    <rect class="cls-4" x="1212.5" y="429.15" width="190.72" height="190.72"/>
+    <rect class="cls-7" x="357.69" y="453.7" width="87.32" height="356.17"/>
+  </g>
+  <polygon id="field" class="cls-1" points="801.18 619.87 801.18 809.87 1.52 809.87 1.52 1228.09 801.18 1228.09 801.18 1228.85 1458.37 1228.85 1458.37 619.87 801.18 619.87"/>
+</svg>

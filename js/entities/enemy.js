@@ -129,6 +129,7 @@ class Enemy extends Entity {
         const dx   = player.x - this.x;
         const dy   = player.y - this.y;
         const dist = Math.hypot(dx, dy);
+        const stageData = (typeof getCurrentStageData === 'function') ? getCurrentStageData() : null;
         this.facing = dx > 0 ? 1 : -1;
 
         const closeEnough = (this.def.boss || this.def.mini) ? 95 : CFG.enemyCloseEnough;
@@ -136,8 +137,15 @@ class Enemy extends Entity {
         // ── Engage delay: flank slowly until ready to rush ────────────────────
         if (this.engageDelay > 0) {
             this.engageDelay -= dt;
-            const flankX = player.x + this.flankDir * (CFG.enemyFlankRadius + 45 * Math.sin(this.animT * 0.8));
-            const flankY = Math.max(CFG.groundMin, Math.min(CFG.groundMax, player.y + this.depthSlot));
+            const flankTarget = projectStageEntityPosition(stageData,
+                player.x + this.flankDir * (CFG.enemyFlankRadius + 45 * Math.sin(this.animT * 0.8)),
+                player.y + this.depthSlot,
+                this.w,
+                this.h,
+                this.x,
+                this.y);
+            const flankX = flankTarget.x;
+            const flankY = flankTarget.y;
             const fdx    = flankX - this.x;
             const fdy    = flankY - this.y;
             this.vx = Math.abs(fdx) > 50 ? Math.sign(fdx) * this.speed * CFG.enemySpeedMultiplier * CFG.enemyFlankSpeed : 0;
@@ -219,9 +227,11 @@ class Enemy extends Entity {
             if (Math.abs(cx) < minX && Math.abs(cy) < minY) {
                 const pushX = (minX - Math.abs(cx)) * Math.sign(cx || 1) * 0.5;
                 const pushY = (minY - Math.abs(cy)) * Math.sign(cy || 1) * 0.5;
+                const prevX = this.x;
+                const prevY = this.y;
                 this.x += pushX;
                 this.y += pushY;
-                this.y  = Math.max(CFG.groundMin, Math.min(CFG.groundMax, this.y));
+                this.clampToStageField(prevX, prevY);
             }
         }
     }
@@ -246,12 +256,16 @@ class Enemy extends Entity {
         if (this.dead || this.invincible) return;
         this.hp -= amount;
         if (this.hp <= 0) { this.hp = 0; this._die(); return; }
+        const prevX = this.x;
         if (launch > 0) {
-            this.vz = launch; this.x += dir * CFG.enemyLaunchKnockbackDist;
+            this.vz = launch;
+            this.x += dir * CFG.enemyLaunchKnockbackDist;
+            this.clampToStageField(prevX, this.y);
             this.setState('knockedUp');
             this.invincible = true;
         } else {
             this.x += dir * CFG.enemyKnockbackDist;
+            this.clampToStageField(prevX, this.y);
             this.setState('hurt', ENEMY_HURT_DURATION);
         }
     }

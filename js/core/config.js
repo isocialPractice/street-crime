@@ -90,6 +90,7 @@ const CFG = {
     // ── Arena (debug) ────────────────────────────────────────────────────────
     groundMin:             390,
     groundMax:             510,
+    fieldBorderPadding:      6,
     // ── Debug flags ─────────────────────────────────────────────────────────
     infiniteHealth:        false,
     showHitboxes:           true,

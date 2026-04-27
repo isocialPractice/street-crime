@@ -1,5 +1,15 @@
 // js/ui/debug.js — Debug mode panel, sandbox arena, and configuration export
 
+const DEBUG_ARENA_STAGE = {
+    name: 'DEBUG SANDBOX',
+    bgIdx: 0,
+};
+
+const DEBUG_LEVEL_STAGE = {
+    name: 'DEBUG LEVEL: IT WORKED',
+    scene: SVG_SCENES.testItWorked,
+};
+
 // ── Right panel (global / meta settings) ─────────────────────────────────────
 function buildDebugPanel() {
     const panel = document.getElementById('debug-panel');
@@ -10,6 +20,7 @@ function buildDebugPanel() {
         { section: 'ARENA' },
         { key:'groundMin',       label:'Ground Top (Y)',   min:200, max:480,  step:1    },
         { key:'groundMax',       label:'Ground Bot (Y)',   min:400, max:580,  step:1    },
+        { key:'fieldBorderPadding', label:'Field Border Pad', min:0, max:40, step:1    },
         { section: 'HIT EFFECTS' },
         { key:'hitFlashAlpha',   label:'Hurt Flash Alpha', min:0,   max:1,    step:0.05 },
     ];
@@ -257,35 +268,79 @@ function exportObjects() {
 }
 
 // ── Arena / spawn helpers ──────────────────────────────────────────────────────
-function initDebugArena() {
+function _resetDebugPlayfield(stageData, stageLabel) {
     score = 0;
     scoreEl.textContent = '000000';
-    currentStageIdx = 0;
-    stageEl.textContent = 'DBG';
+    currentStageIdx = -1;
+    currentStageData = stageData;
+    stageEl.textContent = stageLabel;
     cam.x = 0; cam.power = 0;
     enemies    = [];
     effects    = [];
     breakables = [];
     pickups    = [];
     levelMgr   = null;
-    player = new Player(180, 450);
     hideOverlay();
     _hideBossHUD();
     _updateComboHUD(0);
+    gameState = 'playing';
+}
+
+function initDebugArena() {
+    _resetDebugPlayfield(DEBUG_ARENA_STAGE, 'DBG');
+    player = new Player(180, 450);
+    currentStageData = DEBUG_ARENA_STAGE;
     _hpHUD(player);
     livesEl.textContent = player.lives;
     gameState = 'playing';
 }
 
+function initDebugLevel() {
+    _resetDebugPlayfield(DEBUG_LEVEL_STAGE, 'LVL');
+    player = new Player(120, 445);
+    const spawn = sampleStageEntityPosition(DEBUG_LEVEL_STAGE, player.w, player.h, {
+        minX: 60,
+        maxX: 220,
+    });
+    if (spawn) {
+        player.x = spawn.x;
+        player.y = spawn.y;
+    }
+    hideOverlay();
+    _hpHUD(player);
+    livesEl.textContent = player.lives;
+}
+
 function spawnDebugEnemy(typeId) {
     enemies = []; effects = [];
-    enemies.push(new Enemy(player.x + 280, player.y, typeId));
+    const def = ENEMY_DEFS[typeId] || ENEMY_DEFS.crimeguy;
+    const stageData = (typeof getCurrentStageData === 'function') ? getCurrentStageData() : null;
+    const spawn = stageHasField(stageData)
+        ? sampleStageEntityPosition(stageData, def.w, def.h, {
+            minX: player.x + player.w * 0.5 + 120,
+            maxX: player.x + player.w * 0.5 + 280,
+            minY: player.y + player.h - 60,
+            maxY: player.y + player.h + 60,
+        }) || sampleStageEntityPosition(stageData, def.w, def.h)
+        : null;
+    if (spawn) enemies.push(new Enemy(spawn.x, spawn.y, typeId));
+    else enemies.push(new Enemy(player.x + 280, player.y, typeId));
     _updateDebugStatus();
 }
 
 function spawnDebugObject() {
     breakables = []; pickups = [];
-    breakables.push(new BreakableObj(player.x + 160, 490));
+    const stageData = (typeof getCurrentStageData === 'function') ? getCurrentStageData() : null;
+    const spawn = stageHasField(stageData)
+        ? sampleStageObjectPosition(stageData, 48, 56, {
+            minX: player.x + player.w * 0.5 + 80,
+            maxX: player.x + player.w * 0.5 + 220,
+            minY: player.y + player.h - 40,
+            maxY: player.y + player.h + 60,
+        }) || sampleStageObjectPosition(stageData, 48, 56)
+        : null;
+    if (spawn) breakables.push(new BreakableObj(spawn.x, spawn.y));
+    else breakables.push(new BreakableObj(player.x + 160, 490));
 }
 
 function _updateDebugStatus() {

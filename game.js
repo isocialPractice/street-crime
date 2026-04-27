@@ -6,7 +6,12 @@
 let score = 0;
 let gameState = 'title'; // 'title' | 'playing' | 'paused' | 'stageclear' | 'gameover' | 'victory'
 let currentStageIdx = 0;
+let currentStageData = null;
 let debugMode = false;
+
+function getCurrentStageData() {
+    return currentStageData || STAGES[currentStageIdx] || null;
+}
 
 function addScore(n) {
     score += Math.round(n * CFG.scoreMultiplier);
@@ -22,6 +27,7 @@ let lastTime = 0;
 // because other code may still hold references to the old arrays mid-frame.
 function initStage(idx) {
     currentStageIdx = idx;
+    currentStageData = STAGES[idx];
     stageEl.textContent = idx + 1;
     cam.x = 0; cam.power = 0;
 
@@ -54,6 +60,17 @@ function startGame(isDebug) {
         dbgLeftPanel.classList.add('hidden');
         newGame();
     }
+}
+
+function startDebugLevel() {
+    debugMode = true;
+    document.getElementById('title-screen').classList.add('hidden');
+    pauseBtn.classList.remove('hidden');
+    buildDebugPanel();
+    document.getElementById('debug-panel').classList.remove('hidden');
+    buildDebugLeftPanel();
+    document.getElementById('debug-left-panel').classList.remove('hidden');
+    initDebugLevel();
 }
 
 function newGame() {
@@ -195,6 +212,7 @@ window.addEventListener('load', async () => {
 
     document.getElementById('btn-game').addEventListener('click',   () => startGame(false));
     document.getElementById('btn-debug').addEventListener('click',  () => startGame(true));
+    document.getElementById('btn-debug-level').addEventListener('click', () => startDebugLevel());
     document.getElementById('btn-viewer').addEventListener('click', () => startViewer());
     pauseBtn.addEventListener('click', togglePause);
     requestAnimationFrame(gameLoop);

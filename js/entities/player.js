@@ -46,6 +46,7 @@ class Player extends Entity {
         const canMove = !this.busy || this.state === 'jump' || this.state === 'jumpkick';
         const canAct  = !this.busy;
         const preX = this.x;
+        const preY = this.y;
 
         // ── Movement ──────────────────────────────────────────────────────────
         if (canMove) {
@@ -82,6 +83,7 @@ class Player extends Entity {
             if (levelMgr?.locked) {
                 this.x = Math.min(cam.x + W - this.w, this.x);
             }
+            this.clampToStageField(preX, preY);
         }
 
         // ── Body collision: player vs breakable objects ────────────────────────
@@ -225,9 +227,11 @@ class Player extends Entity {
         screenShake(5);
         effects.push(new HitFX(this.x + this.w / 2, this.y - this.h * 0.4, 'medium'));
         if (this.hp <= 0) { this.hp = 0; this._die(); return; }
+        const prevX = this.x;
         if (launch > 0) {
             this.vz = launch * 0.7;
             this.x += dir * 50;
+            this.clampToStageField(prevX, this.y);
             this.setState('knockedUp');
         } else {
             this.setState('hurt', 0.35);
@@ -254,9 +258,16 @@ class Player extends Entity {
             gameState = 'gameover';
             showOverlay('GAME OVER', `Score: ${score}`);
         } else {
+            const stageData = (typeof getCurrentStageData === 'function') ? getCurrentStageData() : null;
+            const spawn = stageHasField(stageData)
+                ? sampleStageEntityPosition(stageData, this.w, this.h, {
+                    minX: cam.x + 90,
+                    maxX: cam.x + 180,
+                })
+                : null;
             this.hp = this.maxHp;
-            this.x  = cam.x + 90;
-            this.y  = 445;
+            this.x  = spawn ? spawn.x : cam.x + 90;
+            this.y  = spawn ? spawn.y : 445;
             this.z  = this.vz = 0;
             this.setState('idle');
             this.invT = 2.5;

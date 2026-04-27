@@ -19,3 +19,12 @@ function drawBg(bgIdx) {
     ctx.fillStyle = grd;
     ctx.fillRect(0, CFG.groundMin, W, CFG.groundMax - CFG.groundMin + 30);
 }
+
+function drawStageBackground(stageData) {
+    const scene = stageData?.scene;
+    if (scene?.img) {
+        ctx.drawImage(scene.img, -cam.x * (scene.parallax ?? 1), 0, scene.worldWidth, scene.worldHeight);
+        return;
+    }
+    drawBg(stageData?.bgIdx ?? 0);
+}
