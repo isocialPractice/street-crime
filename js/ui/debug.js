@@ -35,17 +35,30 @@ function buildDebugPanel() {
             <span class="dbg-label">${r.label}</span>
             <input type="range" class="dbg-slider" data-key="${r.key}"
                    min="${r.min}" max="${r.max}" step="${r.step}" value="${v}">
-            <span class="dbg-val" id="dbg-v-${r.key}">${v}</span>
+            <input type="number" class="dbg-val" id="dbg-v-${r.key}"
+                   min="${r.min}" max="${r.max}" step="${r.step}" value="${v}">
         </div>`;
     }
     html += '<button id="dbg-export">&#x2B07; Export All (configuration.json)</button>';
     panel.innerHTML = html;
 
-    panel.querySelectorAll('.dbg-slider').forEach(input => {
-        input.addEventListener('input', () => {
-            const k = input.dataset.key;
-            CFG[k] = Number(input.value);
-            document.getElementById(`dbg-v-${k}`).textContent = CFG[k];
+    panel.querySelectorAll('.dbg-slider').forEach(slider => {
+        slider.addEventListener('input', () => {
+            const k = slider.dataset.key;
+            CFG[k] = Number(slider.value);
+            document.getElementById(`dbg-v-${k}`).value = slider.value;
+        });
+    });
+    panel.querySelectorAll('.dbg-val').forEach(numInput => {
+        numInput.addEventListener('change', () => {
+            const k = numInput.id.replace('dbg-v-', '');
+            const slider = panel.querySelector(`.dbg-slider[data-key="${k}"]`);
+            const min = slider ? Number(slider.min) : -Infinity;
+            const max = slider ? Number(slider.max) : Infinity;
+            const clamped = Math.min(max, Math.max(min, Number(numInput.value)));
+            numInput.value = clamped;
+            CFG[k] = clamped;
+            if (slider) slider.value = clamped;
         });
     });
     document.getElementById('dbg-inf-hp').addEventListener('change', e => { CFG.infiniteHealth = e.target.checked; });
@@ -205,7 +218,8 @@ function _renderFocusContent(mode) {
             <span class="dbg-label">${r.label}</span>
             <input type="range" class="dbg-slider dbg-focus-slider" data-key="${r.key}"
                    min="${r.min}" max="${r.max}" step="${r.step}" value="${v}">
-            <span class="dbg-val" id="dbg-v-${r.key}">${v}</span>
+            <input type="number" class="dbg-val" id="dbg-v-${r.key}"
+                   min="${r.min}" max="${r.max}" step="${r.step}" value="${v}">
         </div>`;
     }
     const exportLabels = {
@@ -216,12 +230,24 @@ function _renderFocusContent(mode) {
     html += `<button class="dbg-focus-export" data-mode="${mode}">${exportLabels[mode]}</button>`;
     container.innerHTML = html;
 
-    container.querySelectorAll('.dbg-focus-slider').forEach(input => {
-        input.addEventListener('input', () => {
-            const k = input.dataset.key;
-            CFG[k] = Number(input.value);
+    container.querySelectorAll('.dbg-focus-slider').forEach(slider => {
+        slider.addEventListener('input', () => {
+            const k = slider.dataset.key;
+            CFG[k] = Number(slider.value);
             const valEl = document.getElementById(`dbg-v-${k}`);
-            if (valEl) valEl.textContent = CFG[k];
+            if (valEl) valEl.value = slider.value;
+        });
+    });
+    container.querySelectorAll('.dbg-val').forEach(numInput => {
+        numInput.addEventListener('change', () => {
+            const k = numInput.id.replace('dbg-v-', '');
+            const slider = container.querySelector(`.dbg-focus-slider[data-key="${k}"]`);
+            const min = slider ? Number(slider.min) : -Infinity;
+            const max = slider ? Number(slider.max) : Infinity;
+            const clamped = Math.min(max, Math.max(min, Number(numInput.value)));
+            numInput.value = clamped;
+            CFG[k] = clamped;
+            if (slider) slider.value = clamped;
         });
     });
     container.querySelector('.dbg-focus-export').addEventListener('click', () => {

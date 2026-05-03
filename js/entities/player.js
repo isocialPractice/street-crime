@@ -303,10 +303,9 @@ class Player extends Entity {
         if (!img || img.naturalWidth === 0) return;
         const dw = img.naturalWidth  || this.w;
         const dh = img.naturalHeight || this.h;
-        const sc = _charScale('__player__', _playerStateKey(this.state));
         ctx.save();
         ctx.translate(this.screenX + this.w / 2, this.drawY + this.h);
-        ctx.scale(this.facing * sc.sx, sc.sy);
+        ctx.scale(this.facing, 1);
         ctx.drawImage(img, -dw / 2, -dh, dw, dh);
         ctx.restore();
     }

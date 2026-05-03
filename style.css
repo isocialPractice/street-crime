@@ -359,7 +359,7 @@ canvas {
     position: fixed;
     left: 0;
     top: 0;
-    width: 200px;
+    width: auto;
     height: 100vh;
     overflow-y: auto;
     background: rgba(5,5,10,0.94);
@@ -492,10 +492,26 @@ canvas {
 }
 
 .dbg-val {
-    flex: 0 0 32px;
+    flex: 0 0 36px;
+    width: 36px;
     text-align: right;
     color: #ffd700;
     font-size: 9px;
+    font-family: 'Courier New', monospace;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid #444;
+    padding: 0 2px;
+    -moz-appearance: textfield;
+}
+.dbg-val::-webkit-inner-spin-button,
+.dbg-val::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+.dbg-val:focus {
+    outline: none;
+    border-bottom-color: #ffd700;
 }
 
 #dbg-export {

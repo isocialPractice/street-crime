@@ -102,6 +102,17 @@ function togglePause() {
     }
 }
 
+function updateSceneCamera(dt) {
+    const stageData = getCurrentStageData();
+    const scene = stageData?.scene;
+    if (levelMgr || !scene || scene.worldWidth <= W || !player) return;
+
+    const maxCamX = Math.max(0, scene.worldWidth - W);
+    const target = Math.max(0, Math.min(maxCamX,
+        player.x + player.w * 0.5 - W * 0.5));
+    cam.x += (target - cam.x) * Math.min(1, dt * 6);
+}
+
 // ── Game loop ─────────────────────────────────────────────────────────────────
 // update() mutates game state; draw() only reads and renders. Keeping them
 // distinct makes pause (skip update, keep drawing) straightforward.
@@ -109,6 +120,7 @@ function update(dt) {
     updateCamera(dt);
     if (levelMgr) levelMgr.update(dt, player, enemies, breakables);
     player.update(dt, enemies, effects, pickups, breakables);
+    updateSceneCamera(dt);
     enemies.forEach(e => e.update(dt, player, enemies));
     effects.forEach(f => f.update(dt));
     pickups.forEach(p => p.update(dt));
@@ -130,13 +142,6 @@ function gameLoop(ts) {
     try {
         if (gameState === 'title') {
             drawTitle();
-        } else if (gameState === 'viewer') {
-            drawSpriteViewer();
-            if (JustPressed['Escape']) {
-                gameState = 'title';
-                document.getElementById('debug-left-panel').classList.add('hidden');
-                document.getElementById('title-screen').classList.remove('hidden');
-            }
         } else if (gameState === 'playing') {
             update(dt);
             draw();
@@ -191,19 +196,6 @@ window.addEventListener('load', async () => {
         if (xhrO.responseText) Object.assign(CFG, JSON.parse(xhrO.responseText));
     } catch(e) { /* file missing — use CFG defaults */ }
 
-    // Load per-character per-state scale overrides from characters.json.
-    try {
-        const xhr2 = new XMLHttpRequest();
-        xhr2.open('GET', 'config/characters.json', false);
-        xhr2.send();
-        if (xhr2.responseText) {
-            const loaded = JSON.parse(xhr2.responseText);
-            for (const [charKey, states] of Object.entries(loaded)) {
-                charScales[charKey] = Object.assign(charScales[charKey] || {}, states);
-            }
-        }
-    } catch(e) { /* file missing — all scales default to 1.0 */ }
-
     // Wait until every SVG sprite has fully decoded. ASSETS_READY is defined in
     // js/sprites/ready.js and collects img.decode() promises from loadSvgFile.
     await ASSETS_READY;
@@ -213,7 +205,6 @@ window.addEventListener('load', async () => {
     document.getElementById('btn-game').addEventListener('click',   () => startGame(false));
     document.getElementById('btn-debug').addEventListener('click',  () => startGame(true));
     document.getElementById('btn-debug-level').addEventListener('click', () => startDebugLevel());
-    document.getElementById('btn-viewer').addEventListener('click', () => startViewer());
     pauseBtn.addEventListener('click', togglePause);
     requestAnimationFrame(gameLoop);
 });

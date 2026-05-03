@@ -58,6 +58,21 @@ function _enemyHasDirectFrames(charKey, stateKey) {
     return frames.some(img => img && img.naturalWidth > 0);
 }
 
+function _enemyReferenceFrame(charKey) {
+    return _enemyPickFrame(charKey, 'idle', 0) ||
+        _enemyPickFrame(charKey, 'walk', 0, { fps: 1 }) ||
+        _enemyPickFrame(charKey, 'attack', 0, { duration: CFG.enemyAttackDuration }) ||
+        null;
+}
+
+function _enemyDefeatScale(charKey, img) {
+    const refImg = _enemyReferenceFrame(charKey);
+    const refLongSide = Math.max(refImg?.naturalWidth || 0, refImg?.naturalHeight || 0);
+    const imgLongSide = Math.max(img?.naturalWidth || 0, img?.naturalHeight || 0);
+    if (!refLongSide || !imgLongSide) return 1;
+    return refLongSide / imgLongSide;
+}
+
 function _enemyPickFrame(charKey, stateKey, animT, { fps = 0, duration = 0, holdTail = 0 } = {}) {
     const anim = _enemyAnimationState(charKey, stateKey);
     const frames = anim?.frames || [];
@@ -273,6 +288,7 @@ class Enemy extends Entity {
     _die() {
         this.dead    = true;
         this.deadT   = 0;
+        this.animT   = 0;
         this.state   = 'dead';
         this.stTimer = 0;
         addScore(this.def.pts);
@@ -301,7 +317,7 @@ class Enemy extends Entity {
             case 'getup':
                 return _enemyPickFrame(charKey, 'preDefeat', this.animT) || idleImg;
             case 'dead':
-                return _enemyPickFrame(charKey, 'defeat', this.animT) || idleImg;
+                return _enemyPickFrame(charKey, 'defeat', this.deadT, { duration: CFG.defeatFadeDelay }) || idleImg;
             default:
                 return idleImg;
         }
@@ -325,8 +341,8 @@ class Enemy extends Entity {
         const useRotateDeath = !_enemyHasDirectFrames(this.def.img, 'defeat') && this.dead;
 
         if (this.dead) {
-            const csc    = _charScale(this.def.img, 'defeat');
             const defRad = CFG.defeatRotation * Math.PI / 180;
+            const defSc  = useRotateDeath ? 1 : _enemyDefeatScale(this.def.img, img);
             if (useRotateDeath) {
                 ctx.rotate(-Math.PI / 2 + defRad);
                 ctx.translate(CFG.defeatOffsetX + dh * 0.5, -CFG.defeatOffsetY + dw * 0.1);
@@ -334,10 +350,9 @@ class Enemy extends Entity {
                 ctx.rotate(defRad);
                 ctx.translate(CFG.defeatOffsetX * this.facing, -CFG.defeatOffsetY);
             }
-            ctx.scale(this.facing * CFG.defeatScaleX * csc.sx, CFG.defeatScaleY * csc.sy);
+            ctx.scale(this.facing * CFG.defeatScaleX * defSc, CFG.defeatScaleY * defSc);
         } else {
-            const csc = _charScale(this.def.img, _enemyStateKey(this.state));
-            ctx.scale(this.facing * csc.sx, csc.sy);
+            ctx.scale(this.facing, 1);
             if (this.state === 'attack' && !_enemyHasDirectFrames(this.def.img, 'attack')) {
                 const maxAngle = Math.PI / 18;
                 if (this.animT < 0.5) {

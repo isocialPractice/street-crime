@@ -80,14 +80,155 @@ function _svgSceneFieldShape(svgText, fieldSelector = '#field') {
     };
 }
 
+function _svgSceneRectBounds(el) {
+    if (!el) return null;
+    const x = parseFloat(el.getAttribute('x'));
+    const y = parseFloat(el.getAttribute('y'));
+    const width = parseFloat(el.getAttribute('width'));
+    const height = parseFloat(el.getAttribute('height'));
+    if (![x, y, width, height].every(Number.isFinite) || width <= 0 || height <= 0) return null;
+    return { x, y, width, height };
+}
+
+function _svgSceneTextIncludes(value, text) {
+    return String(value || '').toLowerCase().indexOf(text) > -1;
+}
+
+function _svgSceneIsBorderEl(el) {
+    return !!el && (
+        _svgSceneTextIncludes(el.getAttribute('id'), 'border') ||
+        _svgSceneTextIncludes(el.getAttribute('data-name'), 'border')
+    );
+}
+
+function _svgSceneNormalizedBounds(bounds, vb) {
+    if (!bounds || !vb || vb.width <= 0 || vb.height <= 0) return null;
+    return {
+        x: (bounds.x - vb.x) / vb.width,
+        y: (bounds.y - vb.y) / vb.height,
+        width: bounds.width / vb.width,
+        height: bounds.height / vb.height,
+    };
+}
+
+function _svgSceneSectionBounds(sectionEl) {
+    const children = Array.from(sectionEl?.children || []);
+    const borderEl = children.find(_svgSceneIsBorderEl);
+    const borderBounds = _svgSceneRectBounds(borderEl);
+    if (borderBounds) return borderBounds;
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxRight = -Infinity;
+    let maxBottom = -Infinity;
+    let maxHeight = 0;
+
+    for (const child of children) {
+        const bounds = _svgSceneRectBounds(child);
+        if (!bounds) continue;
+        minX = Math.min(minX, bounds.x);
+        minY = Math.min(minY, bounds.y);
+        maxRight = Math.max(maxRight, bounds.x + bounds.width);
+        maxBottom = Math.max(maxBottom, bounds.y + bounds.height);
+        maxHeight = Math.max(maxHeight, bounds.height);
+    }
+
+    if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxRight)) return null;
+    return {
+        x: minX,
+        y: minY,
+        width: Math.max(0, maxRight - minX),
+        height: Math.max(maxHeight, maxBottom - minY),
+    };
+}
+
+function _svgSceneWithoutBorders(svgText) {
+    const doc = new DOMParser().parseFromString(svgText, 'image/svg+xml');
+    Array.from(doc.querySelectorAll('*'))
+        .filter(_svgSceneIsBorderEl)
+        .forEach(el => el.remove());
+    return new XMLSerializer().serializeToString(doc);
+}
+
+function _svgSceneSectionSvg(svgText, sectionId, bounds, fieldSelector = '#field') {
+    if (!bounds) return null;
+
+    const doc = new DOMParser().parseFromString(svgText, 'image/svg+xml');
+    const sourceSvg = doc.documentElement;
+    if (!sourceSvg) return null;
+
+    const sectionEl = Array.from(doc.querySelectorAll('g[id]'))
+        .find(el => (el.getAttribute('id') || '').trim() === sectionId);
+    if (!sectionEl) return null;
+
+    const sectionDoc = document.implementation.createDocument(
+        sourceSvg.namespaceURI || 'http://www.w3.org/2000/svg',
+        'svg',
+        null
+    );
+    const sectionSvg = sectionDoc.documentElement;
+    sectionSvg.setAttribute('xmlns', sourceSvg.getAttribute('xmlns') || 'http://www.w3.org/2000/svg');
+    sectionSvg.setAttribute('viewBox', `${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}`);
+    sectionSvg.setAttribute('width', String(bounds.width));
+    sectionSvg.setAttribute('height', String(bounds.height));
+
+    const defsEl = doc.querySelector('defs');
+    if (defsEl) sectionSvg.appendChild(sectionDoc.importNode(defsEl, true));
+
+    const sectionClone = sectionDoc.importNode(sectionEl, true);
+    Array.from(sectionClone.querySelectorAll('*'))
+        .filter(_svgSceneIsBorderEl)
+        .forEach(el => el.remove());
+    sectionSvg.appendChild(sectionClone);
+
+    const fieldEl = doc.querySelector(fieldSelector) || doc.querySelector('#field');
+    if (fieldEl) sectionSvg.appendChild(sectionDoc.importNode(fieldEl, true));
+
+    return new XMLSerializer().serializeToString(sectionDoc);
+}
+
+function _svgSceneSections(svgText, fieldSelector = '#field') {
+    const doc = new DOMParser().parseFromString(svgText, 'image/svg+xml');
+    const svgEl = doc.documentElement;
+    if (!svgEl) return [];
+
+    const vb = _svgSceneViewBox(svgEl);
+    return Array.from(doc.querySelectorAll('g[id]'))
+        .map(sectionEl => {
+            const id = (sectionEl.getAttribute('id') || '').trim();
+            const match = /^section_(\d+)$/i.exec(id);
+            if (!match) return null;
+
+            const bounds = _svgSceneSectionBounds(sectionEl);
+            const normalizedBounds = _svgSceneNormalizedBounds(bounds, vb);
+            if (!normalizedBounds) return null;
+
+            const sectionSvg = _svgSceneSectionSvg(svgText, id, bounds, fieldSelector);
+
+            return {
+                id,
+                order: Number(match[1]),
+                bounds,
+                normalizedBounds,
+                img: sectionSvg ? loadSvgImg(sectionSvg) : null,
+            };
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.order - b.order);
+}
+
 function createSvgScene({ path, fieldSelector = '#field', worldWidth = 800, worldHeight = 600 }) {
     const svgText = loadSvgText(path);
+    const sections = _svgSceneSections(svgText, fieldSelector);
+    const sceneSvg = _svgSceneWithoutBorders(svgText);
     return {
         path,
-        img: loadSvgImg(svgText),
-        worldWidth,
+        img: loadSvgImg(sceneSvg),
+        worldWidth: sections.length > 0 ? worldWidth * sections.length : worldWidth,
         worldHeight,
         field: _svgSceneFieldShape(svgText, fieldSelector),
+        sectionWorldWidth: worldWidth,
+        sections,
     };
 }
 

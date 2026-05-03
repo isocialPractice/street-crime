@@ -34,7 +34,7 @@
     "BadGirl": {
       "attackType": "bodyAttack",
       "animations": {
-        "walk": { "mode": "loop", "suffixes": ["walk_1", "walk_2"] },
+        "walk": { "mode": "loop", "suffixes": ["", "walk_1",  "walk_2", "walk_1"] },
         "attack": { "mode": "sequence", "suffixes": ["kick"] },
         "defeat": { "mode": "hold", "files": ["BadGilr_defeat"] }
       }
@@ -42,34 +42,38 @@
     "CrimeGuy": {
       "attackType": "bodyAttack",
       "animations": {
-        "walk": { "mode": "loop", "suffixes": ["walk_1", "walk_2"] },
+        "walk": { "mode": "loop", "suffixes": ["", "walk_1", "walk_2", "walk_1"] },
         "damage": { "mode": "sequence", "suffixes": ["damage_0", "damage_1", "damage_0", "damage_2"] },
-        "preDefeat": { "mode": "hold", "suffixes": ["preDefeat"] }
+        "preDefeat": { "mode": "hold", "suffixes": ["preDefeat"] },
+        "defeat": { "mode": "sequence", "suffixes": ["damage_2", "preDefeat", "defeat"] }
       }
     },
     "HyJungScout": {
       "attackType": "bodyAttack",
       "animations": {
-        "walk": { "mode": "loop", "suffixes": ["walk_1", "walk_2"] },
+        "walk": { "mode": "loop", "suffixes": ["", "walk_1", "walk_2", "walk_1"] },
         "attack": { "mode": "sequence", "suffixes": ["attack"] }
       }
     },
     "JammingJabber": {
       "attackType": "bodyAttack",
       "animations": {
-        "walk": { "mode": "loop", "suffixes": ["walk_1", "walk_2"] },
+        "walk": { "mode": "loop", "suffixes": ["", "walk_1", "walk_2", "walk_1"] },
         "attack": { "mode": "sequence", "suffixes": ["attack_1", "attack_2"] },
         "damage": { "mode": "sequence", "suffixes": ["damage_0", "damage_1", "damage_0", "damage_2"] },
-        "preDefeat": { "mode": "hold", "suffixes": ["preDefeat"] }
+        "preDefeat": { "mode": "hold", "suffixes": ["preDefeat"] },
+        "defeat": { "mode": "sequence", "suffixes": ["damage_2", "preDefeat", "defeat"] }
       }
     },
     "JumpingJunkie": {
       "attackType": "bodyAttack",
       "animations": {
-        "walk": { "mode": "loop", "suffixes": ["walk_1", "walk_2"] },
+        "walk": { "mode": "loop", "suffixes": ["", "walk_1", "walk_2", "walk_1"] },
+        "idle": { "mode": "loop", "suffixes": ["", "idle"] },
         "attack": { "mode": "sequence", "suffixes": ["attack"] },
         "damage": { "mode": "sequence", "suffixes": ["damage_0", "damage_1", "damage_0", "damage_2"] },
-        "preDefeat": { "mode": "hold", "suffixes": ["preDefeat"] }
+        "preDefeat": { "mode": "hold", "suffixes": ["preDefeat"] },
+        "defeat": { "mode": "sequence", "suffixes": ["damage_2", "preDefeat", "defeat"] }
       }
     },
     "KingBruteBreaker": {
@@ -82,10 +86,11 @@
     "SassyGirl": {
       "attackType": "weaponAttack",
       "animations": {
-        "walk": { "mode": "loop", "suffixes": ["walk_1", "walk_2"] },
+        "walk": { "mode": "loop", "suffixes": ["", "walk_1", "walk_2", "walk_1"] },
         "attack": { "mode": "sequence", "suffixes": ["preAttack_1", "preAttack_2", "attack_1", "attack_2", "attack_3", "attack_4"] },
         "damage": { "mode": "sequence", "suffixes": ["damage_0", "damage_1", "damage_0", "damage_2"] },
-        "preDefeat": { "mode": "hold", "suffixes": ["preDefeat"] }
+        "preDefeat": { "mode": "hold", "suffixes": ["preDefeat"] },
+        "defeat": { "mode": "sequence", "suffixes": ["damage_2", "preDefeat", "defeat"] }
       }
     }
   }
