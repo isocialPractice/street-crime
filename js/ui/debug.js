@@ -107,6 +107,13 @@ const _DEBUG_FOCUS_ROWS = {
         { section: 'HIT RESPONSE' },
         { key:'playerHurtInvTime',    label:'Hurt Inv Time',      min:0,   max:3,    step:0.05 },
         { key:'playerKnockdownTime',  label:'Knockdown Time',     min:0.3, max:5,    step:0.1  },
+        { section: 'STAMINA (run-kick)' },
+        { key:'staminaDuration',      label:'Stamina Delay (s)',  min:0,   max:6,    step:0.1  },
+        { key:'staminaRecharge',      label:'Recharge Time (s)',  min:0.2, max:15,   step:0.1  },
+        { key:'staminaLimitMode',     label:'Limit Mode (0/1/2)', min:0,   max:2,    step:1    },
+        { key:'staminaLimitCount',    label:'Recharges Allowed',  min:0,   max:50,   step:1    },
+        { section: 'CHARACTER COLLISION' },
+        { key:'enemyBlockDepthExpand',label:'Body Depth Band',    min:0,   max:40,   step:1    },
     ],
     enemy: [
         { section: 'ENEMY ANIMATION' },

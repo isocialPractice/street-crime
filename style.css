@@ -136,6 +136,28 @@ canvas {
     transition: width 0.08s linear;
 }
 
+/* ── Stamina bar (run-kick gauge) ────────────────────────────────────────── */
+#stamina-bar {
+    width: 140px;
+    height: 12px;
+    background: #2a2a2a;
+    border: 2px solid #aaa;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+#stamina-fill {
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(to right, #2b6cb0 0%, #4299e1 60%, #90cdf4 100%);
+    transition: width 0.08s linear;
+}
+
+#stamina-bar.depleted {
+    border-color: #555;
+    opacity: 0.55;
+}
+
 /* ── Boss HUD ───────────────────────────────────────────────────────────── */
 #boss-hud {
     position: absolute;

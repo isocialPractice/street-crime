@@ -17,6 +17,15 @@ class Player extends Entity {
         this.invT   = 0;        // invincibility timer
         this.isRun  = false;
         this.downT  = 0;        // knockdown timer
+        // ── Stamina (gates run-kick) ──────────────────────────────────────
+        // stamina is normalised 0..1 (1 = full, 0 = empty).
+        // stamCD counts down the post-use delay before recharging starts.
+        // rechargeCountLevel/Game count completed refill cycles for the
+        // per-level / per-game limit toggles in CFG.
+        this.stamina           = 1;
+        this.stamCD            = 0;
+        this.rechargeCountLevel = 0;
+        this.rechargeCountGame  = 0;
     }
 
     // busy is true whenever the player is locked into an animation that should
@@ -35,6 +44,25 @@ class Player extends Entity {
             this.comboT -= dt;
             if (this.comboT <= 0) { this.comboC = 0; _updateComboHUD(0); }
         }
+
+        // ── Stamina recharge ─────────────────────────────────────────────────
+        // After use the stamina drops to 0 and stamCD is set to staminaDuration.
+        // Once the delay elapses, the bar refills linearly over staminaRecharge
+        // seconds. If a per-level / per-game recharge limit is active and has
+        // been reached, the bar stays empty.
+        if (this.stamina < 1) {
+            if (this.stamCD > 0) {
+                this.stamCD -= dt;
+            } else if (!_staminaRechargeBlocked(this)) {
+                const rate = 1 / Math.max(0.0001, CFG.staminaRecharge);
+                this.stamina = Math.min(1, this.stamina + rate * dt);
+                if (this.stamina >= 1) {
+                    this.rechargeCountLevel++;
+                    this.rechargeCountGame++;
+                }
+            }
+        }
+        _staminaHUD(this);
 
         // Knockdown — wait then stand up
         if (this.state === 'knockdown') {
@@ -108,6 +136,35 @@ class Player extends Entity {
             }
         }
 
+        // ── Body collision: player vs enemies ─────────────────────────────────
+        // Mirrors the breakable block above but uses the enemy's feet
+        // (e.y + e.h) as the depth reference so the player can pass in front
+        // of or behind an enemy on the depth axis. Dead/knocked-down enemies
+        // do not block movement (you can walk over the body). Skipped while
+        // airborne so jumping over enemies still works.
+        if (this.grounded) {
+            for (const e of enemies) {
+                if (e.dead || e.hp <= 0) continue;
+                if (e.state === 'knockdown' || e.state === 'knockedUp') continue;
+                const expand = CFG.enemyBlockDepthExpand;
+                const dy = (this.y + this.h) - (e.y + e.h);
+                if (Math.abs(dy) > expand) continue;
+                const overlapL = (this.x + this.w) - e.x;
+                const overlapR = (e.x + e.w)       - this.x;
+                if (overlapL <= 0 || overlapR <= 0) continue;
+                const pcx = this.x + this.w * 0.5;
+                const ecx = e.x    + e.w * 0.5;
+                // Push player back along X to whichever edge they came from.
+                this.x = (pcx < ecx)
+                    ? Math.min(preX, e.x - this.w)
+                    : Math.max(preX, e.x + e.w);
+                // Also undo any depth (Y) change that drove us into the band.
+                this.y = preY;
+                this.vx = 0;
+                this.vy = 0;
+            }
+        }
+
         // ── Jump ──────────────────────────────────────────────────────────────
         if (JustPressed['Space'] && this.grounded && canAct) {
             this.vz = CFG.jumpSpeed;
@@ -130,10 +187,13 @@ class Player extends Entity {
                 this.setState('uppercut', 0.45);
                 this.atkCD = 0.55;
                 this._doAttack(enemies, effects, 'uppercut');
-            } else if (kPressed && this.isRun) {
+            } else if (kPressed && this.isRun && this.stamina >= 1) {
                 this.setState('runningkick', 0.45);
                 this.atkCD = 0.5;
                 this._doAttack(enemies, effects, 'runningkick');
+                // Drain the bar fully and start the recharge delay.
+                this.stamina = 0;
+                this.stamCD  = CFG.staminaDuration;
             } else if (jPressed) {
                 const ph = this.pPhase; this.pPhase ^= 1;
                 this.setState(ph === 0 ? 'punch1' : 'punch2', 0.28);

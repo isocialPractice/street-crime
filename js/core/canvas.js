@@ -10,6 +10,8 @@ const W = canvas.width, H = canvas.height;
 const scoreEl      = document.getElementById('score');
 const livesEl      = document.getElementById('lives');
 const healthFill   = document.getElementById('health-fill');
+const staminaBar   = document.getElementById('stamina-bar');
+const staminaFill  = document.getElementById('stamina-fill');
 const stageEl      = document.getElementById('stage');
 const comboDisplay = document.getElementById('combo-display');
 const comboEl      = document.getElementById('combo');

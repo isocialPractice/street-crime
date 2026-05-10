@@ -6,6 +6,28 @@ function _hpHUD(p) {
     healthFill.style.width = (p.hp / p.maxHp * 100) + '%';
 }
 
+// Update the stamina gauge for the run-kick gate. Also returns true when the
+// configured per-level / per-game recharge limit has been hit so the bar gets
+// a "depleted" visual treatment.
+function _staminaHUD(p) {
+    const pct = Math.max(0, Math.min(1, p.stamina)) * 100;
+    if (staminaFill) staminaFill.style.width = pct + '%';
+    if (staminaBar) {
+        if (_staminaRechargeBlocked(p)) staminaBar.classList.add('depleted');
+        else staminaBar.classList.remove('depleted');
+    }
+}
+
+// Returns true if no further recharges are permitted under the active
+// CFG.staminaLimitMode (0 = unlimited, 1 = per-level, 2 = per-game).
+function _staminaRechargeBlocked(p) {
+    const mode = CFG.staminaLimitMode | 0;
+    if (mode === 0) return false;
+    const limit = CFG.staminaLimitCount | 0;
+    const count = (mode === 1) ? p.rechargeCountLevel : p.rechargeCountGame;
+    return count >= limit;
+}
+
 let _bossRef = null;
 
 function _showBossHUD(name, entity) {

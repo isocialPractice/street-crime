@@ -40,6 +40,13 @@ function initStage(idx) {
     hideOverlay();
     _hideBossHUD();
     _updateComboHUD(0);
+    // Reset the per-level stamina recharge counter and refill the bar so each
+    // new stage starts with a fresh allotment of run-kicks.
+    if (player) {
+        player.stamina = 1;
+        player.stamCD  = 0;
+        player.rechargeCountLevel = 0;
+    }
     gameState = 'playing';
 }
 
@@ -77,6 +84,8 @@ function newGame() {
     score = 0;
     scoreEl.textContent = '000000';
     player = new Player(120, 445);
+    // Per-game recharge counter — reset only when a brand new game starts.
+    player.rechargeCountGame = 0;
     initStage(0);
 }
 

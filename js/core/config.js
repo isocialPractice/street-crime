@@ -32,6 +32,8 @@ const CFG = {
     // ── Player hit detection ─────────────────────────────────────────────────
     collisionBodyOverlap:     6,
     collisionDepthTol:       28,
+    // ── Character body blocking (player vs enemy) ───────────────────────────
+    enemyBlockDepthExpand:    6,   // depth tolerance band for player↔enemy body collision
     // ── Object blocking (body collision stops movement) ──────────────────────
     objBlockDepthExpand:      8,   // expand feet-based blocking zone by this many px on each side
     // ── Object collision (player breaking crates) ────────────────────────────
@@ -67,6 +69,15 @@ const CFG = {
     hitFlashAlpha:         0.45,
     // ── Combo ─────────────────────────────────────────────────────────────────
     comboTimeout:           2.5,
+    // ── Stamina (run-kick) ────────────────────────────────────────────────────
+    // staminaDuration   = seconds after a run-kick before the bar starts refilling
+    // staminaRecharge   = seconds it takes to refill from empty to full
+    // staminaLimitMode  = 0:none (unlimited)  1:per-level  2:per-game
+    // staminaLimitCount = max number of recharges allowed when mode != 0
+    staminaDuration:         1.0,
+    staminaRecharge:         3.0,
+    staminaLimitMode:          0,
+    staminaLimitCount:         5,
     // ── Enemy global multipliers ─────────────────────────────────────────────
     enemyDmgMultiplier:      1.0,
     enemySpeedMultiplier:    1.0,
