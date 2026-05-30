@@ -104,5 +104,6 @@ const CFG = {
     fieldBorderPadding:      6,
     // ── Debug flags ─────────────────────────────────────────────────────────
     infiniteHealth:        false,
+    infiniteEnemyHealth:   false,
     showHitboxes:           true,
 };

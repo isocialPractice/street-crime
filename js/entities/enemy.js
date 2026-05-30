@@ -269,6 +269,7 @@ class Enemy extends Entity {
 
     takeDamage(amount, dir, launch = 0) {
         if (this.dead || this.invincible) return;
+        if (debugMode && CFG.infiniteEnemyHealth) return;
         this.hp -= amount;
         if (this.hp <= 0) { this.hp = 0; this._die(); return; }
         const prevX = this.x;

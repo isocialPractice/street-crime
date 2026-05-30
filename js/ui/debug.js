@@ -27,6 +27,7 @@ function buildDebugPanel() {
 
     let html = '<div id="dbg-title">DEBUG MODE</div>';
     html += `<label class="dbg-toggle"><input type="checkbox" id="dbg-inf-hp"${CFG.infiniteHealth ? ' checked' : ''}> Infinite Health</label>`;
+    html += `<label class="dbg-toggle"><input type="checkbox" id="dbg-inf-enemy-hp"${CFG.infiniteEnemyHealth ? ' checked' : ''}> Infinite Enemy Health</label>`;
     html += `<label class="dbg-toggle"><input type="checkbox" id="dbg-show-hb"${CFG.showHitboxes  ? ' checked' : ''}> Show Hitboxes</label>`;
     for (const r of rows) {
         if (r.section) { html += `<div class="dbg-section">${r.section}</div>`; continue; }
@@ -62,6 +63,7 @@ function buildDebugPanel() {
         });
     });
     document.getElementById('dbg-inf-hp').addEventListener('change', e => { CFG.infiniteHealth = e.target.checked; });
+    document.getElementById('dbg-inf-enemy-hp').addEventListener('change', e => { CFG.infiniteEnemyHealth = e.target.checked; });
     document.getElementById('dbg-show-hb').addEventListener('change', e => { CFG.showHitboxes   = e.target.checked; });
     document.getElementById('dbg-export').addEventListener('click', exportConfig);
 }
@@ -69,6 +71,7 @@ function buildDebugPanel() {
 function exportConfig() {
     const out = Object.assign({}, CFG);
     delete out.infiniteHealth;
+    delete out.infiniteEnemyHealth;
     const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
