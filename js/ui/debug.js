@@ -29,6 +29,7 @@ function buildDebugPanel() {
     html += `<label class="dbg-toggle"><input type="checkbox" id="dbg-inf-hp"${CFG.infiniteHealth ? ' checked' : ''}> Infinite Health</label>`;
     html += `<label class="dbg-toggle"><input type="checkbox" id="dbg-inf-enemy-hp"${CFG.infiniteEnemyHealth ? ' checked' : ''}> Infinite Enemy Health</label>`;
     html += `<label class="dbg-toggle"><input type="checkbox" id="dbg-show-hb"${CFG.showHitboxes  ? ' checked' : ''}> Show Hitboxes</label>`;
+    html += `<label class="dbg-toggle"><input type="checkbox" id="dbg-bg-amb"${CFG.bgAmbience ? ' checked' : ''}> BG Ambience</label>`;
     for (const r of rows) {
         if (r.section) { html += `<div class="dbg-section">${r.section}</div>`; continue; }
         const v = CFG[r.key];
@@ -65,6 +66,7 @@ function buildDebugPanel() {
     document.getElementById('dbg-inf-hp').addEventListener('change', e => { CFG.infiniteHealth = e.target.checked; });
     document.getElementById('dbg-inf-enemy-hp').addEventListener('change', e => { CFG.infiniteEnemyHealth = e.target.checked; });
     document.getElementById('dbg-show-hb').addEventListener('change', e => { CFG.showHitboxes   = e.target.checked; });
+    document.getElementById('dbg-bg-amb').addEventListener('change', e => { CFG.bgAmbience     = e.target.checked; });
     document.getElementById('dbg-export').addEventListener('click', exportConfig);
 }
 
@@ -83,6 +85,8 @@ function exportConfig() {
 // ── Debug Focus: mode-specific slider definitions ─────────────────────────────
 const _DEBUG_FOCUS_ROWS = {
     player: [
+        { section: 'CONTROLS' },
+        { key:'inputBufferTime',      label:'Input Buffer (s)',   min:0,   max:0.5,  step:0.02 },
         { section: 'PLAYER MOVEMENT' },
         { key:'playerSpeed',          label:'Player Speed',       min:50,  max:600,  step:5    },
         { key:'jumpSpeed',            label:'Jump Speed',         min:100, max:1200, step:10   },
@@ -133,6 +137,9 @@ const _DEBUG_FOCUS_ROWS = {
         { key:'enemyAtkCooldown',          label:'Atk Cooldown',       min:0.3, max:5,   step:0.1  },
         { key:'enemyFlankRadius',          label:'Flank Radius',       min:50,  max:400, step:5    },
         { key:'enemyFlankSpeed',           label:'Flank Speed',        min:0.1, max:1.0, step:0.05 },
+        { key:'enemyStaticAtkRange',       label:'Static Atk Range',   min:0,   max:200, step:1    },
+        { key:'enemyStaticAtkCooldown',    label:'Static Atk CD (s)',  min:0.3, max:5,   step:0.1  },
+        { key:'enemySeparationSpeed',      label:'Separation (px/s)',  min:20,  max:600, step:10   },
         { section: 'ENEMY ENGAGEMENT' },
         { key:'enemyEngageDelayMin',       label:'Engage Delay Min',   min:0,   max:6,   step:0.1  },
         { key:'enemyEngageDelayMax',       label:'Engage Delay Range', min:0,   max:6,   step:0.1  },
@@ -272,6 +279,7 @@ function exportEnemies() {
         'enemyWalkFPS','enemyIdleFPS','enemyAttackDuration','enemyAttackFrameHold',
         'enemyAttackFPS','enemyHurtFlashFPS','enemyCloseEnough','enemyAtkCheckDist',
         'enemyAtkDepthTol','enemyAtkCooldown','enemyFlankRadius','enemyFlankSpeed',
+        'enemyStaticAtkRange','enemyStaticAtkCooldown','enemySeparationSpeed',
         'enemyEngageDelayMin','enemyEngageDelayMax','enemyReengageMin','enemyReengageRange',
         'enemyGetupReengageMin','enemyAtkHitDelay','enemyKnockbackDist',
         'enemyLaunchKnockbackDist','enemyDmgMultiplier','enemySpeedMultiplier',

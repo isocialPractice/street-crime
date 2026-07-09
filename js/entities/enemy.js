@@ -115,9 +115,48 @@ class Enemy extends Entity {
         this.engageDelay = CFG.enemyEngageDelayMin + Math.random() * CFG.enemyEngageDelayMax;
         this.flankDir    = Math.random() < 0.5 ? 1 : -1;
         this.depthSlot   = (Math.random() - 0.5) * 80;
+        // Pending strike: { t, facing } while an attack swing is in flight.
+        // Counted down with dt (not setTimeout) so pausing pauses the swing
+        // and getting hit out of the attack cancels the damage.
+        this.strike      = null;
     }
 
     get isDone()  { return this.dead && this.deadT > CFG.defeatFadeDelay; }
+
+    // _approach — steering velocity toward a target offset. Speed ramps up
+    // from zero at the deadzone edge (full speed ~30px past it) instead of
+    // switching between full speed and a dead stop, which made enemies twitch
+    // back and forth around their goal position.
+    _approach(delta, deadzone, maxSpeed) {
+        const dist = Math.abs(delta) - deadzone;
+        if (dist <= 0) return 0;
+        return Math.sign(delta) * Math.min(maxSpeed, dist * 4);
+    }
+
+    // _startAttack — enter the attack state and arm the pending strike.
+    // The damage check itself runs later in _updateStrike, after the wind-up
+    // delay, against the LIVE player position at the moment of impact.
+    _startAttack(cooldown) {
+        this.setState('attack', CFG.enemyAttackDuration);
+        this.atkCD  = cooldown + Math.random();
+        this.strike = { t: CFG.enemyAtkHitDelay / 1000, facing: this.facing };
+    }
+
+    // _updateStrike — count the armed swing down in game time and apply damage
+    // when it lands. Replaces the old setTimeout approach, which kept running
+    // through pause and judged the hit from stale snapshot positions.
+    _updateStrike(dt, player) {
+        if (!this.strike) return;
+        this.strike.t -= dt;
+        if (this.strike.t > 0) return;
+        const facing = this.strike.facing;
+        this.strike  = null;
+        if (this.dead || player.dead || player.invT > 0) return;
+        const pdx = Math.abs(player.x - this.x);
+        const pdy = Math.abs((player.y + player.h) - (this.y + this.h));
+        if (pdx < CFG.enemyAtkCheckDist && pdy < CFG.enemyAtkDepthTol)
+            player.takeDamage(Math.round(this.def.dmg * CFG.enemyDmgMultiplier), facing);
+    }
 
     update(dt, player, allEnemies = []) {
         this.stepState(dt);
@@ -125,6 +164,7 @@ class Enemy extends Entity {
         const preX = this.x;
         if (this.dead) { this.deadT += dt; return; }
         if (this.atkCD > 0) this.atkCD -= dt;
+        this._updateStrike(dt, player);
 
         // ── Knockdown ────────────────────────────────────────────────────────
         if (this.state === 'knockdown') {
@@ -152,6 +192,16 @@ class Enemy extends Entity {
         // ── Engage delay: flank slowly until ready to rush ────────────────────
         if (this.engageDelay > 0) {
             this.engageDelay -= dt;
+            // Static attack — a waiting enemy is not a harmless statue. If the
+            // player walks into range while it is flanking, it swings from its
+            // standing position instead of waiting for the rush phase.
+            const feetDy = Math.abs((player.y + player.h) - (this.y + this.h));
+            if (this.state !== 'attack' && this.atkCD <= 0 &&
+                dist <= CFG.enemyStaticAtkRange && feetDy < CFG.enemyAtkDepthTol) {
+                this.vx = 0; this.vy = 0;
+                this._startAttack(CFG.enemyStaticAtkCooldown);
+                return;
+            }
             const flankTarget = projectStageEntityPosition(stageData,
                 player.x + this.flankDir * (CFG.enemyFlankRadius + 45 * Math.sin(this.animT * 0.8)),
                 player.y + this.depthSlot,
@@ -163,8 +213,9 @@ class Enemy extends Entity {
             const flankY = flankTarget.y;
             const fdx    = flankX - this.x;
             const fdy    = flankY - this.y;
-            this.vx = Math.abs(fdx) > 50 ? Math.sign(fdx) * this.speed * CFG.enemySpeedMultiplier * CFG.enemyFlankSpeed : 0;
-            this.vy = Math.abs(fdy) > 20 ? Math.sign(fdy) * this.speed * CFG.enemySpeedMultiplier * (CFG.enemyFlankSpeed * 0.875) : 0;
+            const flankSpd = this.speed * CFG.enemySpeedMultiplier * CFG.enemyFlankSpeed;
+            this.vx = this._approach(fdx, 50, flankSpd);
+            this.vy = this._approach(fdy, 20, flankSpd * 0.875);
             this.facing = dx > 0 ? 1 : -1;
             if (this.state === 'attack') {
                 // Don't interrupt attack animation while re-engaging
@@ -187,17 +238,17 @@ class Enemy extends Entity {
 
         if (dist > closeEnough) {
             if (activeRushers < maxSimul) {
-                if (Math.abs(dx) > 20) this.vx = this.facing * this.speed * CFG.enemySpeedMultiplier;
-                else                   this.vx = 0;
-                if (Math.abs(dy) > 12) this.vy = (dy > 0 ? 1 : -1) * this.speed * CFG.enemySpeedMultiplier * 0.5;
-                else                   this.vy = 0;
+                const rushSpd = this.speed * CFG.enemySpeedMultiplier;
+                this.vx = this._approach(dx, 20, rushSpd);
+                this.vy = this._approach(dy, 12, rushSpd * 0.5);
                 if (this.state !== 'walk' && this.state !== 'attack') this.setState('walk');
                 if (this.state !== 'attack') this.moveXY(dt);
             } else {
-                const holdX = player.x + this.flankDir * (closeEnough + 100);
-                const hdx   = holdX - this.x;
-                this.vx = Math.abs(hdx) > 35 ? Math.sign(hdx) * this.speed * CFG.enemySpeedMultiplier * 0.28 : 0;
-                this.vy = Math.abs(dy)  > 22 ? Math.sign(dy)  * this.speed * CFG.enemySpeedMultiplier * 0.22 : 0;
+                const holdX    = player.x + this.flankDir * (closeEnough + 100);
+                const hdx      = holdX - this.x;
+                const holdSpd  = this.speed * CFG.enemySpeedMultiplier;
+                this.vx = this._approach(hdx, 35, holdSpd * 0.28);
+                this.vy = this._approach(dy,  22, holdSpd * 0.22);
                 if (this.vx !== 0 || this.vy !== 0) {
                     if (this.state !== 'walk' && this.state !== 'attack') this.setState('walk');
                     if (this.state !== 'attack') this.moveXY(dt);
@@ -211,28 +262,21 @@ class Enemy extends Entity {
 
             const feet_dy = (player.y + player.h) - (this.y + this.h);
             if (this.atkCD <= 0 && Math.abs(feet_dy) < 50) {
-                this.setState('attack', CFG.enemyAttackDuration);
-                this.atkCD = (this.def.boss ? 1.1 : this.def.mini ? 1.5 : CFG.enemyAtkCooldown) + Math.random();
+                this._startAttack(this.def.boss ? 1.1 : this.def.mini ? 1.5 : CFG.enemyAtkCooldown);
                 this.engageDelay = CFG.enemyReengageMin + Math.random() * CFG.enemyReengageRange;
-
-                const snapX = this.x, snapY = this.y, snapFacing = this.facing;
-                const snapFeetY = snapY + this.h;
-                setTimeout(() => {
-                    if (this.dead || player.invT > 0 || player.dead) return;
-                    const pdx = Math.abs(player.x - snapX);
-                    const pdy = Math.abs((player.y + player.h) - snapFeetY);
-                    if (pdx < CFG.enemyAtkCheckDist && pdy < CFG.enemyAtkDepthTol)
-                        player.takeDamage(Math.round(this.def.dmg * CFG.enemyDmgMultiplier), snapFacing);
-                }, CFG.enemyAtkHitDelay);
             }
         }
 
         if (cam.x > 0) this.x = Math.max(cam.x - 250, this.x);
-        this._separate(allEnemies);
+        this._separate(allEnemies, dt);
     }
 
     // Resolve overlap with other enemies by nudging positions apart.
-    _separate(allEnemies) {
+    // The nudge is capped to enemySeparationSpeed px/s (scaled by dt like all
+    // other movement) so deep overlaps slide apart over a few frames instead
+    // of teleporting half the deficit in a single frame.
+    _separate(allEnemies, dt) {
+        const maxStep = CFG.enemySeparationSpeed * dt;
         for (const other of allEnemies) {
             if (other === this || other.dead) continue;
             const cx = (this.x + this.w * 0.5) - (other.x + other.w * 0.5);
@@ -240,8 +284,16 @@ class Enemy extends Entity {
             const minX = this.w * 0.5 + other.w * 0.5 + 4;
             const minY = this.h * 0.4 + other.h * 0.4;
             if (Math.abs(cx) < minX && Math.abs(cy) < minY) {
-                const pushX = (minX - Math.abs(cx)) * Math.sign(cx || 1) * 0.5;
-                const pushY = (minY - Math.abs(cy)) * Math.sign(cy || 1) * 0.5;
+                // Push out along the axis of least penetration so the nudge
+                // takes the shortest path instead of shoving on both axes.
+                const depthX = minX - Math.abs(cx);
+                const depthY = minY - Math.abs(cy);
+                let pushX = 0, pushY = 0;
+                if (depthX <= depthY) {
+                    pushX = Math.min(depthX * 0.5, maxStep) * Math.sign(cx || 1);
+                } else {
+                    pushY = Math.min(depthY * 0.5, maxStep) * Math.sign(cy || 1);
+                }
                 const prevX = this.x;
                 const prevY = this.y;
                 this.x += pushX;
@@ -270,6 +322,8 @@ class Enemy extends Entity {
     takeDamage(amount, dir, launch = 0) {
         if (this.dead || this.invincible) return;
         if (debugMode && CFG.infiniteEnemyHealth) return;
+        // Being hit interrupts any swing already in flight.
+        this.strike = null;
         this.hp -= amount;
         if (this.hp <= 0) { this.hp = 0; this._die(); return; }
         const prevX = this.x;

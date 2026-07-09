@@ -30,7 +30,11 @@ A classic 2.5D side-scrolling beat-em-up built entirely in vanilla HTML5 Canvas 
 
 - 2.5D beat-em-up movement and combat
 - Combo system with multiplier display
+- Input buffering — attack and jump presses made mid-animation fire the moment the player is free
 - Enemy AI with flanking, queued rushing, and attack cooldowns
+- Static enemy attacks — flanking enemies swing opportunistically when the player walks into range
+- Pause-safe enemy strikes resolved in game time against live positions
+- Animated background ambience — neon flicker and streetlight pulses (Stage 1), blinking warning lights and drifting water shimmer (Stage 2), flame flicker and rising embers (Stage 3)
 - Unique per-character attack sprites (punch, kick) with frame-hold timing
 - Enemy separation — characters spread to strategic positions rather than stacking
 - Boss and sub-boss encounters with dedicated health bars

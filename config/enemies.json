@@ -11,6 +11,8 @@
   "enemyAtkCooldown": 2.2,
   "enemyFlankRadius": 160,
   "enemyFlankSpeed": 0.32,
+  "enemyStaticAtkRange": 80,
+  "enemyStaticAtkCooldown": 1.6,
   "enemyEngageDelayMin": 1.5,
   "enemyEngageDelayMax": 2,
   "enemyReengageMin": 1.3,
@@ -29,5 +31,5 @@
   "defeatRotation": 0,
   "defeatOffsetX": 0,
   "defeatOffsetY": 0,
-  "defeatFadeDelay": 1.8
+  "defeatFadeDelay": 1
 }

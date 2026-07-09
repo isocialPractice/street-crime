@@ -86,7 +86,8 @@
 
 ## 5. Background Elements
 
-- [ ] Add animated background details — flickering neon signs (Stage 1), moving crane (Stage 2), burning flames (Stage 3)
+- [x] Add animated background details — flickering neon signs (Stage 1), blinking warning lights and water shimmer (Stage 2), burning flames and embers (Stage 3)
+- [ ] Animate the Stage 2 crane (swinging hook, moving trolley)
 - [ ] Implement multi-layer parallax (far buildings, mid structures, near street objects) for richer depth
 - [ ] Add weather effects: rain and puddle reflections on Stage 1, fog on Stage 2, smoke/embers on Stage 3
 - [ ] Create foreground overlay elements (lamp posts, fences) that render in front of characters for depth

@@ -44,11 +44,20 @@ const CFG = {
     // ── Pickup collection ────────────────────────────────────────────────────
     pickupRange:             55,
     pickupDepthTol:          60,
+    // ── Controls (input feel) ────────────────────────────────────────────────
+    // inputBufferTime = seconds an attack/jump press is remembered while the
+    // player is busy or on cooldown, so rapid combo inputs are never dropped.
+    inputBufferTime:       0.18,
     // ── Enemy AI ────────────────────────────────────────────────────────────
     enemyCloseEnough:        72,
     enemyAtkCheckDist:       95,
     enemyAtkDepthTol:        35,
     enemyAtkCooldown:       2.2,
+    // ── Enemy static attack (attack from flank/wait position) ────────────────
+    // A flanking enemy that has not committed to a rush still attacks when the
+    // player walks within enemyStaticAtkRange px of it.
+    enemyStaticAtkRange:     80,
+    enemyStaticAtkCooldown: 1.6,
     // ── Enemy attack ────────────────────────────────────────────────────────
     enemyAtkHitDelay:       270,
     enemyKnockbackDist:      18,
@@ -91,6 +100,7 @@ const CFG = {
     // ── Enemy AI movement ────────────────────────────────────────────────────
     enemyFlankRadius:       160,   // orbit radius when flanking player (px)
     enemyFlankSpeed:       0.32,   // fraction of enemy speed used during flanking
+    enemySeparationSpeed:   150,   // max px/s an enemy is nudged apart from others
     // ── Enemy animation ──────────────────────────────────────────────────────
     enemyAttackDuration:      0.9,
     enemyAttackFrameHold:    0.50,
@@ -98,6 +108,10 @@ const CFG = {
     enemyHurtFlashFPS:        20,
     // ── Score ────────────────────────────────────────────────────────────────
     scoreMultiplier:         1.0,
+    // ── Background ambience ──────────────────────────────────────────────────
+    // Toggles the animated detail layer drawn over the static stage backgrounds
+    // (neon flicker, water shimmer, warning lights, flames and embers).
+    bgAmbience:            true,
     // ── Arena (debug) ────────────────────────────────────────────────────────
     groundMin:             390,
     groundMax:             510,

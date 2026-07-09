@@ -26,6 +26,13 @@ class Player extends Entity {
         this.stamCD            = 0;
         this.rechargeCountLevel = 0;
         this.rechargeCountGame  = 0;
+        // ── Input buffers (seconds remaining) ─────────────────────────────
+        // A press made while busy or on cooldown is remembered for
+        // CFG.inputBufferTime and fires as soon as the player is free, so
+        // rapid combo inputs are never dropped between animations.
+        this.bufPunch = 0;
+        this.bufKick  = 0;
+        this.bufJump  = 0;
     }
 
     // busy is true whenever the player is locked into an animation that should
@@ -44,6 +51,17 @@ class Player extends Entity {
             this.comboT -= dt;
             if (this.comboT <= 0) { this.comboC = 0; _updateComboHUD(0); }
         }
+
+        // ── Input buffering ──────────────────────────────────────────────────
+        // Capture presses into short-lived buffers every frame (including while
+        // busy or knocked down) so an attack queued during an animation comes
+        // out the moment the player is free again.
+        if (JustPressed['KeyJ'] || JustPressed['KeyZ']) this.bufPunch = CFG.inputBufferTime;
+        if (JustPressed['KeyK'] || JustPressed['KeyX']) this.bufKick  = CFG.inputBufferTime;
+        if (JustPressed['Space'])                       this.bufJump  = CFG.inputBufferTime;
+        this.bufPunch = Math.max(0, this.bufPunch - dt);
+        this.bufKick  = Math.max(0, this.bufKick  - dt);
+        this.bufJump  = Math.max(0, this.bufJump  - dt);
 
         // ── Stamina recharge ─────────────────────────────────────────────────
         // After use the stamina drops to 0 and stamCD is set to staminaDuration.
@@ -166,28 +184,36 @@ class Player extends Entity {
         }
 
         // ── Jump ──────────────────────────────────────────────────────────────
-        if (JustPressed['Space'] && this.grounded && canAct) {
+        // Reads the jump buffer instead of the raw press so a Space tapped just
+        // before landing still jumps on the first grounded frame.
+        if (this.bufJump > 0 && this.grounded && canAct) {
+            this.bufJump = 0;
             this.vz = CFG.jumpSpeed;
             this.setState('jump');
         }
 
         // ── Attacks ───────────────────────────────────────────────────────────
-        const jPressed = JustPressed['KeyJ'] || JustPressed['KeyZ'];
-        const kPressed = JustPressed['KeyK'] || JustPressed['KeyX'];
+        // Buffered presses count as pressed; each attack consumes the buffer(s)
+        // that triggered it so one press never fires two moves.
+        const jPressed = this.bufPunch > 0;
+        const kPressed = this.bufKick  > 0;
         const upHeld   = Keys['ArrowUp'] || Keys['KeyW'];
 
         if (canAct && this.atkCD <= 0) {
             if (!this.grounded) {
                 if (jPressed || kPressed) {
+                    this.bufPunch = 0; this.bufKick = 0;
                     this.setState('jumpkick', 0.35);
                     this.atkCD = 0.4;
                     this._doAttack(enemies, effects, 'jumpkick');
                 }
             } else if (jPressed && upHeld) {
+                this.bufPunch = 0;
                 this.setState('uppercut', 0.45);
                 this.atkCD = 0.55;
                 this._doAttack(enemies, effects, 'uppercut');
             } else if (kPressed && this.isRun && this.stamina >= 1) {
+                this.bufKick = 0;
                 this.setState('runningkick', 0.45);
                 this.atkCD = 0.5;
                 this._doAttack(enemies, effects, 'runningkick');
@@ -195,11 +221,13 @@ class Player extends Entity {
                 this.stamina = 0;
                 this.stamCD  = CFG.staminaDuration;
             } else if (jPressed) {
+                this.bufPunch = 0;
                 const ph = this.pPhase; this.pPhase ^= 1;
                 this.setState(ph === 0 ? 'punch1' : 'punch2', 0.28);
                 this.atkCD = 0.32;
                 this._doAttack(enemies, effects, 'punch');
             } else if (kPressed) {
+                this.bufKick = 0;
                 const ph = this.kPhase; this.kPhase ^= 1;
                 this.setState(ph === 0 ? 'kick1' : 'kick2', 0.32);
                 this.atkCD = 0.38;
