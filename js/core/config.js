@@ -25,7 +25,9 @@ const CFG = {
     playerAirControl:      0.75,   // air strafe speed multiplier (fraction of playerSpeed)
     // ── Animation speeds (frames per second) ────────────────────────────────
     playerWalkFPS:            5,
+    playerRunFPS:            12,   // run cycle speed (run0-7); faster than walk so the stride reads as a sprint
     playerIdleFPS:            2,
+    playerTransitionTime:  0.35,   // seconds for the whole walk<>run transition (3 frames, ~0.117s each)
     playerInvFlashRate:      12,   // invincibility blink rate (flashes per second)
     enemyWalkFPS:             7,
     enemyIdleFPS:             1,   // enemy idle animation FPS (used when multi-frame idles exist)

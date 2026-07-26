@@ -109,13 +109,37 @@ class Player extends Entity {
                 if (up)    this.vy = -CFG.playerSpeed * 0.6;
                 if (down)  this.vy =  CFG.playerSpeed * 0.6;
 
-                if (this.vx !== 0 || this.vy !== 0) {
-                    this.isRun = run;
-                    const ws = this.isRun ? 'run' : 'walk';
+                // ── Run transition ────────────────────────────────────────
+                // wasRun holds last frame's run intent so we can spot the exact
+                // frame Shift goes down or up. That edge starts the short
+                // transition animation (see _onStateEnd and getImg); holding or
+                // releasing Shift on later frames produces no new edge.
+                // The transition is cosmetic only: movement is never blocked, so
+                // speed still changes on the same frame the key is pressed.
+                // Running-kick and jump are already excluded here: both make the
+                // player busy or airborne, and this block only runs when grounded
+                // and free, so their sprites are never overridden by a transition.
+                const moving = this.vx !== 0 || this.vy !== 0;
+                const wasRun = this.isRun;          // actually running last frame
+                const nowRun = moving && run;       // actually running this frame
+                this.isRun = nowRun;
+                const inTransition = this.state === 'runstart' || this.state === 'runstop';
+
+                if (nowRun && !wasRun) {
+                    this.setState('runstart', CFG.playerTransitionTime);
+                } else if (!nowRun && wasRun) {
+                    // Covers both releasing Shift while still moving and stopping
+                    // dead out of a run, so a run always exits through the same
+                    // wind-down frames.
+                    this.setState('runstop', CFG.playerTransitionTime);
+                } else if (inTransition) {
+                    // Let the running transition play out untouched; _onStateEnd
+                    // resolves it into run/walk when the timer expires.
+                } else if (moving) {
+                    const ws = run ? 'run' : 'walk';
                     if (this.state !== ws) this.setState(ws);
-                } else {
-                    this.isRun = false;
-                    if (this.state !== 'idle') this.setState('idle');
+                } else if (this.state !== 'idle') {
+                    this.setState('idle');
                 }
             } else {
                 // Air strafe (horizontal only, reduced by air control factor)
@@ -328,6 +352,17 @@ class Player extends Entity {
         _hpHUD(this);
     }
 
+    // A finished run transition resolves into the movement state it was heading
+    // toward; every other timed state falls back to idle as before. Runs inside
+    // stepState, which is called before the movement block each frame, so if the
+    // player has meanwhile stopped moving the block corrects this to idle on the
+    // same frame and no stale walk/run frame is ever drawn.
+    _onStateEnd() {
+        if (this.state === 'runstart') { this.setState('run'); return; }
+        if (this.state === 'runstop')  { this.setState(this.isRun ? 'run' : 'walk'); return; }
+        this.setState('idle');
+    }
+
     _onLand() {
         if (this.state === 'knockedUp') {
             this.setState('knockdown');
@@ -365,10 +400,26 @@ class Player extends Entity {
 
     getImg() {
         const WALK_FRAMES = [PLAYER.walk0,PLAYER.walk1,PLAYER.walk2,PLAYER.walk3,PLAYER.walk4,PLAYER.walk5,PLAYER.walk6,PLAYER.walk7];
+        const RUN_FRAMES  = [PLAYER.run0,PLAYER.run1,PLAYER.run2,PLAYER.run3,PLAYER.run4,PLAYER.run5,PLAYER.run6,PLAYER.run7];
         const IDLE_FRAMES = [PLAYER.idle1,PLAYER.idle2,PLAYER.idle3,PLAYER.idle4];
+        // TRANS_FRAMES plays forward on 'runstart' and backward on 'runstop'.
+        const TRANS_FRAMES = [PLAYER.transition0,PLAYER.transition1,PLAYER.transition2];
         switch (this.state) {
             case 'walk':        return WALK_FRAMES[Math.floor(this.animT * CFG.playerWalkFPS) % 8];
-            case 'run':         return PLAYER.run;
+            case 'run':         return RUN_FRAMES[Math.floor(this.animT * CFG.playerRunFPS) % 8] || PLAYER.run;
+            case 'runstart':
+            case 'runstop': {
+                // Spread the 3 frames evenly across playerTransitionTime rather
+                // than using a fixed FPS, so retuning the duration in the debug
+                // panel always shows the complete sequence and never clips it.
+                const dur = Math.max(0.0001, CFG.playerTransitionTime);
+                const n   = TRANS_FRAMES.length;
+                // Clamp below 1 so animT === dur cannot index off the end on the
+                // frame the timer expires.
+                const p = Math.min(0.9999, Math.max(0, this.animT / dur));
+                const i = Math.floor(p * n);
+                return TRANS_FRAMES[this.state === 'runstart' ? i : (n - 1 - i)] || PLAYER.run;
+            }
             case 'jump':        return PLAYER.jump;
             case 'jumpkick':    return PLAYER.jumpKick;
             case 'punch1':      return PLAYER.punch1;

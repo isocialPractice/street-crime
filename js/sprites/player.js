@@ -15,6 +15,22 @@ const PLAYER = {
     walk5:       loadSvgFile('assets/Player_Walk_5.svg'),
     walk6:       loadSvgFile('assets/Player_Walk_6.svg'),
     walk7:       loadSvgFile('assets/Player_Walk_7.svg'),
+    // transition0-2 bridge walk and run. Played forward (0>1>2) when the run
+    // starts and backward (2>1>0) when it ends, over CFG.playerTransitionTime.
+    transition0: loadSvgFile('assets/Player_Transition_0.svg'),
+    transition1: loadSvgFile('assets/Player_Transition_1.svg'),
+    transition2: loadSvgFile('assets/Player_Transition_2.svg'),
+    // run0-7 is the looping run cycle, stepped at CFG.playerRunFPS.
+    run0:        loadSvgFile('assets/Player_Run_0.svg'),
+    run1:        loadSvgFile('assets/Player_Run_1.svg'),
+    run2:        loadSvgFile('assets/Player_Run_2.svg'),
+    run3:        loadSvgFile('assets/Player_Run_3.svg'),
+    run4:        loadSvgFile('assets/Player_Run_4.svg'),
+    run5:        loadSvgFile('assets/Player_Run_5.svg'),
+    run6:        loadSvgFile('assets/Player_Run_6.svg'),
+    run7:        loadSvgFile('assets/Player_Run_7.svg'),
+    // Legacy single-frame run still, kept as the fallback when a run0-7 frame
+    // is missing so the player never draws blank mid-stride.
     run:         loadSvgFile('assets/Player_Run.svg'),
     jump:        loadSvgFile('assets/Player_Jump.svg'),
     jumpKick:    loadSvgFile('assets/Player_JumpKick.svg'),
