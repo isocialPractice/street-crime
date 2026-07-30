@@ -80,6 +80,7 @@ const PLAYER = {
     run5:         loadSvgFile('assets/Player_Run_5.svg'),
     run6:         loadSvgFile('assets/Player_Run_6.svg'),
     run7:         loadSvgFile('assets/Player_Run_7.svg'),
+    run8:         loadSvgFile('assets/Player_Run_8.svg'),
     // Legacy single-frame run still, kept as the fallback when a run0-7 frame
     // is missing so the player never draws blank mid-stride.
     run:          loadSvgFile('assets/Player_Run.svg'),
