@@ -23,6 +23,13 @@ function buildDebugPanel() {
         { key:'fieldBorderPadding', label:'Field Border Pad', min:0, max:40, step:1    },
         { section: 'HIT EFFECTS' },
         { key:'hitFlashAlpha',   label:'Hurt Flash Alpha', min:0,   max:1,    step:0.05 },
+        { section: 'WEATHER' },
+        { key:'weatherRainCount',  label:'Rain Drops',    min:0, max:400, step:5    },
+        { key:'weatherRainSpeed',  label:'Rain Speed',    min:100, max:1600, step:20 },
+        { key:'weatherWind',       label:'Wind',          min:0, max:1.5, step:0.02 },
+        { key:'weatherCloudCount', label:'Clouds / Layer', min:0, max:16, step:1   },
+        { key:'weatherToneAlpha',  label:'Tone Grade',    min:0, max:0.4, step:0.01 },
+        { key:'weatherSkyLift',    label:'Daylight Lift', min:0, max:1,   step:0.05 },
     ];
 
     let html = '<div id="dbg-title">DEBUG MODE</div>';
@@ -30,6 +37,7 @@ function buildDebugPanel() {
     html += `<label class="dbg-toggle"><input type="checkbox" id="dbg-inf-enemy-hp"${CFG.infiniteEnemyHealth ? ' checked' : ''}> Infinite Enemy Health</label>`;
     html += `<label class="dbg-toggle"><input type="checkbox" id="dbg-show-hb"${CFG.showHitboxes  ? ' checked' : ''}> Show Hitboxes</label>`;
     html += `<label class="dbg-toggle"><input type="checkbox" id="dbg-bg-amb"${CFG.bgAmbience ? ' checked' : ''}> BG Ambience</label>`;
+    html += `<label class="dbg-toggle"><input type="checkbox" id="dbg-weather"${CFG.weather ? ' checked' : ''}> Local Weather</label>`;
     for (const r of rows) {
         if (r.section) { html += `<div class="dbg-section">${r.section}</div>`; continue; }
         const v = CFG[r.key];
@@ -67,6 +75,7 @@ function buildDebugPanel() {
     document.getElementById('dbg-inf-enemy-hp').addEventListener('change', e => { CFG.infiniteEnemyHealth = e.target.checked; });
     document.getElementById('dbg-show-hb').addEventListener('change', e => { CFG.showHitboxes   = e.target.checked; });
     document.getElementById('dbg-bg-amb').addEventListener('change', e => { CFG.bgAmbience     = e.target.checked; });
+    document.getElementById('dbg-weather').addEventListener('change', e => { CFG.weather       = e.target.checked; });
     document.getElementById('dbg-export').addEventListener('click', exportConfig);
 }
 

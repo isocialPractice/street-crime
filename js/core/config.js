@@ -114,6 +114,22 @@ const CFG = {
     // Toggles the animated detail layer drawn over the static stage backgrounds
     // (neon flicker, water shimmer, warning lights, flames and embers).
     bgAmbience:            true,
+    // ── Local weather ────────────────────────────────────────────────────────
+    // Render layer driven by the weather server directives. See
+    // local-weather-style/STYLE.md for the directive to key mapping.
+    // Current render: night / hot / stormy.
+    weather:               true,
+    weatherNight:          true,    // true: moon.svg  false: sun.svg + sky lift
+    weatherTone:          'hot',    // 'hot' | 'medium' | 'cold'
+    weatherPrecip:     'stormy',    // 'stormy' | 'cloudy' | 'sunny'
+    weatherClouds:         true,
+    weatherCloudCount:        7,    // clouds per drifting layer
+    weatherRainCount:       170,    // simultaneous falling drops
+    weatherRainSpeed:       780,    // fall speed (px/s)
+    weatherWind:           0.42,    // horizontal drift as a fraction of fall speed
+    weatherLightning:      true,
+    weatherToneAlpha:      0.10,    // strength of the temperature colour grade
+    weatherSkyLift:           0,    // daylight wash over the authored night sky
     // ── Arena (debug) ────────────────────────────────────────────────────────
     groundMin:             390,
     groundMax:             510,

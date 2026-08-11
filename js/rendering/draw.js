@@ -10,7 +10,11 @@ function draw() {
     ctx.translate(cam.shakeX, cam.shakeY);
     ctx.clearRect(-10, -10, W + 20, H + 20);
 
-    drawStageBackground((typeof getCurrentStageData === 'function') ? getCurrentStageData() : null);
+    const stageData = (typeof getCurrentStageData === 'function') ? getCurrentStageData() : null;
+    drawStageBackground(stageData);
+    // Sky-side weather (moon, storm clouds, sky tone) sits between the stage
+    // art and the characters. The matching front pass runs after the entities.
+    drawWeatherSky(stageData);
 
     // Depth sort — all entities and objects use feet Y as the sort key so correct
     // painter's-algorithm layering is maintained. The +0.5 player bias keeps
@@ -26,6 +30,10 @@ function draw() {
 
     pickups.forEach(p => p.draw());
     effects.forEach(f => f.draw());
+
+    // Near-field weather (rain, splashes, lightning, heat haze) falls in front
+    // of everything the depth sort just drew, but stays under the HUD overlays.
+    drawWeatherFront();
 
     // Stage intro overlay
     if (levelMgr && levelMgr.phase === 'intro') {
