@@ -30,6 +30,23 @@ function loadSvgFile(path) {
     return loadSvgImg(loadSvgText(path));
 }
 
+// loadOptionalSvgFile - loads a sprite that may legitimately not exist yet,
+// returning null instead of a blank image when it is absent. Callers use the
+// null to pick a procedural fallback, so dropping the artwork in later is all
+// that is needed to switch over to it.
+function loadOptionalSvgFile(path) {
+    try {
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', path, false);
+        xhr.send();
+        const ok = (xhr.status >= 200 && xhr.status < 300)
+                || (xhr.status === 0 && !!xhr.responseText);
+        return ok ? loadSvgImg(xhr.responseText) : null;
+    } catch (e) {
+        return null;
+    }
+}
+
 // loadSvgImg — loads an SVG string generated in JavaScript (not a file on disk).
 // A Blob wraps the SVG text so the browser treats it as an image file.
 // URL.createObjectURL() returns a temporary local URL the Image can load from.

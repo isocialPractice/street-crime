@@ -7,7 +7,18 @@
       "attack": { "mode": "sequence", "suffixes": [], "fallbackState": "idle" },
       "damage": { "mode": "sequence", "suffixes": [], "fallbackState": "idle" },
       "preDefeat": { "mode": "hold", "suffixes": [], "fallbackState": "damage" },
-      "defeat": { "mode": "hold", "suffixes": ["defeat"], "fallbackState": "idle" }
+      "defeat": { "mode": "hold", "suffixes": ["defeat"], "fallbackState": "idle" },
+      "powerAttack": { "mode": "sequence", "suffixes": [], "fallbackState": "attack" },
+      "taunt": { "mode": "sequence", "suffixes": [] }
+    }
+  },
+  "attackTypeDefaults": {
+    "weaponAttack": {
+      "canGetUp": true,
+      "getUps": 1,
+      "animations": {
+        "getUp": { "mode": "sequence", "suffixes": ["getUp"], "fallbackState": "preDefeat" }
+      }
     }
   },
   "wipEnemies": [
@@ -35,8 +46,10 @@
       "attackType": "bodyAttack",
       "animations": {
         "walk": { "mode": "loop", "suffixes": ["", "walk_1",  "walk_2", "walk_1"] },
-        "attack": { "mode": "sequence", "suffixes": ["kick"] },
-        "defeat": { "mode": "hold", "files": ["BadGilr_defeat"] }
+        "damage": { "mode": "sequence", "suffixes": ["damage_0", "damage_1", "damage_0", "damage_2"] },
+        "attack": { "mode": "sequence", "suffixes": ["kick_0", "kick_1", "kick_2", "kick_1", "kick_0"] },
+        "preDefeat": { "mode": "sequence", "suffixes": ["preDefeat_0", "preDefeat_1"] },
+        "defeat": { "mode": "hold", "suffixes": ["damage_2", "preDefeat", "defeat"] }
       }
     },
     "CrimeGuy": {
@@ -79,6 +92,8 @@
     "KingBruteBreaker": {
       "attackType": "bodyAttack",
       "animations": {
+        "playerTakesAdditionalDamage": 0.5,
+        "powerAttackEffect": { "mode": "array", "array": ["playerKnockedBack", "playerTakesAdditionalDamage"] },
         "walk": { "mode": "loop", "suffixes": ["walk"] },
         "attack": { "mode": "sequence", "suffixes": ["attack"] }
       }
@@ -86,11 +101,16 @@
     "SassyGirl": {
       "attackType": "weaponAttack",
       "animations": {
-        "walk": { "mode": "loop", "suffixes": ["", "walk_1", "walk_2", "walk_1"] },
-        "attack": { "mode": "sequence", "suffixes": ["preAttack_1", "preAttack_2", "attack_1", "attack_2", "attack_3", "attack_4"] },
+        "powerAttackEffect": { "mode": "playerFreeze" },
+        "walk": { "mode": "loop", "suffixes": ["", "walk_1", "walk_2", "walk_3", "walk_4", "walk_3", "walk_2", "walk_1"] },
+        "preAttack": { "mode": "sequence", "suffixes": ["preAttack_1", "preAttack_2"]},
+        "attack": { "mode": "sequence", "suffixes": ["preAttack", "attack_1", "attack_2", "attack_3", "attack_4"] },
+        "powerAttack": { "mode": "loop", "suffixes": ["attack_powerAttack_0", "attack_powerAttack_1", "attack_powerAttack_2", "attack_powerAttack_1", "attack_powerAttack_0"]},
         "damage": { "mode": "sequence", "suffixes": ["damage_0", "damage_1", "damage_0", "damage_2"] },
-        "preDefeat": { "mode": "hold", "suffixes": ["preDefeat"] },
-        "defeat": { "mode": "sequence", "suffixes": ["damage_2", "preDefeat", "defeat"] }
+        "getUp": { "mode": "sequence", "suffixes": ["getUp_0", "getUp_1", "getUp_2", "getUp_3", "getUp_4", "getUp_5"] },
+        "taunt": { "mode": "sequence", "suffixes": ["preAttack", "preAttack"]},
+        "preDefeat": { "mode": "sequence", "suffixes": ["preDefeat_0", "preDefeat_1", "preDefeat_2", "preDefeat_3", "preDefeat_4", "preDefeat_5"] },
+        "defeat": { "mode": "sequence", "suffixes": ["damage_2", "preDefeat", "defeat_0", "defeat_1"] }
       }
     }
   }

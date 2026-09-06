@@ -10,8 +10,26 @@
 - [ ] Core collision detection
 - [ ] Key actions
 - [ ] Add interactable background elements
+  - **User only**: Create graphics
+  - Config system to map interactable background elements i.e.
+    - Open door
+    - Climb something
+    - Talk to friendly character
+- [ ] Add object sprites with different states relative:
+  - Attack impacts
+  - Stage progression
 - [ ] Add weapons
+  - **User only**: Create graphics
+  - Config system to map weapon use
 - [ ] Use side-scrolling image as level background art
+- [ ] Add configuration system to map where enemies spawn for each level
+- [ ] Add interactable object elements
+- [ ] **User only**: Rename player and enemy asset layer names, allowing for sprite customization
+- [ ] **User only**: Effect graphics for:
+  - Attack collision
+  - Character movements
+  - Stage background elements
+ - [ ] **User only**: Sound effects
 
 ## 1. Major
 

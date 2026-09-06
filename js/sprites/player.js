@@ -39,6 +39,10 @@ const PLAYER = {
     punch1:      loadSvgFile('assets/Player_Punch_1.svg'),
     punch2:      loadSvgFile('assets/Player_Punch_2.svg'),
     knockDown:   loadSvgFile('assets/Player_Damage.svg'),
+    // Optional dedicated knockdown art. Neither file ships today, so a null
+    // here tells the renderer to tip the damage pose over procedurally instead.
+    knockDownPose: loadOptionalSvgFile('assets/Player_KnockDown.svg'),
+    preDefeat:     loadOptionalSvgFile('assets/Player_PreDefeat.svg'),
     upperCut:    loadSvgFile('assets/Player_UpperCut.svg'),
     runningKick: loadSvgFile('assets/Player_RunningKick.svg'),
 };

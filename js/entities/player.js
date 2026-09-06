@@ -33,7 +33,15 @@ class Player extends Entity {
         this.bufPunch = 0;
         this.bufKick  = 0;
         this.bufJump  = 0;
+        // Power attack freeze: while this is running, movement and key presses
+        // are ignored and the player blinks. Set by playerFreeze reactions.
+        this.freezeT  = 0;
     }
+
+    // frozen is true while a power attack reaction has the player's controls
+    // locked out. Kept separate from busy so an attack animation that happens to
+    // be running is not confused with an imposed freeze.
+    get frozen() { return this.freezeT > 0; }
 
     // busy is true whenever the player is locked into an animation that should
     // prevent new actions or restrict movement.
@@ -47,6 +55,12 @@ class Player extends Entity {
         this.applyGravity(dt);
         if (this.atkCD > 0) this.atkCD -= dt;
         if (this.invT  > 0) this.invT  -= dt;
+        if (this.freezeT > 0) {
+            this.freezeT -= dt;
+            // Key presses are disabled outright, so nothing queues up during the
+            // freeze and fires in a burst the moment it ends.
+            this.bufPunch = this.bufKick = this.bufJump = 0;
+        }
         if (this.comboT > 0) {
             this.comboT -= dt;
             if (this.comboT <= 0) { this.comboC = 0; _updateComboHUD(0); }
@@ -89,8 +103,8 @@ class Player extends Entity {
             return;
         }
 
-        const canMove = !this.busy || this.state === 'jump' || this.state === 'jumpkick';
-        const canAct  = !this.busy;
+        const canMove = !this.frozen && (!this.busy || this.state === 'jump' || this.state === 'jumpkick');
+        const canAct  = !this.frozen && !this.busy;
         const preX = this.x;
         const preY = this.y;
 
@@ -332,9 +346,53 @@ class Player extends Entity {
         });
     }
 
-    takeDamage(amount, dir, launch = 0) {
+    // _reactionParam - a mode's tuning value for the enemy that landed the blow,
+    // falling back to the global default when it declares none of its own.
+    _reactionParam(effect, mode, fallback) {
+        const value = effect?.params?.[mode];
+        return (typeof value === 'number' && isFinite(value)) ? value : fallback;
+    }
+
+    // _applyPowerAttackEffect - run the reactions a power attack carries.
+    //
+    // Order matters. The damage bonus is folded into the hit before it lands, so
+    // it is handled by the caller; here the positional and state reactions are
+    // applied with knockdown last, because being put on the floor outranks being
+    // pushed back. A freeze runs alongside whatever else happened.
+    _applyPowerAttackEffect(effect, dir) {
+        const modes = effect?.modes || [];
+
+        if (modes.includes('playerKnockBack')) {
+            const dist = this._reactionParam(effect, 'playerKnockBack', CFG.powerAttackKnockBackDist);
+            const prevX = this.x;
+            this.x += dir * dist;
+            this.clampToStageField(prevX, this.y);
+            // Player_Damage.svg is the mapped damage pose, so the hurt state
+            // already shows the right art for a knockback.
+            this.setState('hurt', 0.35);
+            this.invT = CFG.playerHurtInvTime;
+        }
+
+        if (modes.includes('playerKnockDown')) {
+            this.setState('knockdown');
+            this.downT = CFG.playerKnockdownTime;
+            this.invT  = CFG.playerKnockdownTime;
+        }
+
+        if (modes.includes('playerFreeze')) {
+            const time = this._reactionParam(effect, 'playerFreeze', CFG.powerAttackFreezeTime);
+            this.freezeT = Math.max(this.freezeT, time);
+        }
+    }
+
+    takeDamage(amount, dir, launch = 0, effect = null) {
         if (this.invT > 0 || this.dead) return;
         if (debugMode && CFG.infiniteHealth) return;
+        if (effect?.modes?.includes('playerTakesAdditionalDamage')) {
+            const bonus = this._reactionParam(effect, 'playerTakesAdditionalDamage',
+                                              CFG.powerAttackDamageBonus);
+            amount = Math.round(amount * (1 + Math.max(0, bonus)));
+        }
         this.hp -= amount;
         screenShake(5);
         effects.push(new HitFX(this.x + this.w / 2, this.y - this.h * 0.4, 'medium'));
@@ -349,6 +407,9 @@ class Player extends Entity {
             this.setState('hurt', 0.35);
             this.invT = CFG.playerHurtInvTime;
         }
+        // Reactions run after the ordinary hit response so they can override the
+        // state and position it just set.
+        if (effect) this._applyPowerAttackEffect(effect, dir);
         _hpHUD(this);
     }
 
@@ -429,14 +490,33 @@ class Player extends Entity {
             case 'uppercut':    return PLAYER.upperCut;
             case 'runningkick': return PLAYER.runningKick;
             case 'hurt':
-            case 'knockdown':
             case 'knockedUp':   return PLAYER.knockDown;
+            // A dedicated knockdown pose is used when one exists; with neither
+            // on disk the damage pose is tipped over procedurally in draw().
+            case 'knockdown':   return PLAYER.knockDownPose || PLAYER.preDefeat || PLAYER.knockDown;
             default:            return IDLE_FRAMES[Math.floor(this.animT * CFG.playerIdleFPS) % 4];
         }
     }
 
+    // _knockdownFall - how far over the player has tipped, 0 upright to 1 flat.
+    // Used only when there is no dedicated knockdown art. The fall and the rise
+    // each take a quarter of the knockdown so the player drops, lies still, then
+    // pushes back up rather than snapping between poses.
+    _knockdownFall() {
+        const total = Math.max(0.001, CFG.playerKnockdownTime);
+        const edge  = total * 0.25;
+        const down  = Math.max(0, this.downT);
+        const elapsed = total - down;
+        if (elapsed < edge) return Math.max(0, elapsed / edge);
+        if (down < edge)    return Math.max(0, down / edge);
+        return 1;
+    }
+
     draw() {
         if (this.invT > 0 && Math.floor(this.invT * CFG.playerInvFlashRate) % 2 === 0) return;
+        // A freeze blinks on its own clock, so the player reads as held even
+        // once the brief hurt invincibility behind it has run out.
+        if (this.frozen && Math.floor(this.freezeT * CFG.playerInvFlashRate) % 2 === 0) return;
         this.drawShadow();
         const img = this.getImg();
         if (!img || img.naturalWidth === 0) return;
@@ -445,6 +525,12 @@ class Player extends Entity {
         ctx.save();
         ctx.translate(this.screenX + this.w / 2, this.drawY + this.h);
         ctx.scale(this.facing, 1);
+        // Smooth knockdown: with no knockdown artwork the damage pose is rotated
+        // about the player's feet, which keeps the body on the ground line while
+        // it goes down and comes back up.
+        const smoothKnockdown = this.state === 'knockdown'
+            && !PLAYER.knockDownPose && !PLAYER.preDefeat;
+        if (smoothKnockdown) ctx.rotate(-(Math.PI / 2) * this._knockdownFall());
         ctx.drawImage(img, -dw / 2, -dh, dw, dh);
         ctx.restore();
     }

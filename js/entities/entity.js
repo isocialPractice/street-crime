@@ -77,8 +77,8 @@ class Entity {
 
     // drawShadow — always drawn at y + h (feet/ground contact), alpha fades
     // with height so the shadow becomes fainter when airborne.
-    drawShadow() {
-        const a = Math.max(0.05, 0.35 - this.z * 0.0005);
+    drawShadow(alphaScale = 1) {
+        const a = Math.max(0.05, 0.35 - this.z * 0.0005) * alphaScale;
         ctx.save();
         ctx.globalAlpha = a;
         ctx.fillStyle = '#000';

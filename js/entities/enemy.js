@@ -65,12 +65,79 @@ function _enemyReferenceFrame(charKey) {
         null;
 }
 
-function _enemyDefeatScale(charKey, img) {
+// Pixels per authored SVG unit, one value per character, resolved lazily once
+// the reference frame has decoded.
+const _enemyUnitPxCache = Object.create(null);
+
+// _enemyUnitPx - the scale that turns a frame's authored viewBox units into
+// screen pixels.
+//
+// Sprite files declare a viewBox but no width or height, so the browser sizes
+// them with the default sizing algorithm: the largest box of that aspect ratio
+// fitting 300x150. naturalWidth therefore describes a frame's shape, not its
+// drawn size. A tall standing pose lands at 150px high, while the same
+// character lying down stretches to 300px across, which is why a collapse
+// looked like the character growing into a giant and standing back up shrank
+// it again.
+//
+// The factor is taken from the character's reference frame, so the standing
+// poses the game is tuned around keep the exact on-screen size they had, and
+// every other frame is drawn in proportion to them.
+function _enemyUnitPx(charKey) {
+    const cached = _enemyUnitPxCache[charKey];
+    if (cached) return cached;
     const refImg = _enemyReferenceFrame(charKey);
-    const refLongSide = Math.max(refImg?.naturalWidth || 0, refImg?.naturalHeight || 0);
-    const imgLongSide = Math.max(img?.naturalWidth || 0, img?.naturalHeight || 0);
-    if (!refLongSide || !imgLongSide) return 1;
-    return refLongSide / imgLongSide;
+    const refNatural = Math.max(refImg?.naturalWidth || 0, refImg?.naturalHeight || 0);
+    const refAuthored = Math.max(refImg?.authoredW || 0, refImg?.authoredH || 0);
+    if (!refNatural || !refAuthored) return 0;
+    const unitPx = refNatural / refAuthored;
+    if (unitPx > 0) _enemyUnitPxCache[charKey] = unitPx;
+    return unitPx;
+}
+
+const _enemyPowerReachCache = Object.create(null);
+
+// _enemyPowerReach - how far a power attack reaches, in px.
+//
+// The reach is a property of the artwork rather than something to tune: the
+// fully extended frame is the widest one, and its drawn width is the distance
+// the swing covers. The widest frame is used rather than the last one because a
+// power attack authored as a ping-pong loop ends back on its retracted pose,
+// which would understate the reach by half.
+function _enemyPowerReach(charKey) {
+    const cached = _enemyPowerReachCache[charKey];
+    if (cached) return cached;
+    const frames = ENEMY_CHARS[charKey]?.animations?.powerAttack?.frames || [];
+    let reach = 0;
+    for (const img of frames) {
+        // Undecoded frames would measure short, so the answer is left uncached
+        // and asked for again on a later frame.
+        if (!img || !img.naturalWidth) return 0;
+        reach = Math.max(reach, _enemyDrawSize(charKey, img).w);
+    }
+    if (reach > 0) _enemyPowerReachCache[charKey] = reach;
+    return reach;
+}
+
+// _enemyDrawSize - on-screen size for one frame, in proportion to every other
+// frame of the same character. Falls back to the raw natural size when a sprite
+// carries no authored dimensions, so an unparsed or generated SVG still draws.
+function _enemyDrawSize(charKey, img) {
+    const unitPx = _enemyUnitPx(charKey);
+    if (unitPx > 0 && img?.authoredW > 0 && img?.authoredH > 0) {
+        return { w: img.authoredW * unitPx, h: img.authoredH * unitPx };
+    }
+    return { w: img?.naturalWidth || 0, h: img?.naturalHeight || 0 };
+}
+
+// _enemySequenceFrame - the frame a run of poses is showing at animT, holding
+// the last one once the run is over.
+function _enemySequenceFrame(frames, animT, duration, holdTail) {
+    if (duration <= 0) return frames[frames.length - 1];
+    const activeDuration = Math.max(0.001, duration - holdTail);
+    if (animT >= activeDuration) return frames[frames.length - 1];
+    const index = Math.min(frames.length - 1, Math.floor((animT / activeDuration) * frames.length));
+    return frames[index];
 }
 
 function _enemyPickFrame(charKey, stateKey, animT, { fps = 0, duration = 0, holdTail = 0 } = {}) {
@@ -80,17 +147,25 @@ function _enemyPickFrame(charKey, stateKey, animT, { fps = 0, duration = 0, hold
     if (frames.length === 1) return frames[0];
 
     switch (anim.mode) {
-        case 'loop':
-            return fps > 0 ? frames[Math.floor(animT * fps) % frames.length] : frames[0];
-        case 'sequence': {
-            if (duration <= 0) return frames[frames.length - 1];
-            const activeDuration = Math.max(0.001, duration - holdTail);
-            if (animT >= activeDuration) return frames[frames.length - 1];
-            const index = Math.min(frames.length - 1, Math.floor((animT / activeDuration) * frames.length));
-            return frames[index];
+        case 'loop': {
+            // A loop with an explicit rate cycles at that rate. One given only a
+            // duration plays through exactly once across it, which is what an
+            // attack authored as a loop needs; without this it sat on frame one
+            // for the whole swing because no caller passes an attack an fps.
+            const rate = fps > 0 ? fps : (duration > 0 ? frames.length / duration : 0);
+            return rate > 0 ? frames[Math.floor(animT * rate) % frames.length] : frames[0];
         }
+        case 'sequence':
+            return _enemySequenceFrame(frames, animT, duration, holdTail);
         default:
-            return frames[0];
+            // 'hold' keeps one pose, which is right for the single-frame states
+            // it was meant for. A multi-frame hold given a duration plays
+            // through and then holds its final frame instead: authoring a
+            // collapse or a death run as a hold is a natural thing to write, and
+            // it used to freeze the whole animation on its first frame.
+            return duration > 0
+                ? _enemySequenceFrame(frames, animT, duration, holdTail)
+                : frames[0];
     }
 }
 
@@ -119,9 +194,42 @@ class Enemy extends Entity {
         // Counted down with dt (not setTimeout) so pausing pauses the swing
         // and getting hit out of the attack cancels the damage.
         this.strike      = null;
+        // Get-ups: how many times a lethal blow only knocks this enemy down
+        // instead of finishing it. Weapon carriers get one by default; see the
+        // attackTypeDefaults block in config/enemy-assets.json.
+        this.getUpsLeft  = ENEMY_CHARS[def.img]?.getUps || 0;
+        // Latched once the enemy has stood back up. From then on it swings the
+        // powerAttack variant instead of its normal attack.
+        this.hasGottenUp = false;
     }
 
-    get isDone()  { return this.dead && this.deadT > CFG.defeatFadeDelay; }
+    // A body lasts for the whole defeat outro: the animation, the held blink,
+    // then the fade. Waves wait on this, so all three phases count.
+    get defeatLifetime() {
+        return CFG.defeatFadeDelay + CFG.defeatBlinkTime + CFG.defeatFadeTime;
+    }
+
+    get isDone()  { return this.dead && this.deadT > this.defeatLifetime; }
+
+    // _defeatFade - 1 while the body is fully present, ramping to 0 across the
+    // closing defeatFadeTime. Drives the shadow as well as the sprite so the
+    // two leave together instead of the shadow popping out on its own.
+    _defeatFade() {
+        const fadeStart = CFG.defeatFadeDelay + CFG.defeatBlinkTime;
+        if (this.deadT < fadeStart) return 1;
+        const t = (this.deadT - fadeStart) / Math.max(0.001, CFG.defeatFadeTime);
+        return Math.max(0, 1 - t);
+    }
+
+    // _defeatBlink - the flicker applied to the sprite once the defeat
+    // animation has finished and its final frame is being held. The shadow is
+    // deliberately left out of it: a blinking shadow reads as a rendering fault
+    // rather than a body winking out.
+    _defeatBlink() {
+        const t = this.deadT - CFG.defeatFadeDelay;
+        if (t < 0 || t >= CFG.defeatBlinkTime) return 1;
+        return Math.floor(t * CFG.defeatBlinkFPS) % 2 === 0 ? CFG.defeatBlinkAlpha : 1;
+    }
 
     // _approach — steering velocity toward a target offset. Speed ramps up
     // from zero at the deadzone edge (full speed ~30px past it) instead of
@@ -139,7 +247,22 @@ class Enemy extends Entity {
     _startAttack(cooldown) {
         this.setState('attack', CFG.enemyAttackDuration);
         this.atkCD  = cooldown + Math.random();
-        this.strike = { t: CFG.enemyAtkHitDelay / 1000, facing: this.facing };
+        // Reach is captured with the swing, alongside facing, so the hit is
+        // judged by the attack that was actually thrown.
+        this.strike = { t: CFG.enemyAtkHitDelay / 1000, facing: this.facing, range: this.attackRange };
+    }
+
+    // _powerReach - the distance this enemy's power attack covers, or 0 when it
+    // is not swinging one.
+    _powerReach() {
+        return this._isSwingingPowerAttack() ? _enemyPowerReach(this.def.img) : 0;
+    }
+
+    // attackRange - how far a landing blow can connect. A power attack reaches
+    // as far as its widest frame is drawn; everything else keeps the tuned
+    // baseline, and the baseline is a floor so reach never shrinks.
+    get attackRange() {
+        return Math.max(CFG.enemyAtkCheckDist, this._powerReach());
     }
 
     // _updateStrike — count the armed swing down in game time and apply damage
@@ -150,12 +273,34 @@ class Enemy extends Entity {
         this.strike.t -= dt;
         if (this.strike.t > 0) return;
         const facing = this.strike.facing;
+        const range  = this.strike.range || CFG.enemyAtkCheckDist;
         this.strike  = null;
         if (this.dead || player.dead || player.invT > 0) return;
         const pdx = Math.abs(player.x - this.x);
         const pdy = Math.abs((player.y + player.h) - (this.y + this.h));
-        if (pdx < CFG.enemyAtkCheckDist && pdy < CFG.enemyAtkDepthTol)
-            player.takeDamage(Math.round(this.def.dmg * CFG.enemyDmgMultiplier), facing);
+        if (pdx < range && pdy < CFG.enemyAtkDepthTol)
+            player.takeDamage(Math.round(this.def.dmg * CFG.enemyDmgMultiplier), facing,
+                              0, this._powerAttackEffect());
+    }
+
+    // _isSwingingPowerAttack - true while this enemy's attack is the heavier
+    // variant it earns by getting back up.
+    _isSwingingPowerAttack() {
+        return this.hasGottenUp && _enemyHasDirectFrames(this.def.img, 'powerAttack');
+    }
+
+    // _powerAttackEffect - the reaction a landing blow should have on the
+    // player, or null for an ordinary hit.
+    //
+    // Declaring powerAttackEffect arms the reaction on every connecting attack,
+    // which is what lets an enemy with no power attack, no weapon attack and no
+    // get-up assets use one. An enemy that is genuinely swinging its power
+    // attack gets the default reaction even with nothing declared.
+    _powerAttackEffect() {
+        const effect = ENEMY_CHARS[this.def.img]?.powerAttackEffect;
+        if (effect && effect.declared) return effect;
+        if (!this._isSwingingPowerAttack()) return null;
+        return { declared: false, modes: [ENEMY_DEFAULT_REACTION], params: effect?.params || {} };
     }
 
     update(dt, player, allEnemies = []) {
@@ -176,6 +321,7 @@ class Enemy extends Entity {
             return;
         }
         if (this.state === 'getup') { return; }
+        if (this.state === 'taunt') { return; }
         if (this.state === 'hurt')  { return; }
         if (this.state === 'knockedUp') { return; }
 
@@ -187,7 +333,12 @@ class Enemy extends Entity {
         const stageData = (typeof getCurrentStageData === 'function') ? getCurrentStageData() : null;
         this.facing = dx > 0 ? 1 : -1;
 
-        const closeEnough = (this.def.boss || this.def.mini) ? 95 : CFG.enemyCloseEnough;
+        // A power attack reaches as far as its widest frame is drawn, so an
+        // enemy carrying one stops and swings from there instead of closing to
+        // punching range first.
+        const closeEnough = Math.max(
+            (this.def.boss || this.def.mini) ? 95 : CFG.enemyCloseEnough,
+            this._powerReach());
 
         // ── Engage delay: flank slowly until ready to rush ────────────────────
         if (this.engageDelay > 0) {
@@ -197,7 +348,8 @@ class Enemy extends Entity {
             // standing position instead of waiting for the rush phase.
             const feetDy = Math.abs((player.y + player.h) - (this.y + this.h));
             if (this.state !== 'attack' && this.atkCD <= 0 &&
-                dist <= CFG.enemyStaticAtkRange && feetDy < CFG.enemyAtkDepthTol) {
+                dist <= Math.max(CFG.enemyStaticAtkRange, this._powerReach()) &&
+                feetDy < CFG.enemyAtkDepthTol) {
                 this.vx = 0; this.vy = 0;
                 this._startAttack(CFG.enemyStaticAtkCooldown);
                 return;
@@ -307,6 +459,13 @@ class Enemy extends Entity {
         if (this.state === 'getup') {
             this.invincible  = false;
             this.engageDelay = CFG.enemyGetupReengageMin + Math.random();
+            // Conditional follow-on: an enemy that maps a taunt animation gloats
+            // before rejoining the fight. One with no taunt goes straight back
+            // to idle, so nothing follows for the rest of the roster.
+            if (_enemyHasDirectFrames(this.def.img, 'taunt')) {
+                this.setState('taunt', CFG.enemyTauntTime);
+                return;
+            }
         }
         this.setState('idle');
     }
@@ -325,7 +484,12 @@ class Enemy extends Entity {
         // Being hit interrupts any swing already in flight.
         this.strike = null;
         this.hp -= amount;
-        if (this.hp <= 0) { this.hp = 0; this._die(); return; }
+        if (this.hp <= 0) {
+            this.hp = 0;
+            if (this.getUpsLeft > 0) { this._beginGetUp(); return; }
+            this._die();
+            return;
+        }
         const prevX = this.x;
         if (launch > 0) {
             this.vz = launch;
@@ -338,6 +502,22 @@ class Enemy extends Entity {
             this.clampToStageField(prevX, this.y);
             this.setState('hurt', ENEMY_HURT_DURATION);
         }
+    }
+
+    // _beginGetUp - survive a lethal blow and go down instead of out.
+    // The enemy drops into the ordinary knockdown state, so the existing
+    // knockdown > getup > idle chain plays preDefeat and then getUp before it
+    // rejoins the fight. It stays invincible for the whole recovery, otherwise
+    // a player standing over it would chain-hit the revive into nothing.
+    _beginGetUp() {
+        this.getUpsLeft--;
+        this.hasGottenUp = true;
+        this.hp          = Math.max(1, Math.round(this.maxHp * CFG.enemyGetUpHealthFactor));
+        this.strike      = null;
+        this.vz          = 0;
+        this.setState('knockdown');
+        this.downT       = CFG.enemyGetUpDownTime;
+        this.invincible  = true;
     }
 
     _die() {
@@ -358,19 +538,36 @@ class Enemy extends Entity {
             case 'walk':
                 return _enemyPickFrame(charKey, 'walk', this.animT, { fps: CFG.enemyWalkFPS }) || idleImg;
             case 'attack':
-                return _enemyPickFrame(charKey, 'attack', this.animT, {
+                // powerAttack falls back to 'attack' when a character has no
+                // power frames of its own, so this is safe for every enemy.
+                return _enemyPickFrame(charKey, this.hasGottenUp ? 'powerAttack' : 'attack', this.animT, {
                     duration: CFG.enemyAttackDuration,
                     holdTail: CFG.enemyAttackFrameHold,
                 }) || idleImg;
             case 'hurt':
                 return _enemyPickFrame(charKey, 'damage', this.animT, { duration: ENEMY_HURT_DURATION }) || idleImg;
             case 'knockedUp':
+                // Airborne, so the collapse is held on its opening pose. A
+                // character folding up in mid-air reads as a glitch; the fall
+                // itself is the animation here. animT of 0 pins frame one
+                // whatever mode the state uses.
+                return _enemyPickFrame(charKey, 'preDefeat', 0, { duration: CFG.enemyPreDefeatTime }) ||
+                    _enemyPickFrame(charKey, 'damage', this.animT, { duration: ENEMY_HURT_DURATION }) ||
+                    idleImg;
             case 'knockdown':
-                return _enemyPickFrame(charKey, 'preDefeat', this.animT) ||
+                // On the ground the collapse plays once over enemyPreDefeatTime
+                // and then holds its final downed pose, since a 'sequence' past
+                // its duration stays on the last frame. Without a duration the
+                // whole knockdown sat on a single frame, which read as a long
+                // pause and then a jump straight to the much wider lying pose.
+                return _enemyPickFrame(charKey, 'preDefeat', this.animT, { duration: CFG.enemyPreDefeatTime }) ||
                     _enemyPickFrame(charKey, 'damage', this.animT, { duration: ENEMY_HURT_DURATION }) ||
                     idleImg;
             case 'getup':
-                return _enemyPickFrame(charKey, 'preDefeat', this.animT) || idleImg;
+                return _enemyPickFrame(charKey, 'getUp', this.animT, { duration: CFG.enemyGetupTime }) ||
+                    _enemyPickFrame(charKey, 'preDefeat', this.animT) || idleImg;
+            case 'taunt':
+                return _enemyPickFrame(charKey, 'taunt', this.animT, { duration: CFG.enemyTauntTime }) || idleImg;
             case 'dead':
                 return _enemyPickFrame(charKey, 'defeat', this.deadT, { duration: CFG.defeatFadeDelay }) || idleImg;
             default:
@@ -380,24 +577,30 @@ class Enemy extends Entity {
 
     draw() {
         if (this.isDone) return;
-        this.drawShadow();
+
+        const fade = this.dead ? this._defeatFade() : 1;
+        if (fade <= 0) return;
+        this.drawShadow(fade);
 
         const img = this.getImg();
         if (!img || img.naturalWidth === 0) return;
 
         const flash = this.state === 'hurt' && Math.floor(this.animT * CFG.enemyHurtFlashFPS) % 2 === 0;
-        const dw = img.naturalWidth  || this.w;
-        const dh = img.naturalHeight || this.h;
+        const size = _enemyDrawSize(this.def.img, img);
+        const dw = size.w || this.w;
+        const dh = size.h || this.h;
 
         ctx.save();
-        if (flash) ctx.globalAlpha = CFG.hitFlashAlpha;
+        if (this.dead)  ctx.globalAlpha = fade * this._defeatBlink();
+        else if (flash) ctx.globalAlpha = CFG.hitFlashAlpha;
         ctx.translate(this.screenX + this.w / 2, this.drawY + this.h);
 
         const useRotateDeath = !_enemyHasDirectFrames(this.def.img, 'defeat') && this.dead;
 
         if (this.dead) {
+            // Frames are already in proportion, so the only scaling left here is
+            // the authored defeat pose tuning in CFG.
             const defRad = CFG.defeatRotation * Math.PI / 180;
-            const defSc  = useRotateDeath ? 1 : _enemyDefeatScale(this.def.img, img);
             if (useRotateDeath) {
                 ctx.rotate(-Math.PI / 2 + defRad);
                 ctx.translate(CFG.defeatOffsetX + dh * 0.5, -CFG.defeatOffsetY + dw * 0.1);
@@ -405,7 +608,7 @@ class Enemy extends Entity {
                 ctx.rotate(defRad);
                 ctx.translate(CFG.defeatOffsetX * this.facing, -CFG.defeatOffsetY);
             }
-            ctx.scale(this.facing * CFG.defeatScaleX * defSc, CFG.defeatScaleY * defSc);
+            ctx.scale(this.facing * CFG.defeatScaleX, CFG.defeatScaleY);
         } else {
             ctx.scale(this.facing, 1);
             if (this.state === 'attack' && !_enemyHasDirectFrames(this.def.img, 'attack')) {

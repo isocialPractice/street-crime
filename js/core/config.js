@@ -69,13 +69,41 @@ const CFG = {
     playerKnockdownTime:    1.5,
     enemyKnockdownTime:     1.5,
     enemyGetupTime:        0.55,
+    // How long a multi-frame preDefeat collapse takes to play once an enemy is
+    // on the ground. Past this the sequence holds its final downed pose for the
+    // rest of the knockdown.
+    enemyPreDefeatTime:    0.40,
+    // Get-ups: a lethal blow only finishes an enemy once its getUps count runs
+    // out. Each revive restores this fraction of max HP and stays down for
+    // enemyGetUpDownTime, then the enemy taunts for enemyTauntTime if its
+    // character maps a taunt animation.
+    enemyGetUpHealthFactor: 1.0,
+    enemyGetUpDownTime:    0.85,
+    enemyTauntTime:        0.80,
+    // Power attack reactions on the player. An enemy opts in through the
+    // powerAttackEffect property in config/enemy-assets.json, and one that is
+    // actually swinging a power attack gets playerFreeze without declaring
+    // anything. A value beside powerAttackEffect named after a mode overrides
+    // that mode's default here for the enemy that declares it.
+    powerAttackFreezeTime:    1.0,   // input disabled and blinking (s)
+    powerAttackKnockBackDist:  36,   // px the player is pushed back
+    powerAttackDamageBonus:  0.25,   // extra damage as a fraction of the hit
     // ── Defeat sprite display ─────────────────────────────────────────────────
     defeatScaleX:           1.0,
     defeatScaleY:           1.0,
     defeatRotation:           0,
     defeatOffsetX:            0,
     defeatOffsetY:            0,
-    defeatFadeDelay:        1.8,
+    // Defeat outro, in three phases. The defeat animation plays over
+    // defeatFadeDelay; its final frame is then held on screen and blinked for
+    // defeatBlinkTime; finally the body fades out over defeatFadeTime. The
+    // three added together are how long a corpse lasts, which is also what a
+    // wave waits on before it counts as cleared, so they are retuned together.
+    defeatFadeDelay:        0.6,
+    defeatBlinkTime:        1.0,
+    defeatBlinkFPS:          12,
+    defeatBlinkAlpha:      0.15,
+    defeatFadeTime:        0.20,
     // ── Hit effects ───────────────────────────────────────────────────────────
     hitFlashAlpha:         0.45,
     // ── Combo ─────────────────────────────────────────────────────────────────
