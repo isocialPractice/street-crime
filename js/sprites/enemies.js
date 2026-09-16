@@ -253,19 +253,10 @@ function _warnMissingEnemyAsset(fileBase) {
     console.warn('[enemy-assets] No sprite resolved for', fileBase);
 }
 
-// Captures the width and height out of a viewBox, whatever separators it uses.
-const ENEMY_VIEWBOX_RE = /viewBox\s*=\s*["']\s*[-\d.]+[,\s]+[-\d.]+[,\s]+([\d.]+)[,\s]+([\d.]+)/;
-
 // _loadEnemyFrame - turn a resolved file base into a decoded sprite, reusing
-// the text the existence probe already pulled down.
-//
-// The sprite files carry a viewBox but no width or height, so the browser has
-// an aspect ratio to work from but no intrinsic size, and falls back to the
-// default sizing algorithm: the largest box with that ratio that fits 300x150.
-// A tall standing pose is therefore pinned to 150px high while a wide lying
-// pose stretches to 300px across, which makes naturalWidth a measure of a
-// frame's shape rather than of what the artist drew. The authored size is
-// recorded here so the renderer has the real numbers to scale against.
+// the text the existence probe already pulled down. loadSvgImg records the
+// authored viewBox size on the way through, which is what _enemyDrawSize scales
+// against instead of the shape-dependent natural size the browser infers.
 function _loadEnemyFrame(fileBase) {
     const path = _enemyAssetPath(fileBase);
     const src = _enemyAssetSource(path);
@@ -273,13 +264,7 @@ function _loadEnemyFrame(fileBase) {
         _warnMissingEnemyAsset(fileBase);
         return loadSvgImg('<svg xmlns="http://www.w3.org/2000/svg"/>');
     }
-    const img = loadSvgImg(src.text);
-    const box = ENEMY_VIEWBOX_RE.exec(src.text);
-    if (box) {
-        img.authoredW = parseFloat(box[1]);
-        img.authoredH = parseFloat(box[2]);
-    }
-    return img;
+    return loadSvgImg(src.text);
 }
 
 // _enemyAnimFileBases - resolve one animation state to the list of sprite file

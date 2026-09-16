@@ -65,8 +65,20 @@ const CFG = {
     enemyKnockbackDist:      18,
     enemyLaunchKnockbackDist:70,
     // ── Hit response timings ─────────────────────────────────────────────────
+    playerHurtTime:        0.35,   // length of the damage reaction (Player_Damage_0-3)
     playerHurtInvTime:     0.55,
     playerKnockdownTime:    1.5,
+    // Shape of a knockdown. The collapse frames play down over
+    // playerCollapseTime, the flat pose is held, then the same frames run
+    // backward over playerGetUpTime as the player pushes up. Both are scaled
+    // down to fit when together they exceed playerKnockdownTime.
+    playerCollapseTime:    0.40,
+    playerGetUpTime:       0.45,
+    // Defeat outro. The collapse plays over playerDefeatTime, the defeat pose
+    // is held for playerDefeatHoldTime, and only then is the life spent and the
+    // player respawned or the game ended.
+    playerDefeatTime:      0.70,
+    playerDefeatHoldTime:  1.20,
     enemyKnockdownTime:     1.5,
     enemyGetupTime:        0.55,
     // How long a multi-frame preDefeat collapse takes to play once an enemy is

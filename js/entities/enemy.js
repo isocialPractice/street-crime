@@ -70,27 +70,18 @@ function _enemyReferenceFrame(charKey) {
 const _enemyUnitPxCache = Object.create(null);
 
 // _enemyUnitPx - the scale that turns a frame's authored viewBox units into
-// screen pixels.
+// screen pixels, measured once per character from its reference frame.
 //
-// Sprite files declare a viewBox but no width or height, so the browser sizes
-// them with the default sizing algorithm: the largest box of that aspect ratio
-// fitting 300x150. naturalWidth therefore describes a frame's shape, not its
-// drawn size. A tall standing pose lands at 150px high, while the same
-// character lying down stretches to 300px across, which is why a collapse
-// looked like the character growing into a giant and standing back up shrank
-// it again.
-//
-// The factor is taken from the character's reference frame, so the standing
-// poses the game is tuned around keep the exact on-screen size they had, and
-// every other frame is drawn in proportion to them.
+// The measurement itself is svgUnitPx (js/sprites/loader.js), shared with the
+// player: the browser sizes a viewBox-only sprite by its shape rather than by
+// what was drawn, so a collapse looked like the character growing into a giant
+// and standing back up shrank it again. Taking the factor from the reference
+// frame keeps the standing poses the game is tuned around at the exact size
+// they had and draws every other frame in proportion to them.
 function _enemyUnitPx(charKey) {
     const cached = _enemyUnitPxCache[charKey];
     if (cached) return cached;
-    const refImg = _enemyReferenceFrame(charKey);
-    const refNatural = Math.max(refImg?.naturalWidth || 0, refImg?.naturalHeight || 0);
-    const refAuthored = Math.max(refImg?.authoredW || 0, refImg?.authoredH || 0);
-    if (!refNatural || !refAuthored) return 0;
-    const unitPx = refNatural / refAuthored;
+    const unitPx = svgUnitPx(_enemyReferenceFrame(charKey));
     if (unitPx > 0) _enemyUnitPxCache[charKey] = unitPx;
     return unitPx;
 }
@@ -120,14 +111,9 @@ function _enemyPowerReach(charKey) {
 }
 
 // _enemyDrawSize - on-screen size for one frame, in proportion to every other
-// frame of the same character. Falls back to the raw natural size when a sprite
-// carries no authored dimensions, so an unparsed or generated SVG still draws.
+// frame of the same character.
 function _enemyDrawSize(charKey, img) {
-    const unitPx = _enemyUnitPx(charKey);
-    if (unitPx > 0 && img?.authoredW > 0 && img?.authoredH > 0) {
-        return { w: img.authoredW * unitPx, h: img.authoredH * unitPx };
-    }
-    return { w: img?.naturalWidth || 0, h: img?.naturalHeight || 0 };
+    return svgDrawSize(img, _enemyUnitPx(charKey));
 }
 
 // _enemySequenceFrame - the frame a run of poses is showing at animT, holding
@@ -275,7 +261,7 @@ class Enemy extends Entity {
         const facing = this.strike.facing;
         const range  = this.strike.range || CFG.enemyAtkCheckDist;
         this.strike  = null;
-        if (this.dead || player.dead || player.invT > 0) return;
+        if (this.dead || player.dead || player.defeated || player.invT > 0) return;
         const pdx = Math.abs(player.x - this.x);
         const pdy = Math.abs((player.y + player.h) - (this.y + this.h));
         if (pdx < range && pdy < CFG.enemyAtkDepthTol)

@@ -38,11 +38,46 @@ const PLAYER = {
     kick2:       loadSvgFile('assets/Player_Kick_2.svg'),
     punch1:      loadSvgFile('assets/Player_Punch_1.svg'),
     punch2:      loadSvgFile('assets/Player_Punch_2.svg'),
+    // damage0-3 is the hit reaction, played once over CFG.playerHurtTime.
+    damage0:     loadOptionalSvgFile('assets/Player_Damage_0.svg'),
+    damage1:     loadOptionalSvgFile('assets/Player_Damage_1.svg'),
+    damage2:     loadOptionalSvgFile('assets/Player_Damage_2.svg'),
+    damage3:     loadOptionalSvgFile('assets/Player_Damage_3.svg'),
+    // The original single damage pose, still the fallback for every sequence
+    // below so the player is never blank whatever artwork is missing.
     knockDown:   loadSvgFile('assets/Player_Damage.svg'),
-    // Optional dedicated knockdown art. Neither file ships today, so a null
-    // here tells the renderer to tip the damage pose over procedurally instead.
+    // Optional dedicated knockdown art. A null here sends the renderer to the
+    // collapse frames instead, and with those missing too it tips the damage
+    // pose over procedurally.
     knockDownPose: loadOptionalSvgFile('assets/Player_KnockDown.svg'),
+    // preDefeat0-7 is the collapse from standing to flat on the floor. It runs
+    // forward as the player goes down and backward as they push up, so getting
+    // up needs no artwork of its own. preDefeat is the older single pose, used
+    // only when the numbered frames are absent.
     preDefeat:     loadOptionalSvgFile('assets/Player_PreDefeat.svg'),
+    preDefeat0:    loadOptionalSvgFile('assets/Player_PreDefeat_0.svg'),
+    preDefeat1:    loadOptionalSvgFile('assets/Player_PreDefeat_1.svg'),
+    preDefeat2:    loadOptionalSvgFile('assets/Player_PreDefeat_2.svg'),
+    preDefeat3:    loadOptionalSvgFile('assets/Player_PreDefeat_3.svg'),
+    preDefeat4:    loadOptionalSvgFile('assets/Player_PreDefeat_4.svg'),
+    preDefeat5:    loadOptionalSvgFile('assets/Player_PreDefeat_5.svg'),
+    preDefeat6:    loadOptionalSvgFile('assets/Player_PreDefeat_6.svg'),
+    preDefeat7:    loadOptionalSvgFile('assets/Player_PreDefeat_7.svg'),
+    // The settled pose the body holds at the end of the defeat outro.
+    defeat:        loadOptionalSvgFile('assets/Player_Defeat.svg'),
     upperCut:    loadSvgFile('assets/Player_UpperCut.svg'),
     runningKick: loadSvgFile('assets/Player_RunningKick.svg'),
 };
+
+// Frame lists for the one-shot hit reactions. Filtering happens here, at load,
+// so a frame that is not on disk drops out of its sequence once instead of
+// being tested every time the animation is drawn. Either list may legitimately
+// come out empty; the player falls back to single-frame artwork when it does.
+const PLAYER_DAMAGE_FRAMES = [
+    PLAYER.damage0, PLAYER.damage1, PLAYER.damage2, PLAYER.damage3,
+].filter(Boolean);
+
+const PLAYER_COLLAPSE_FRAMES = [
+    PLAYER.preDefeat0, PLAYER.preDefeat1, PLAYER.preDefeat2, PLAYER.preDefeat3,
+    PLAYER.preDefeat4, PLAYER.preDefeat5, PLAYER.preDefeat6, PLAYER.preDefeat7,
+].filter(Boolean);

@@ -8,6 +8,98 @@ anything earlier, see the commit log.
 
 ---
 
+## [2026.09.16]
+
+### Fixed
+- **The player no longer changes size as the animation changes shape.** The
+  collapse and defeat poses drew the character at roughly twice the standing
+  size, and the run cycle at about 1.17x, because `Player.draw()` sized each
+  frame by `naturalWidth` / `naturalHeight`. The sprite files carry a viewBox
+  but no width or height, so the browser has an aspect ratio but no intrinsic
+  size and falls back to the default sizing algorithm: the largest box of that
+  ratio fitting 300x150. Every upright pose is therefore pinned to 150px high
+  whatever its real height, and a wide frame such as `Player_PreDefeat_7`
+  (184x63) or `Player_Defeat` (184x45) stretches to the full 300px across, a
+  1.63x blow-up that lasted exactly as long as the player was on the floor.
+  Frames are now drawn at the idle frame's scale, so the standing size the game
+  is tuned around is unchanged and everything else is in proportion to it.
+  - This is the same defect that was fixed for enemies in `2026.09.09`; the
+    player simply never went through that path.
+
+### Added
+- **Unified sprite scaling** in `js/sprites/loader.js`, applied to every sprite
+  in the game rather than to one character type. `loadSvgImg()` records the
+  authored viewBox size on each sprite as it loads, and two helpers read it:
+  - `svgUnitPx(refImg)` measures screen pixels per authored SVG unit from one
+    reference frame, returning 0 while the reference is still undecoded so
+    callers fall back to natural size and measure again later.
+  - `svgDrawSize(img, unitPx)` gives a frame's on-screen size at that scale,
+    falling back to natural size for a sprite with no authored dimensions, so a
+    generated or unparsed SVG still draws.
+  Any new asset now inherits correct scaling from the loader instead of
+  depending on the shape of the box it happens to be drawn in.
+- `_playerDrawSize()` in `js/entities/player.js`, which measures the player once
+  against `PLAYER.idle1` and caches the result.
+
+### Changed
+- `_enemyUnitPx()` and `_enemyDrawSize()` delegate to the shared helpers, and
+  `_loadEnemyFrame()` no longer parses viewBoxes itself, since every sprite is
+  measured at load. The enemy-local `ENEMY_VIEWBOX_RE` is gone; behaviour is
+  unchanged (all 179 enemy frames across 25 characters still measure the same).
+- Player walk, run and transition frames now draw at their authored proportions
+  rather than being stretched to a uniform 150px height: the walk is about 6%
+  shorter than before and the run about 15% smaller, which is the difference
+  between a standing figure and a crouched or leaning one. To move the whole
+  character's on-screen size, change the reference frame in `_playerDrawSize()`.
+
+---
+
+## [2026.09.15]
+
+### Added
+- **Player damage animation.** `Player_Damage_0` through `Player_Damage_3` are
+  wired into the `hurt` and `knockedUp` states and played once across
+  `CFG.playerHurtTime`, replacing the single `Player_Damage.svg` pose those
+  states held. The single pose stays loaded as the fallback for every player
+  sequence, so nothing is ever drawn blank.
+- **Player collapse and get-up.** `Player_PreDefeat_0` through
+  `Player_PreDefeat_7` take the player from standing to flat on the floor. A
+  knockdown plays them forward over `CFG.playerCollapseTime`, holds the flat
+  pose, then runs the same frames backward over `CFG.playerGetUpTime` as the
+  player pushes up, so getting up needs no artwork of its own. A knockdown
+  shorter than the two together scales both to fit rather than letting the fall
+  eat into the rise.
+- **Player defeat outro.** `Player_Defeat.svg` is the settled pose the body
+  holds once a life is lost. `_die()` no longer spends the life outright: it
+  starts a `defeat` state that collapses over `CFG.playerDefeatTime` and holds
+  the defeat pose for `CFG.playerDefeatHoldTime`, and `_finishDefeat()` then
+  respawns the player or shows GAME OVER. `gameState` stays `playing` for the
+  whole outro so it keeps being updated and drawn, and because the timer is
+  advanced from `update()` a paused game holds the pose instead of resolving
+  behind the pause screen.
+- `Player.defeated`, true for the length of that outro. The player cannot be
+  damaged, moved or controlled during it, and an enemy strike already in the air
+  when the player goes down is dropped rather than landing on the body.
+- `PLAYER_DAMAGE_FRAMES` and `PLAYER_COLLAPSE_FRAMES` in `js/sprites/player.js`,
+  built once at load from the optional frames that are actually on disk. A frame
+  that is missing drops out of its sequence there instead of being tested every
+  time the animation is drawn.
+- New tunables, all exposed as sliders in the debug player panel:
+  `playerHurtTime` (0.35), `playerCollapseTime` (0.40), `playerGetUpTime`
+  (0.45), `playerDefeatTime` (0.70) and `playerDefeatHoldTime` (1.20).
+
+### Changed
+- The hurt state duration is read from `CFG.playerHurtTime` instead of the 0.35
+  that was hardcoded at both call sites, so the damage sequence and the state
+  that shows it can no longer drift apart.
+- The procedural knockdown tip in `Player.draw()` is now the last resort rather
+  than the second: a dedicated `Player_KnockDown.svg` still wins, the collapse
+  frames come next, and the rotation only runs when neither exists.
+- The HP bar is refreshed as the player goes down. It previously kept its last
+  reading through a death because `takeDamage()` returned before updating it.
+
+---
+
 ## [2026.09.09]
 
 ### Added

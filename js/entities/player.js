@@ -3,6 +3,37 @@
 // sprite animation, and drawing. Reads from PLAYER (js/sprites/player.js),
 // CFG (js/core/config.js), Keys/JustPressed (js/core/input.js).
 
+// _playerSeqFrame - the frame a one-shot sequence is showing t seconds in.
+// Frames are spread evenly across duration and the last one is held past the
+// end, which is how the enemy sequences read. Returns null for an empty list so
+// callers can fall back to the single-frame artwork.
+function _playerSeqFrame(frames, t, duration) {
+    if (!frames.length) return null;
+    const dur = Math.max(0.0001, duration);
+    const i   = Math.floor((Math.max(0, t) / dur) * frames.length);
+    return frames[Math.min(frames.length - 1, i)];
+}
+
+// Pixels per authored SVG unit for the player, resolved lazily once the sprite
+// has decoded and then reused. Zero means "not measured yet", so an early call
+// falls back to natural size for that frame and measures again next time.
+let _playerUnitPxCache = 0;
+
+// _playerDrawSize - on-screen size for one player frame, in proportion to every
+// other frame the player draws.
+//
+// The idle pose is the reference, so the standing size the game is tuned around
+// is exactly what it has always been and the rest of the set is drawn relative
+// to it. Without this the browser sizes each frame on its own (see svgUnitPx in
+// js/sprites/loader.js): upright poses land at 150px high whatever their real
+// height, and a wide frame such as the collapse or the defeat pose stretches to
+// 300px across, which drew the player as a giant for exactly as long as they
+// were on the floor.
+function _playerDrawSize(img) {
+    if (!_playerUnitPxCache) _playerUnitPxCache = svgUnitPx(PLAYER.idle1);
+    return svgDrawSize(img, _playerUnitPxCache);
+}
+
 class Player extends Entity {
     constructor(x, y) {
         super(x, y, 60, 100);
@@ -43,11 +74,16 @@ class Player extends Entity {
     // be running is not confused with an imposed freeze.
     get frozen() { return this.freezeT > 0; }
 
+    // defeated is true while the defeat outro is playing: the player is out of
+    // health but the life has not been spent yet. Nothing can hit or move them
+    // during it, and it ends in a respawn or the game over screen.
+    get defeated() { return this.state === 'defeat'; }
+
     // busy is true whenever the player is locked into an animation that should
     // prevent new actions or restrict movement.
     get busy() {
         return ['punch1','punch2','kick1','kick2','uppercut','runningkick','jumpkick',
-                'hurt','knockdown','knockedUp'].includes(this.state);
+                'hurt','knockdown','knockedUp','defeat'].includes(this.state);
     }
 
     update(dt, enemies, effects, pickups, breakables) {
@@ -95,6 +131,17 @@ class Player extends Entity {
             }
         }
         _staminaHUD(this);
+
+        // Defeat outro - the collapse and the held pose play out before the
+        // life is spent. gameState stays 'playing' for its duration so this
+        // keeps being updated and drawn; _finishDefeat then respawns the player
+        // or ends the game.
+        if (this.state === 'defeat') {
+            this.vx = this.vy = 0;
+            this.bufPunch = this.bufKick = this.bufJump = 0;
+            if (this.animT >= CFG.playerDefeatTime + CFG.playerDefeatHoldTime) this._finishDefeat();
+            return;
+        }
 
         // Knockdown — wait then stand up
         if (this.state === 'knockdown') {
@@ -367,9 +414,9 @@ class Player extends Entity {
             const prevX = this.x;
             this.x += dir * dist;
             this.clampToStageField(prevX, this.y);
-            // Player_Damage.svg is the mapped damage pose, so the hurt state
+            // The damage frames are the mapped hit reaction, so the hurt state
             // already shows the right art for a knockback.
-            this.setState('hurt', 0.35);
+            this.setState('hurt', CFG.playerHurtTime);
             this.invT = CFG.playerHurtInvTime;
         }
 
@@ -386,7 +433,7 @@ class Player extends Entity {
     }
 
     takeDamage(amount, dir, launch = 0, effect = null) {
-        if (this.invT > 0 || this.dead) return;
+        if (this.invT > 0 || this.dead || this.defeated) return;
         if (debugMode && CFG.infiniteHealth) return;
         if (effect?.modes?.includes('playerTakesAdditionalDamage')) {
             const bonus = this._reactionParam(effect, 'playerTakesAdditionalDamage',
@@ -404,7 +451,7 @@ class Player extends Entity {
             this.clampToStageField(prevX, this.y);
             this.setState('knockedUp');
         } else {
-            this.setState('hurt', 0.35);
+            this.setState('hurt', CFG.playerHurtTime);
             this.invT = CFG.playerHurtInvTime;
         }
         // Reactions run after the ordinary hit response so they can override the
@@ -434,7 +481,29 @@ class Player extends Entity {
         }
     }
 
+    // _die - begin the defeat outro. The life is not spent here: the player
+    // drops through the collapse frames, holds the defeat pose, and only then
+    // does _finishDefeat respawn them or end the game. Movement, buffered
+    // presses and any running freeze are cleared so nothing fires out of the
+    // outro, and the defeat state itself blocks further damage.
     _die() {
+        this.vx = this.vy = 0;
+        this.isRun    = false;
+        this.bufPunch = this.bufKick = this.bufJump = 0;
+        this.freezeT  = 0;
+        this.invT     = 0;
+        this.downT    = 0;
+        this.comboC   = 0;
+        this.comboT   = 0;
+        _updateComboHUD(0);
+        _hpHUD(this);
+        this.setState('defeat');
+    }
+
+    // _finishDefeat - the outro is over, so the life is spent. Called from
+    // update() rather than on a timer, so a paused game holds the pose instead
+    // of resolving behind the pause screen.
+    _finishDefeat() {
         this.lives--;
         livesEl.textContent = this.lives;
         if (this.lives <= 0) {
@@ -490,12 +559,52 @@ class Player extends Entity {
             case 'uppercut':    return PLAYER.upperCut;
             case 'runningkick': return PLAYER.runningKick;
             case 'hurt':
-            case 'knockedUp':   return PLAYER.knockDown;
-            // A dedicated knockdown pose is used when one exists; with neither
-            // on disk the damage pose is tipped over procedurally in draw().
-            case 'knockdown':   return PLAYER.knockDownPose || PLAYER.preDefeat || PLAYER.knockDown;
+            case 'knockedUp':
+                return _playerSeqFrame(PLAYER_DAMAGE_FRAMES, this.animT, CFG.playerHurtTime)
+                    || PLAYER.knockDown;
+            case 'knockdown': {
+                // A dedicated knockdown pose wins when one exists. Otherwise the
+                // collapse frames fall, hold and reverse across the knockdown
+                // (see _knockdownFrame), and with no collapse art at all the
+                // damage pose is tipped over procedurally in draw().
+                if (PLAYER.knockDownPose) return PLAYER.knockDownPose;
+                return this._knockdownFrame() || PLAYER.preDefeat || PLAYER.knockDown;
+            }
+            case 'defeat': {
+                // The collapse plays once, then the body settles into the defeat
+                // pose for the rest of the outro.
+                if (this.animT >= CFG.playerDefeatTime && PLAYER.defeat) return PLAYER.defeat;
+                return _playerSeqFrame(PLAYER_COLLAPSE_FRAMES, this.animT, CFG.playerDefeatTime)
+                    || PLAYER.defeat || PLAYER.preDefeat || PLAYER.knockDown;
+            }
             default:            return IDLE_FRAMES[Math.floor(this.animT * CFG.playerIdleFPS) % 4];
         }
+    }
+
+    // _knockdownFrame - the collapse frame this point of a knockdown shows, or
+    // null when there are no collapse frames to play. The sequence runs forward
+    // over playerCollapseTime as the player goes down, holds the flat pose, then
+    // runs backward over playerGetUpTime as they push up, so the same artwork
+    // covers both halves. A knockdown shorter than the two together scales them
+    // to fit rather than letting the fall eat into the rise.
+    _knockdownFrame() {
+        const frames = PLAYER_COLLAPSE_FRAMES;
+        if (!frames.length) return null;
+        const total = Math.max(0.0001, CFG.playerKnockdownTime);
+        let down = Math.max(0.0001, CFG.playerCollapseTime);
+        let up   = Math.max(0.0001, CFG.playerGetUpTime);
+        if (down + up > total) {
+            const k = total / (down + up);
+            down *= k; up *= k;
+        }
+        const last    = frames.length - 1;
+        const left    = Math.max(0, this.downT);
+        const elapsed = total - left;
+        // Going down: 0 -> last. Getting up: left counts toward 0, so the same
+        // mapping reversed walks last -> 0 without a second frame list.
+        if (elapsed < down) return frames[Math.min(last, Math.floor((elapsed / down) * frames.length))];
+        if (left    < up)   return frames[Math.min(last, Math.floor((left    / up)   * frames.length))];
+        return frames[last];
     }
 
     // _knockdownFall - how far over the player has tipped, 0 upright to 1 flat.
@@ -520,8 +629,9 @@ class Player extends Entity {
         this.drawShadow();
         const img = this.getImg();
         if (!img || img.naturalWidth === 0) return;
-        const dw = img.naturalWidth  || this.w;
-        const dh = img.naturalHeight || this.h;
+        const size = _playerDrawSize(img);
+        const dw = size.w || this.w;
+        const dh = size.h || this.h;
         ctx.save();
         ctx.translate(this.screenX + this.w / 2, this.drawY + this.h);
         ctx.scale(this.facing, 1);
@@ -529,7 +639,7 @@ class Player extends Entity {
         // about the player's feet, which keeps the body on the ground line while
         // it goes down and comes back up.
         const smoothKnockdown = this.state === 'knockdown'
-            && !PLAYER.knockDownPose && !PLAYER.preDefeat;
+            && !PLAYER.knockDownPose && !PLAYER_COLLAPSE_FRAMES.length && !PLAYER.preDefeat;
         if (smoothKnockdown) ctx.rotate(-(Math.PI / 2) * this._knockdownFall());
         ctx.drawImage(img, -dw / 2, -dh, dw, dh);
         ctx.restore();
