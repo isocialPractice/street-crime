@@ -238,6 +238,14 @@ class Enemy extends Entity {
         this.strike = { t: CFG.enemyAtkHitDelay / 1000, facing: this.facing, range: this.attackRange };
     }
 
+    // _appliedPlayerAnims - player animations this enemy's hits swap in, keyed by
+    // the player state each one replaces. Declared with an "apply<State>"
+    // property in config/enemy-assets.json.
+    _appliedPlayerAnims() {
+        const applied = ENEMY_CHARS[this.def.img]?.appliedPlayerAnims;
+        return (applied && Object.keys(applied).length) ? applied : null;
+    }
+
     // _powerReach - the distance this enemy's power attack covers, or 0 when it
     // is not swinging one.
     _powerReach() {
@@ -266,7 +274,7 @@ class Enemy extends Entity {
         const pdy = Math.abs((player.y + player.h) - (this.y + this.h));
         if (pdx < range && pdy < CFG.enemyAtkDepthTol)
             player.takeDamage(Math.round(this.def.dmg * CFG.enemyDmgMultiplier), facing,
-                              0, this._powerAttackEffect());
+                              0, this._powerAttackEffect(), this._appliedPlayerAnims());
     }
 
     // _isSwingingPowerAttack - true while this enemy's attack is the heavier

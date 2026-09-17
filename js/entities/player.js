@@ -67,6 +67,10 @@ class Player extends Entity {
         // Power attack freeze: while this is running, movement and key presses
         // are ignored and the player blinks. Set by playerFreeze reactions.
         this.freezeT  = 0;
+        // Animations the enemy that landed the current hit swaps in for the
+        // player's own, keyed by the player state each one replaces. Replaced on
+        // every hit, so one enemy's effect never carries over to another's blow.
+        this.appliedAnims = null;
     }
 
     // frozen is true while a power attack reaction has the player's controls
@@ -432,9 +436,19 @@ class Player extends Entity {
         }
     }
 
-    takeDamage(amount, dir, launch = 0, effect = null) {
+    // _appliedFrames - decoded frames of the animation the enemy that landed this
+    // hit swapped in for a player state, or an empty list when it supplied none.
+    // Empty is what _playerSeqFrame needs to fall through to the stock artwork.
+    _appliedFrames(stateKey) {
+        const frames = this.appliedAnims?.[stateKey];
+        if (!frames || !frames.length) return [];
+        return frames.filter(img => img && img.naturalWidth > 0);
+    }
+
+    takeDamage(amount, dir, launch = 0, effect = null, applied = null) {
         if (this.invT > 0 || this.dead || this.defeated) return;
         if (debugMode && CFG.infiniteHealth) return;
+        this.appliedAnims = applied;
         if (effect?.modes?.includes('playerTakesAdditionalDamage')) {
             const bonus = this._reactionParam(effect, 'playerTakesAdditionalDamage',
                                               CFG.powerAttackDamageBonus);
@@ -560,13 +574,21 @@ class Player extends Entity {
             case 'runningkick': return PLAYER.runningKick;
             case 'hurt':
             case 'knockedUp':
-                return _playerSeqFrame(PLAYER_DAMAGE_FRAMES, this.animT, CFG.playerHurtTime)
+                // An enemy can swap in its own reaction for the hit it just
+                // landed, declared as an "apply<State>" property in
+                // config/enemy-assets.json. It falls through to the stock damage
+                // frames for every other blow.
+                return _playerSeqFrame(this._appliedFrames('damage'), this.animT, CFG.playerHurtTime)
+                    || _playerSeqFrame(PLAYER_DAMAGE_FRAMES, this.animT, CFG.playerHurtTime)
                     || PLAYER.knockDown;
             case 'knockdown': {
                 // A dedicated knockdown pose wins when one exists. Otherwise the
                 // collapse frames fall, hold and reverse across the knockdown
                 // (see _knockdownFrame), and with no collapse art at all the
                 // damage pose is tipped over procedurally in draw().
+                const appliedDown = _playerSeqFrame(this._appliedFrames('knockdown'),
+                                                    this.animT, CFG.playerKnockdownTime);
+                if (appliedDown) return appliedDown;
                 if (PLAYER.knockDownPose) return PLAYER.knockDownPose;
                 return this._knockdownFrame() || PLAYER.preDefeat || PLAYER.knockDown;
             }

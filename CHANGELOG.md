@@ -27,6 +27,21 @@ anything earlier, see the commit log.
     player simply never went through that path.
 
 ### Added
+- **Enemy-supplied player animations.** An enemy entry in
+  `config/enemy-assets.json` may carry an `apply<State>` property naming a
+  player animation its hits swap in for the player's own. The captured state is
+  the one being replaced and the value qualifies it, so
+  `"applyDamage": "Electrocuted"` resolves to `Player_Damage_Electrocuted_0.svg`
+  onwards and plays over `CFG.playerHurtTime` in place of the stock damage
+  reaction. `SassyGirl` is the first to use it.
+  - A plain `Player_<State>_<Variant>.svg` is used when one exists; otherwise
+    the numbered-range rule picks up the contiguous run from `_0`.
+  - A variant with nothing on disk warns once and is dropped, so the player
+    falls through to its own artwork rather than drawing blanks.
+  - The animation is attached to the blow that carried it and replaced on every
+    hit, so one enemy's effect never leaks into another enemy's punch.
+  - The property sits at the enemy level and merges across the same defaults,
+    attack-type and entry layers as everything else.
 - **Unified sprite scaling** in `js/sprites/loader.js`, applied to every sprite
   in the game rather than to one character type. `loadSvgImg()` records the
   authored viewBox size on each sprite as it loads, and two helpers read it:

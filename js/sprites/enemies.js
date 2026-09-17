@@ -113,6 +113,39 @@ function _buildEnemyPowerEffect(raw) {
     return { declared: true, modes, params };
 }
 
+// An enemy-level "apply<State>" property names a player animation this enemy's
+// hits swap in for its own. The captured group is the player state being
+// replaced, and the value qualifies it, so "applyDamage": "Electrocuted"
+// resolves to Player_Damage_Electrocuted_0.svg onwards.
+const ENEMY_APPLY_RE = /^apply([A-Za-z]+)$/;
+
+// _buildEnemyAppliedPlayerAnims - load the player animations an enemy applies.
+//
+// A plain "Player_<State>_<Variant>.svg" is used when one exists; otherwise the
+// numbered-range rule picks up the contiguous run from _0. Nothing on disk
+// warns and is dropped rather than leaving blank frames on the player.
+function _buildEnemyAppliedPlayerAnims(layers) {
+    const declared = {};
+    for (const layer of layers) {
+        for (const [key, value] of Object.entries(layer || {})) {
+            const match = ENEMY_APPLY_RE.exec(key);
+            if (match && typeof value === 'string' && value) declared[match[1]] = value;
+        }
+    }
+
+    const applied = {};
+    for (const [state, variant] of Object.entries(declared)) {
+        const base = `Player_${state}_${variant}`;
+        const bases = _enemyAssetExists(_enemyAssetPath(base)) ? [base] : _enemyRangeBases(base);
+        if (!bases.length) {
+            console.warn('[enemy-assets] No player sprites found for', base);
+            continue;
+        }
+        applied[state.toLowerCase()] = bases.map(_loadEnemyFrame);
+    }
+    return applied;
+}
+
 function _cloneEnemyAnimDef(def = {}) {
     return {
         mode: def.mode || 'hold',
@@ -376,6 +409,9 @@ function _buildEnemyChar(enemyKey, defaults, typeDefaults, entry) {
         canGetUp: merged.canGetUp,
         getUps: merged.getUps,
         powerAttackEffect: merged.powerAttackEffect,
+        // Layers are least specific first, so an enemy entry wins over the
+        // attack-type block and that over the global defaults.
+        appliedPlayerAnims: _buildEnemyAppliedPlayerAnims([defaults, typeDefaults, entry]),
         animations: {},
     };
 
