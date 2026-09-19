@@ -36,7 +36,15 @@ const ENEMY_DEFS = {
     kingbrute:   { img:'KingBruteBreaker',    hp:550,  spd: 85,  dmg:30,  pts:2000,w:92, h:148, boss:true },
 };
 
-const ENEMY_HURT_DURATION = 0.35;
+// How long an enemy holds its walk cycle after its velocity drops to zero
+// before settling into its idle pose. _approach() returns exactly 0 inside its
+// deadzone and the AI re-decides between walking and standing every frame, so
+// an enemy parked on a deadzone, on enemyCloseEnough, or on the radius that
+// counts it as a rusher used to flip state on every frame. Every flip rewound
+// animT, which pinned the walk to its opening pose and strobed the idle sprite
+// against it. Riding out a flicker this short costs nothing and an enemy that
+// has genuinely stopped still stands within a sixth of a second.
+const ENEMY_IDLE_SETTLE = 0.15;
 
 function _enemyAnimationState(charKey, stateKey, visited = new Set()) {
     const animDef = ENEMY_CHARS[charKey]?.animations?.[stateKey];
@@ -173,6 +181,8 @@ class Enemy extends Entity {
         this.downT     = 0;
         this.invincible= false;
         this.deadT     = 0;
+        // Time since this enemy last had any velocity. See _walkOrIdle.
+        this.stillT    = 0;
         this.engageDelay = CFG.enemyEngageDelayMin + Math.random() * CFG.enemyEngageDelayMax;
         this.flankDir    = Math.random() < 0.5 ? 1 : -1;
         this.depthSlot   = (Math.random() - 0.5) * 80;
@@ -225,6 +235,29 @@ class Enemy extends Entity {
         const dist = Math.abs(delta) - deadzone;
         if (dist <= 0) return 0;
         return Math.sign(delta) * Math.min(maxSpeed, dist * 4);
+    }
+
+    // _walkOrIdle - pick this frame's locomotion pose.
+    //
+    // The AI asks this question every frame from a velocity that _approach()
+    // snaps to exactly 0 inside its deadzone, so an enemy hovering on one of
+    // those edges answers differently on consecutive frames. Two guards make
+    // that flicker invisible: the walk is held for ENEMY_IDLE_SETTLE past the
+    // last movement, so a one-frame stall never reaches the idle pose at all,
+    // and animT is carried across the swap, so a walk that does get interrupted
+    // resumes its cycle where it left off rather than restarting.
+    //
+    // Callers keep their own guard against interrupting an attack; this only
+    // ever chooses between walking and standing.
+    _walkOrIdle(moving, dt) {
+        if (moving) this.stillT = 0;
+        else        this.stillT += dt;
+
+        const next = (moving || this.stillT < ENEMY_IDLE_SETTLE) ? 'walk' : 'idle';
+        if (this.state === next) return;
+        const carried = this.animT;
+        this.setState(next);
+        if (next === 'walk') this.animT = carried;
     }
 
     // _startAttack — enter the attack state and arm the pending strike.
@@ -365,11 +398,10 @@ class Enemy extends Entity {
             this.facing = dx > 0 ? 1 : -1;
             if (this.state === 'attack') {
                 // Don't interrupt attack animation while re-engaging
-            } else if (this.vx !== 0 || this.vy !== 0) {
-                if (this.state !== 'walk') this.setState('walk');
-                this.moveXY(dt);
             } else {
-                if (this.state !== 'idle') this.setState('idle');
+                const moving = this.vx !== 0 || this.vy !== 0;
+                this._walkOrIdle(moving, dt);
+                if (moving) this.moveXY(dt);
             }
             if (cam.x > 0) this.x = Math.max(cam.x - 250, this.x);
             return;
@@ -387,24 +419,25 @@ class Enemy extends Entity {
                 const rushSpd = this.speed * CFG.enemySpeedMultiplier;
                 this.vx = this._approach(dx, 20, rushSpd);
                 this.vy = this._approach(dy, 12, rushSpd * 0.5);
-                if (this.state !== 'walk' && this.state !== 'attack') this.setState('walk');
-                if (this.state !== 'attack') this.moveXY(dt);
+                if (this.state !== 'attack') {
+                    this._walkOrIdle(this.vx !== 0 || this.vy !== 0, dt);
+                    this.moveXY(dt);
+                }
             } else {
                 const holdX    = player.x + this.flankDir * (closeEnough + 100);
                 const hdx      = holdX - this.x;
                 const holdSpd  = this.speed * CFG.enemySpeedMultiplier;
                 this.vx = this._approach(hdx, 35, holdSpd * 0.28);
                 this.vy = this._approach(dy,  22, holdSpd * 0.22);
-                if (this.vx !== 0 || this.vy !== 0) {
-                    if (this.state !== 'walk' && this.state !== 'attack') this.setState('walk');
-                    if (this.state !== 'attack') this.moveXY(dt);
-                } else {
-                    if (this.state !== 'idle' && this.state !== 'attack') this.setState('idle');
+                if (this.state !== 'attack') {
+                    const moving = this.vx !== 0 || this.vy !== 0;
+                    this._walkOrIdle(moving, dt);
+                    if (moving) this.moveXY(dt);
                 }
             }
         } else {
             this.vx = 0; this.vy = 0;
-            if (this.state !== 'attack' && this.state !== 'idle') this.setState('idle');
+            if (this.state !== 'attack') this._walkOrIdle(false, dt);
 
             const feet_dy = (player.y + player.h) - (this.y + this.h);
             if (this.atkCD <= 0 && Math.abs(feet_dy) < 50) {
@@ -494,8 +527,22 @@ class Enemy extends Entity {
         } else {
             this.x += dir * CFG.enemyKnockbackDist;
             this.clampToStageField(prevX, this.y);
-            this.setState('hurt', ENEMY_HURT_DURATION);
+            this._beginHurt();
         }
+    }
+
+    // _beginHurt - enter the flinch, or extend one already running.
+    //
+    // setState() rewinds animT, so every blow used to restart the damage run
+    // from its opening pose. A combo lands faster than the run plays, which
+    // meant the enemy never got past the first hunch however many frames its
+    // reaction was drawn with. A blow arriving mid-flinch now only pushes the
+    // timer out: one run plays across the whole combo, and _enemySequenceFrame
+    // holds its final pose once the frames are spent, so the reaction ends on
+    // the last hit instead of snapping back to the start of the flinch.
+    _beginHurt() {
+        if (this.state === 'hurt') { this.stTimer = CFG.enemyHurtTime; return; }
+        this.setState('hurt', CFG.enemyHurtTime);
     }
 
     // _beginGetUp - survive a lethal blow and go down instead of out.
@@ -539,14 +586,14 @@ class Enemy extends Entity {
                     holdTail: CFG.enemyAttackFrameHold,
                 }) || idleImg;
             case 'hurt':
-                return _enemyPickFrame(charKey, 'damage', this.animT, { duration: ENEMY_HURT_DURATION }) || idleImg;
+                return _enemyPickFrame(charKey, 'damage', this.animT, { duration: CFG.enemyHurtTime }) || idleImg;
             case 'knockedUp':
                 // Airborne, so the collapse is held on its opening pose. A
                 // character folding up in mid-air reads as a glitch; the fall
                 // itself is the animation here. animT of 0 pins frame one
                 // whatever mode the state uses.
                 return _enemyPickFrame(charKey, 'preDefeat', 0, { duration: CFG.enemyPreDefeatTime }) ||
-                    _enemyPickFrame(charKey, 'damage', this.animT, { duration: ENEMY_HURT_DURATION }) ||
+                    _enemyPickFrame(charKey, 'damage', this.animT, { duration: CFG.enemyHurtTime }) ||
                     idleImg;
             case 'knockdown':
                 // On the ground the collapse plays once over enemyPreDefeatTime
@@ -555,7 +602,7 @@ class Enemy extends Entity {
                 // whole knockdown sat on a single frame, which read as a long
                 // pause and then a jump straight to the much wider lying pose.
                 return _enemyPickFrame(charKey, 'preDefeat', this.animT, { duration: CFG.enemyPreDefeatTime }) ||
-                    _enemyPickFrame(charKey, 'damage', this.animT, { duration: ENEMY_HURT_DURATION }) ||
+                    _enemyPickFrame(charKey, 'damage', this.animT, { duration: CFG.enemyHurtTime }) ||
                     idleImg;
             case 'getup':
                 return _enemyPickFrame(charKey, 'getUp', this.animT, { duration: CFG.enemyGetupTime }) ||

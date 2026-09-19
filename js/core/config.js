@@ -43,6 +43,14 @@ const CFG = {
     objCollisionOverlap:     15,
     objCollisionDepthTol:    55,
     objBreakDropChance:    0.65,   // probability a smashed crate drops a health pickup
+    // A crate absorbs objBreakHits blows before it gives way. The first blow
+    // swaps it to the cracked sprite, the last one bursts it. 1 restores the
+    // old one-shot behaviour.
+    objBreakHits:             3,
+    objHitShakeTime:       0.18,   // how long a surviving crate rocks after a blow
+    objHitShakeDist:          4,   // peak sideways jolt of that rock, in px
+    objBreakFxCount:         16,   // splinters thrown by the break effect
+    objBreakFxTime:        0.65,   // seconds those splinters stay on screen
     // ── Pickup collection ────────────────────────────────────────────────────
     pickupRange:             55,
     pickupDepthTol:          60,
@@ -144,10 +152,15 @@ const CFG = {
     enemyFlankSpeed:       0.32,   // fraction of enemy speed used during flanking
     enemySeparationSpeed:   150,   // max px/s an enemy is nudged apart from others
     // ── Enemy animation ──────────────────────────────────────────────────────
-    enemyAttackDuration:      0.9,
+    enemyAttackDuration:     0.95,
     enemyAttackFrameHold:    0.50,
     enemyAttackFPS:            2,
     enemyHurtFlashFPS:        20,
+    // How long the damage run plays for, and with it how long a blow staggers
+    // an enemy. Blows landing inside the window extend it rather than restart
+    // it, so a combo plays one reaction through instead of replaying its first
+    // frame; see Enemy._beginHurt.
+    enemyHurtTime:           0.55,
     // ── Score ────────────────────────────────────────────────────────────────
     scoreMultiplier:         1.0,
     // ── Background ambience ──────────────────────────────────────────────────

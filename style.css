@@ -378,10 +378,19 @@ canvas {
     transition: background 0.12s, color 0.12s;
 }
 
-.title-btn:hover {
+.title-btn:hover,
+.title-btn.selected {
     background: var(--wx-accent);
     color: #000;
 }
+
+/* The keyboard highlight also gets a marker, so which entry Enter will start is
+   readable without moving the mouse. */
+.title-btn.selected {
+    box-shadow: 0 0 0 2px rgba(255,138,43,0.35), 0 0 24px rgba(255,138,43,0.35);
+}
+
+.title-btn:focus { outline: none; }
 
 /* ── Pause button ───────────────────────────────────────────────────────── */
 #pause-btn {
@@ -448,9 +457,10 @@ canvas {
     position: fixed;
     left: 0;
     top: 0;
-    width: auto;
+    width: auto;         /* measured once and then pinned in px by the resizer */
     height: 100vh;
     overflow-y: auto;
+    overflow-x: hidden;
     background: var(--wx-panel-bg);
     border-right: 1px solid #2a2a2a;
     padding: 8px 10px 20px;
@@ -512,6 +522,7 @@ canvas {
     width: 240px;
     height: 100vh;
     overflow-y: auto;
+    overflow-x: hidden;
     background: var(--wx-panel-bg);
     border-left: 1px solid #2a2a2a;
     padding: 8px 10px 20px;
@@ -565,7 +576,8 @@ canvas {
 }
 
 .dbg-label {
-    flex: 0 0 100px;
+    flex: 1 1 100px;
+    min-width: 0;
     font-size: 9px;
     color: #999;
     white-space: nowrap;
@@ -574,7 +586,8 @@ canvas {
 }
 
 .dbg-slider {
-    flex: 1;
+    flex: 1 1 72px;
+    min-width: 42px;
     height: 3px;
     accent-color: var(--wx-accent);
     cursor: pointer;
@@ -621,6 +634,47 @@ canvas {
 #dbg-export:hover {
     background: var(--wx-accent);
     color: #000;
+}
+
+/* ── Debug panel resize handle ────────────────────────────────────────── */
+/* The handle is a child of the panel so it hides with it, but it is positioned
+   against the viewport rather than the panel: an absolutely positioned child
+   would scroll away with the panel's contents. js/ui/debug.js keeps its offset
+   in step with the panel width. */
+.dbg-resizer {
+    position: fixed;
+    top: 0;
+    height: 100vh;
+    width: 7px;
+    z-index: 51;
+    cursor: ew-resize;
+    background: transparent;
+    touch-action: none;
+}
+
+.dbg-resizer::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 3px;
+    width: 1px;
+    background: var(--wx-accent);
+    opacity: 0;
+    transition: opacity 0.12s;
+}
+
+.dbg-resizer:hover::after,
+body.dbg-resizing .dbg-resizer::after {
+    opacity: 0.8;
+}
+
+/* While a drag is live the cursor must not flicker as the pointer crosses the
+   game canvas, and text under it must not start selecting. */
+body.dbg-resizing {
+    cursor: ew-resize;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 /* ── Debug Focus dropdown ─────────────────────────────────────────────── */

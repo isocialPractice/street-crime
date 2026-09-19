@@ -50,6 +50,58 @@ function initStage(idx) {
     gameState = 'playing';
 }
 
+// ── Title screen menu ──────────────────────────────────────────────────
+// The title buttons answer to the mouse and the keyboard at the same time:
+// up/down (or W/S) move the highlight, Enter or Space starts the highlighted
+// mode, and clicking or hovering a button still works exactly as before.
+//
+// The highlight is tracked here rather than through DOM focus on purpose. A
+// focused <button> is activated by the browser on Enter as well, so driving the
+// menu through focus would run the chosen mode twice on a single keypress.
+const TITLE_ITEMS = [
+    { id: 'btn-game',        start: () => startGame(false)  },
+    { id: 'btn-debug',       start: () => startGame(true)   },
+    { id: 'btn-debug-level', start: () => startDebugLevel() },
+];
+let titleIdx = 0;
+
+function setTitleSelection(i) {
+    titleIdx = (i + TITLE_ITEMS.length) % TITLE_ITEMS.length;
+    TITLE_ITEMS.forEach((item, n) => {
+        const btn = document.getElementById(item.id);
+        if (btn) btn.classList.toggle('selected', n === titleIdx);
+    });
+}
+
+function _onTitleKey(e) {
+    if (gameState !== 'title') return;
+    switch (e.code) {
+        case 'ArrowUp':   case 'KeyW': setTitleSelection(titleIdx - 1); break;
+        case 'ArrowDown': case 'KeyS': setTitleSelection(titleIdx + 1); break;
+        case 'Enter': case 'NumpadEnter': case 'Space':
+            TITLE_ITEMS[titleIdx].start();
+            // The press that started the game must not also reach the first
+            // frame of it, or the player jumps or swings on the way in.
+            clearJustPressed();
+            break;
+        default: return;
+    }
+    e.preventDefault();
+}
+
+function initTitleMenu() {
+    TITLE_ITEMS.forEach((item, n) => {
+        const btn = document.getElementById(item.id);
+        if (!btn) return;
+        btn.addEventListener('click', item.start);
+        // Hovering moves the highlight so the mouse and the keyboard never
+        // disagree about which entry is the live one.
+        btn.addEventListener('mouseenter', () => setTitleSelection(n));
+    });
+    setTitleSelection(0);
+    window.addEventListener('keydown', _onTitleKey);
+}
+
 function startGame(isDebug) {
     debugMode = isDebug;
     document.getElementById('title-screen').classList.add('hidden');
@@ -133,6 +185,7 @@ function update(dt) {
     enemies.forEach(e => e.update(dt, player, enemies));
     effects.forEach(f => f.update(dt));
     pickups.forEach(p => p.update(dt));
+    breakables.forEach(o => o.update(dt));
 
     // Remove "done" entries each frame.
     enemies    = enemies.filter(e => !e.isDone);
@@ -211,9 +264,7 @@ window.addEventListener('load', async () => {
 
     document.getElementById('loading-screen').style.display = 'none';
 
-    document.getElementById('btn-game').addEventListener('click',   () => startGame(false));
-    document.getElementById('btn-debug').addEventListener('click',  () => startGame(true));
-    document.getElementById('btn-debug-level').addEventListener('click', () => startDebugLevel());
+    initTitleMenu();
     pauseBtn.addEventListener('click', togglePause);
     requestAnimationFrame(gameLoop);
 });

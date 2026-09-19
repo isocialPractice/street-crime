@@ -11,9 +11,13 @@ const EFFECTS = {
 };
 
 // OBJECTS — sprites for breakable crates and health pickups.
-// 'intact' and 'broken' are swapped by BreakableObj.draw() based on the 'broken' flag.
+// A crate runs through three states as it is beaten apart: 'intact' until the
+// first blow lands, 'damaged' (cracked open, chunks knocked out of the rim)
+// while it still has hits left in it, and 'broken' once it gives way.
+// BreakableObj.draw() picks between them from the hit count.
 const OBJECTS = {
     intact:  loadSvgFile('assets/Object_Box.svg'),
+    damaged: loadSvgFile('assets/Object_Box_Damaged.svg'),
     broken:  loadSvgFile('assets/Object_Box_Broken.svg'),
     health:  loadSvgFile('assets/Object_Health.svg'),
 };

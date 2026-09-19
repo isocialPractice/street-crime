@@ -1,10 +1,11 @@
 {
   "enemyWalkFPS": 5,
   "enemyIdleFPS": 5,
-  "enemyAttackDuration": 0.9,
+  "enemyAttackDuration": 0.95,
   "enemyAttackFrameHold": 0.45,
   "enemyAttackFPS": 5,
   "enemyHurtFlashFPS": 55,
+  "enemyHurtTime": 0.55,
   "enemyCloseEnough": 72,
   "enemyAtkCheckDist": 95,
   "enemyAtkDepthTol": 35,

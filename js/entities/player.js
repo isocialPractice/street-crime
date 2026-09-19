@@ -48,6 +48,11 @@ class Player extends Entity {
         this.invT   = 0;        // invincibility timer
         this.isRun  = false;
         this.downT  = 0;        // knockdown timer
+        // atkSeq identifies the current swing. _doAttack bumps it once per
+        // attack, and anything that has to land exactly one hit per swing while
+        // being tested every frame (breakable crates) remembers the value it
+        // last saw. See BreakableObj.hit().
+        this.atkSeq = 0;
         // ── Stamina (gates run-kick) ──────────────────────────────────────
         // stamina is normalised 0..1 (1 = full, 0 = empty).
         // stamCD counts down the post-use delay before recharging starts.
@@ -324,7 +329,10 @@ class Player extends Entity {
             }
         }
 
-        // Break objects
+        // Break objects. This test runs on every frame of an attack, so the blow
+        // is tagged with atkSeq and the crate counts one hit per swing however
+        // many frames it spends inside the box. It takes CFG.objBreakHits of
+        // them to burst.
         if (this.busy && !['hurt','knockdown','knockedUp'].includes(this.state)) {
             const bfront = (this.facing === 1) ? this.x + this.w : this.x;
             const bhx1   = (this.facing === 1) ? bfront - CFG.objCollisionOverlap : bfront - CFG.objCollisionRange;
@@ -333,7 +341,7 @@ class Player extends Entity {
                 if (!obj.broken
                     && bhx2 > obj.x && bhx1 < obj.x + obj.w
                     && Math.abs((this.y + this.h) - obj.y) < CFG.objCollisionDepthTol) {
-                    obj.smash(effects, pickups);
+                    obj.hit(effects, pickups, this.atkSeq, this.x + this.w / 2);
                 }
             });
         }
@@ -358,6 +366,7 @@ class Player extends Entity {
     // All attack parameters are data-driven by 'type' so adding a new move only
     // requires new entries in the lookup tables below.
     _doAttack(enemies, effects, type) {
+        this.atkSeq++;
         const RANGE  = { punch:CFG.punchRange, kick:CFG.kickRange, uppercut:CFG.uppercutRange, runningkick:CFG.runningKickRange, jumpkick:CFG.jumpKickRange };
         const DMG    = { punch:CFG.punchDmg,   kick:CFG.kickDmg,   uppercut:CFG.uppercutDmg,   runningkick:CFG.runningKickDmg,   jumpkick:CFG.jumpKickDmg   };
         const LAUNCH = { uppercut: 450, runningkick:0, jumpkick:0, punch:0, kick:0 };

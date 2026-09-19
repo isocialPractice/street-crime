@@ -10,6 +10,95 @@ const DEBUG_LEVEL_STAGE = {
     scene: SVG_SCENES.testItWorked,
 };
 
+// ── Panel resizing ────────────────────────────────────────────
+// Both debug panels are dragged wider or narrower by their inner edge. The
+// chosen width is kept in localStorage, so a panel opened at a comfortable size
+// is still that size the next time debug mode is entered.
+const DBG_MIN_WIDTH    = 180;
+const DBG_MAX_FRACTION = 0.45;   // a panel never eats more of the window than this
+// Both panels are built while still hidden, so there is nothing to measure on
+// the first pass. This is the width they open at before anyone drags them.
+const DBG_DEFAULT_WIDTH = 240;
+
+function _dbgMaxWidth() {
+    return Math.max(DBG_MIN_WIDTH, window.innerWidth * DBG_MAX_FRACTION);
+}
+
+// Storage is wrapped because it throws outright when the page is opened from
+// file:// with site data blocked, which would take the whole panel down with it.
+function _dbgStoredWidth(key) {
+    try { return Number(localStorage.getItem('sc-dbg-width-' + key)) || 0; }
+    catch (e) { return 0; }
+}
+
+function _dbgStoreWidth(key, w) {
+    try { localStorage.setItem('sc-dbg-width-' + key, String(Math.round(w))); }
+    catch (e) { /* storage unavailable - the width just does not persist */ }
+}
+
+// makeDebugPanelResizable - attach a drag handle to one panel.
+// 'side' is the screen edge the panel is pinned to, so the handle sits on the
+// opposite edge and dragging away from that wall widens the panel.
+//
+// buildDebugPanel() replaces the panel's innerHTML, which throws the handle
+// away, so the handle element is parked on the panel object itself and simply
+// re-appended rather than rebuilt. That also keeps its listeners bound once.
+function makeDebugPanelResizable(panel, side) {
+    if (!panel) return;
+    const first = !panel._dbgHandle;
+    if (first) {
+        panel._dbgHandle = document.createElement('div');
+        panel._dbgHandle.className = 'dbg-resizer';
+        panel._dbgHandle.title     = 'Drag to resize panel';
+    }
+    const handle = panel._dbgHandle;
+    panel.appendChild(handle);
+
+    const apply = w => {
+        const clamped = Math.max(DBG_MIN_WIDTH, Math.min(_dbgMaxWidth(), w));
+        panel.style.width = clamped + 'px';
+        // The handle straddles the panel edge: half of it hangs over the panel,
+        // half over the playfield, so it can be grabbed from either direction.
+        handle.style[side] = (clamped - 3) + 'px';
+        return clamped;
+    };
+
+    // A stored width wins. Failing that the panel keeps the width it already
+    // has, and if it is still hidden (offsetWidth 0, which is the case on the
+    // build that happens just before debug mode is shown) it opens at the
+    // default rather than collapsing to DBG_MIN_WIDTH.
+    apply(_dbgStoredWidth(side) || panel.offsetWidth || DBG_DEFAULT_WIDTH);
+
+    if (!first) return;
+
+    let startX = 0, startW = 0;
+    const onMove = e => apply(side === 'left' ? startW + (e.clientX - startX)
+                                             : startW - (e.clientX - startX));
+    const onUp = e => {
+        handle.removeEventListener('pointermove', onMove);
+        handle.removeEventListener('pointerup', onUp);
+        handle.removeEventListener('pointercancel', onUp);
+        if (handle.hasPointerCapture && handle.hasPointerCapture(e.pointerId))
+            handle.releasePointerCapture(e.pointerId);
+        document.body.classList.remove('dbg-resizing');
+        _dbgStoreWidth(side, panel.offsetWidth);
+    };
+
+    handle.addEventListener('pointerdown', e => {
+        startX = e.clientX;
+        startW = panel.offsetWidth;
+        handle.setPointerCapture(e.pointerId);
+        handle.addEventListener('pointermove', onMove);
+        handle.addEventListener('pointerup', onUp);
+        handle.addEventListener('pointercancel', onUp);
+        document.body.classList.add('dbg-resizing');
+        e.preventDefault();
+    });
+
+    // Shrinking the window must not leave a panel covering half the screen.
+    window.addEventListener('resize', () => apply(panel.offsetWidth));
+}
+
 // ── Right panel (global / meta settings) ─────────────────────────────────────
 function buildDebugPanel() {
     const panel = document.getElementById('debug-panel');
@@ -92,6 +181,7 @@ function buildDebugPanel() {
     document.getElementById('dbg-bg-amb').addEventListener('change', e => { CFG.bgAmbience     = e.target.checked; });
     document.getElementById('dbg-weather').addEventListener('change', e => { CFG.weather       = e.target.checked; });
     document.getElementById('dbg-export').addEventListener('click', exportConfig);
+    makeDebugPanelResizable(panel, 'right');
 }
 
 function exportConfig() {
@@ -162,6 +252,7 @@ const _DEBUG_FOCUS_ROWS = {
         { key:'enemyAttackFrameHold',      label:'Frame Hold (s)',     min:0,   max:2.0, step:0.05 },
         { key:'enemyAttackFPS',            label:'Attack FPS',         min:1,   max:30,  step:1    },
         { key:'enemyHurtFlashFPS',         label:'Hurt Flash FPS',     min:1,   max:60,  step:1    },
+        { key:'enemyHurtTime',             label:'Damage Time (s)',    min:0.1, max:2.0, step:0.05 },
         { section: 'ENEMY AI BEHAVIOR' },
         { key:'enemyCloseEnough',          label:'Attack Dist',        min:20,  max:200, step:1    },
         { key:'enemyAtkCheckDist',         label:'Hit Reach',          min:20,  max:200, step:1    },
@@ -206,6 +297,12 @@ const _DEBUG_FOCUS_ROWS = {
         { key:'objCollisionDepthTol', label:'Depth Tol',          min:5,   max:120, step:1    },
         { section: 'OBJECT PROPERTIES' },
         { key:'objBreakDropChance',   label:'Drop Chance',        min:0,   max:1,   step:0.05 },
+        { key:'objBreakHits',         label:'Hits To Break',      min:1,   max:8,   step:1    },
+        { key:'objHitShakeTime',      label:'Hit Shake (s)',      min:0,   max:1,   step:0.02 },
+        { key:'objHitShakeDist',      label:'Hit Shake (px)',     min:0,   max:20,  step:1    },
+        { section: 'BREAK EFFECT' },
+        { key:'objBreakFxCount',      label:'Splinters',          min:0,   max:60,  step:1    },
+        { key:'objBreakFxTime',       label:'Splinter Life (s)',  min:0.1, max:3,   step:0.05 },
         { section: 'PICKUP COLLECTION' },
         { key:'pickupRange',          label:'Pickup Range',       min:10,  max:150, step:1    },
         { key:'pickupDepthTol',       label:'Pickup Depth Tol',   min:10,  max:120, step:1    },
@@ -253,6 +350,7 @@ function buildDebugLeftPanel() {
         spawnDebugObject();
         document.getElementById('dbg-obj-status').textContent = 'object spawned';
     });
+    makeDebugPanelResizable(panel, 'left');
 }
 
 function _renderFocusContent(mode) {
@@ -309,7 +407,7 @@ function _renderFocusContent(mode) {
 function exportEnemies() {
     const ENEMY_KEYS = [
         'enemyWalkFPS','enemyIdleFPS','enemyAttackDuration','enemyAttackFrameHold',
-        'enemyAttackFPS','enemyHurtFlashFPS','enemyCloseEnough','enemyAtkCheckDist',
+        'enemyAttackFPS','enemyHurtFlashFPS','enemyHurtTime','enemyCloseEnough','enemyAtkCheckDist',
         'enemyAtkDepthTol','enemyAtkCooldown','enemyFlankRadius','enemyFlankSpeed',
         'enemyStaticAtkRange','enemyStaticAtkCooldown','enemySeparationSpeed',
         'enemyEngageDelayMin','enemyEngageDelayMax','enemyReengageMin','enemyReengageRange',
@@ -331,7 +429,8 @@ function exportEnemies() {
 function exportObjects() {
     const OBJ_KEYS = [
         'objBlockDepthExpand','objCollisionRange','objCollisionOverlap','objCollisionDepthTol',
-        'objBreakDropChance','pickupRange','pickupDepthTol',
+        'objBreakDropChance','objBreakHits','objHitShakeTime','objHitShakeDist',
+        'objBreakFxCount','objBreakFxTime','pickupRange','pickupDepthTol',
     ];
     const out = {};
     for (const k of OBJ_KEYS) if (k in CFG) out[k] = CFG[k];

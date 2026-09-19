@@ -23,7 +23,6 @@
   },
   "wipEnemies": [
     "BadOne",
-    "TightRomper",
     "GreenJetter",
     "RoadFighter",
     "Stomper",
@@ -112,6 +111,16 @@
         "taunt": { "mode": "sequence", "suffixes": ["preAttack", "preAttack"]},
         "preDefeat": { "mode": "sequence", "suffixes": ["preDefeat_0", "preDefeat_1", "preDefeat_2", "preDefeat_3", "preDefeat_4", "preDefeat_5"] },
         "defeat": { "mode": "sequence", "suffixes": ["damage_2", "preDefeat", "defeat_0", "defeat_1"] }
+      }
+    },
+    "TightRomper": {
+      "attackType": "bodyAttack",
+      "animations": {
+        "walk": { "mode": "loop", "suffixes": ["walk_0", "walk_1", "walk_2", "walk_3", "walk_4"] },
+        "attack": { "mode": "sequence", "suffixes": ["attack_0", "attack_1", "attack_2", "attack_3", "attack_4", "attack_5", "attack_6", "attack_7", "attack_8"] },
+        "damage": { "mode": "sequence", "suffixes": ["damage_0", "damage_1", "damage_2", "damage_3", "damage_4", "damage_5", "damage_6"] },
+        "preDefeat": { "mode": "sequence", "suffixes": ["preDefeat_0", "preDefeat_1", "preDefeat_2", "preDefeat_3", "preDefeat_4"] },
+        "defeat": { "mode": "sequence", "suffixes": ["preDefeat", "defeat_0", "defeat_1", "defeat_2"] }
       }
     }
   }

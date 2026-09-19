@@ -8,6 +8,123 @@ anything earlier, see the commit log.
 
 ---
 
+## [2026.09.19]
+
+### Added
+- **TightRomper is fully animated.** The character had artwork for a single
+  standing pose and a lying defeat pose, so it walked, swung and died on that
+  one frame. It now has an entry in `config/enemy-assets.json` wiring up the
+  frames that landed with it:
+  - `walk` is a five frame loop, `walk_0` through `walk_4`. The set is a full
+    cycle rather than a half one: measured at the boots the stride goes
+    94, 84, 131, 66, 139 px, which is passing and contact poses alternating for
+    each leg in turn, so it plays straight through and loops rather than
+    ping-ponging the way `BadGirl` and `SassyGirl` do.
+  - `attack` is a nine frame high kick, `attack_0` through `attack_8`, covering
+    the wind-up, the extension and the recovery back to standing.
+  - `damage` is a seven frame hit reaction, `damage_0` through `damage_6`.
+  - `preDefeat` is the five frame collapse from staggering to hands and knees,
+    and `defeat` assembles that collapse with `defeat_0` through `defeat_2` to
+    carry the body the rest of the way to the floor.
+- **Crates take three blows to break, and show it.** A crate used to burst on
+  the first thing that touched it, which made the only interactive scenery in
+  the game a non-event. `BreakableObj` now counts hits against
+  `CFG.objBreakHits` (3) and runs through three states: intact, the new
+  `assets/Object_Box_Damaged.svg` once it has been hit at all, and the existing
+  broken sprite when it gives way. Setting `objBreakHits` to 1 restores the old
+  one-shot behaviour exactly.
+  - The damaged sprite is the intact crate's own artwork with a split running
+    the height of the front face, a chunk knocked out of the top rim, and a
+    punched-through hole in the upper left slat. It shares the intact crate's
+    viewBox, so the two swap without the crate appearing to move.
+  - Every surviving blow rocks the crate away from the player: a decaying
+    wobble over `objHitShakeTime` (0.18s) peaking at `objHitShakeDist` (4px).
+  - Blows are tagged with a new `Player.atkSeq`, bumped once per swing in
+    `_doAttack()`. The crate hit test runs on every frame of an attack
+    animation, so without it a single punch would have spent the crate's whole
+    health in the handful of frames its hitbox overlapped.
+- **A crate that breaks throws splinters.** `BreakFX` (`js/entities/breakfx.js`)
+  joins `HitFX` in the `effects` array and follows the same contract. It spawns
+  `objBreakFxCount` (16) shards in an upward fan, integrates them under half
+  gravity for `objBreakFxTime` (0.65s), and fades a dust puff out underneath
+  them. The shards are drawn as rotating quads in colours sampled from the crate
+  art rather than sprited, so no two breaks look alike. The break also upgrades
+  its impact flash from `medium` to `hard`, which is what now separates the
+  sound of a crate giving way from a blow that only damages it.
+- **The title screen answers to the keyboard.** Up/down or W/S move the
+  highlight between GAME, DEBUG MODE and DEBUG LEVEL, and Enter or Space starts
+  the highlighted mode. Clicking a button still works, and hovering one moves
+  the highlight so the mouse and the keyboard never disagree about which entry
+  is live.
+  - The highlight is tracked in `TITLE_ITEMS` / `titleIdx` rather than through
+    DOM focus, because the browser activates a focused `<button>` on Enter as
+    well and driving the menu through focus would start the chosen mode twice
+    on one keypress.
+  - The press that starts the game is consumed with `clearJustPressed()`, so
+    Space on the title screen does not also reach the first frame of play and
+    make the player jump on the way in.
+- **Both debug panels resize horizontally.** Either panel can be dragged wider
+  or narrower by its inner edge, between 180px and 45% of the window. The width
+  is kept in `localStorage` per panel, so a panel opened at a comfortable size
+  is still that size the next time debug mode is entered, and shrinking the
+  window pulls an oversized panel back in rather than leaving it covering the
+  playfield.
+  - The handle is a child of the panel so it hides and shows with it, but it is
+    positioned against the viewport: an absolutely positioned child would
+    scroll away with the panel's contents. It is parked on the panel object
+    itself and re-appended after `buildDebugPanel()` replaces the innerHTML,
+    rather than being rebuilt with its listeners each time.
+  - Slider rows now flex instead of holding a fixed 100px label column, so a
+    widened panel gives the sliders the extra room and a narrowed one ellipsises
+    the labels instead of squeezing the sliders to nothing.
+
+### Fixed
+- **An enemy standing on a movement threshold strobed between its walk and its
+  idle pose.** `_approach()` snaps to exactly 0 inside its deadzone and the AI
+  re-decides between walking and standing every frame, so an enemy parked on a
+  deadzone, on `enemyCloseEnough`, or on the radius that counts it as a rusher
+  answered differently on consecutive frames. Every flip went through
+  `setState()`, which rewinds `animT`, so the walk cycle never got past its
+  opening pose while the idle sprite flickered over it. The four AI branches
+  now go through `Enemy._walkOrIdle()`, which holds the walk for
+  `ENEMY_IDLE_SETTLE` (0.15s) past the last movement and carries `animT` across
+  the swap. An enemy that has genuinely stopped still settles into idle.
+  - The defect is as old as the AI. It was invisible until now because every
+    enemy configured so far drew its idle and the first frame of its walk from
+    the same file, so there was nothing to see flicker.
+- **The damage run restarted on every blow, so a combo never got past the first
+  hunch.** `takeDamage()` called `setState('hurt', ...)` per hit and that
+  rewinds `animT`. A four hit combo used to show
+  `damage_0, damage_1, damage_0, damage_1, ...` before finally running. A blow
+  arriving mid-flinch now extends the timer through `Enemy._beginHurt()`
+  instead of restarting the run, so one reaction plays across the whole combo
+  and holds its final pose once the frames are spent: it ends on the last hit
+  rather than snapping back to the start.
+
+### Changed
+- `TightRomper` is out of the `wipEnemies` list in `config/enemy-assets.json`,
+  since it no longer needs the bare defaults an unconfigured enemy falls back
+  to. All 25 characters still build with no unresolved sprites.
+- **`enemyHurtTime` (0.55) replaces the `ENEMY_HURT_DURATION` constant** that
+  was hardcoded at 0.35 in `js/entities/enemy.js` and read from four call
+  sites. It is in `config/enemies.json` and on a slider in the debug enemy
+  panel, the same treatment `playerHurtTime` got in `2026.09.15`. The longer
+  window is what lets a multi-frame reaction such as TightRomper's seven frames
+  actually read; note that it also governs how long a blow staggers an enemy,
+  since the flinch is the stagger.
+- **`enemyAttackDuration` is 0.95, up from 0.9.** The active part of a swing is
+  `enemyAttackDuration` minus `enemyAttackFrameHold` (0.45), so this widens it
+  from 0.45s to 0.50s: about 6ms more per frame on a nine frame attack. It also
+  moves where `enemyAtkHitDelay` (270ms) lands in TightRomper's kick, from the
+  recovery frame back onto the extension.
+- **Five new object keys, in `config/objects.json` and on sliders in the debug
+  object panel:** `objBreakHits`, `objHitShakeTime`, `objHitShakeDist`,
+  `objBreakFxCount` and `objBreakFxTime`. `exportObjects()` writes all five.
+- **`update()` in `game.js` now ticks `breakables`.** They had no per-frame
+  state before; they do now, for the hit recoil.
+
+---
+
 ## [2026.09.16]
 
 ### Fixed
