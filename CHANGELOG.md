@@ -8,6 +8,63 @@ anything earlier, see the commit log.
 
 ---
 
+## [2026.09.20]
+
+### Added
+- **HyJungScout is fully animated.** It had a walk built from its idle pose and
+  a one frame attack, and no hit reaction or collapse at all. Its entry in
+  `config/enemy-assets.json` now covers the frames that landed with it:
+  - `walk` is a five frame loop, `walk_0` through `walk_4`. As with
+    `TightRomper` the set is a full cycle rather than a half one: the boots span
+    133, 133, 57, 97, 186 px, which is the rear leg lifting, tucking through the
+    passing pose and swinging out to full stride, so it plays straight through
+    and loops. The old entry ping-ponged three frames and used the idle pose as
+    the first of them; `HyJungScout.svg` is now the idle and nothing else.
+  - `attack` is a fourteen frame blade sequence, `attack_0` through
+    `attack_13`: the draw, the lunge, and putting the weapon away again.
+  - `damage` is a four frame hit reaction and `preDefeat` a four frame topple
+    that carries on from it, with `defeat` assembling that topple and
+    `defeat_0` / `defeat_1` into the settled pose on the floor.
+  - Every one of those states is authored as a bare suffix, so each is the
+    contiguous numbered run on disk and adding a frame to any of them needs no
+    config edit. `TightRomper` spells its runs out frame by frame instead; both
+    forms resolve identically.
+- **Per-character attack pacing.** An enemy entry in `config/enemy-assets.json`
+  may declare `attackTime`, the seconds its attack frames take to play. The
+  shared timings in `config/enemies.json` can only suit one sequence length and
+  they are tuned for the short ones: a fourteen frame weapon draw and a two
+  frame jab cannot read at the same rate. `HyJungScout` is the first to use it,
+  at 1.5s, which puts its swing at about 107ms a frame instead of 36ms.
+  - The swing lasts that window plus `enemyAttackFrameHold`, the tail that
+    leaves the final pose on screen. An enemy with no `attackTime` therefore
+    lands back on exactly `enemyAttackDuration` and nothing about it moves.
+  - `enemyAtkHitDelay` is one number for every character, so it only means
+    anything as a position within the sequence. Stretching an enemy's frames
+    stretches its hit delay by the same factor, which keeps the blow landing on
+    the frame the artwork connects on rather than sliding back into the
+    wind-up. HyJungScout's lands at 810ms, on `attack_7`, the full lunge. Every
+    other character still lands at 270ms on the frame it did before.
+
+### Changed
+- **The debug enemy dropdown is sorted alphabetically.** It was built straight
+  off `ENEMY_DEFS`, which is ordered by stage: the right order to read that
+  table in and the wrong one to hunt a name in.
+- `HyJungScout_attack.svg` and `HyJungScout_defeat.svg` were renamed to
+  `_attack_0` and `_defeat_0` as the first frames of their runs. The config
+  needed nothing for this beyond the entry above: a literal
+  `<EnemyName>_<suffix>.svg` always wins over an inferred run, so removing the
+  literal is what lets the numbered rule pick the run up.
+
+### Notes
+- `attackType` stays `bodyAttack` even though the character now visibly carries
+  a blade. `weaponAttack` is not a description of the artwork, it is the config
+  layer that grants `canGetUp`, one `getUp`, and a `getUp` animation. With no
+  get-up frames on disk that state falls back to `preDefeat`, so the enemy would
+  play its collapse forward again in place of standing up. Worth switching once
+  get-up frames exist.
+
+---
+
 ## [2026.09.19]
 
 ### Added

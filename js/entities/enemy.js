@@ -264,11 +264,47 @@ class Enemy extends Entity {
     // The damage check itself runs later in _updateStrike, after the wind-up
     // delay, against the LIVE player position at the moment of impact.
     _startAttack(cooldown) {
-        this.setState('attack', CFG.enemyAttackDuration);
+        this.setState('attack', this._attackDuration());
         this.atkCD  = cooldown + Math.random();
         // Reach is captured with the swing, alongside facing, so the hit is
         // judged by the attack that was actually thrown.
-        this.strike = { t: CFG.enemyAtkHitDelay / 1000, facing: this.facing, range: this.attackRange };
+        this.strike = { t: this._attackHitDelay(), facing: this.facing, range: this.attackRange };
+    }
+
+    // _attackFrameTime - seconds this enemy's attack frames take to play.
+    //
+    // The shared enemyAttackDuration is tuned for the short sequences most
+    // characters have, and the last frame of any of them is held for
+    // enemyAttackFrameHold on top, so the frames themselves get the difference.
+    // An enemy that declares "attackTime" in config/enemy-assets.json sets that
+    // window itself, which is what a long run such as HyJungScout's fourteen
+    // frame draw and lunge needs to be readable at all.
+    _attackFrameTime() {
+        const declared = ENEMY_CHARS[this.def.img]?.attackTime || 0;
+        return declared > 0 ? declared : this._sharedAttackFrameTime();
+    }
+
+    _sharedAttackFrameTime() {
+        return Math.max(0.001, CFG.enemyAttackDuration - CFG.enemyAttackFrameHold);
+    }
+
+    // The swing runs for as long as its frames take, plus the tail hold that
+    // leaves the final pose on screen. An enemy on the shared pacing therefore
+    // lands back on exactly enemyAttackDuration.
+    _attackDuration() {
+        return this._attackFrameTime() + CFG.enemyAttackFrameHold;
+    }
+
+    // _attackHitDelay - seconds from the start of the swing to the blow landing.
+    //
+    // enemyAtkHitDelay is one number for every character, so it only means
+    // anything as a position within the sequence: at the shared pacing it picks
+    // out the frame the artwork connects on. Stretching an enemy's frames
+    // stretches the delay by the same factor, so the blow keeps landing on that
+    // frame instead of sliding back into the wind-up.
+    _attackHitDelay() {
+        const scale = this._attackFrameTime() / this._sharedAttackFrameTime();
+        return (CFG.enemyAtkHitDelay / 1000) * scale;
     }
 
     // _appliedPlayerAnims - player animations this enemy's hits swap in, keyed by
@@ -582,7 +618,7 @@ class Enemy extends Entity {
                 // powerAttack falls back to 'attack' when a character has no
                 // power frames of its own, so this is safe for every enemy.
                 return _enemyPickFrame(charKey, this.hasGottenUp ? 'powerAttack' : 'attack', this.animT, {
-                    duration: CFG.enemyAttackDuration,
+                    duration: this._attackDuration(),
                     holdTail: CFG.enemyAttackFrameHold,
                 }) || idleImg;
             case 'hurt':

@@ -314,7 +314,10 @@ let _currentFocusMode = 'player';
 
 function buildDebugLeftPanel() {
     const panel = document.getElementById('debug-left-panel');
+    // Sorted so the list is scannable. ENEMY_DEFS is ordered by stage, which is
+    // the right order to read that table in and the wrong one to hunt a name in.
     const enemyOptions = Object.keys(ENEMY_DEFS)
+        .sort((a, b) => a.localeCompare(b))
         .map(k => `<option value="${k}">${k}</option>`)
         .join('');
 

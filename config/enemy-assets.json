@@ -62,9 +62,13 @@
     },
     "HyJungScout": {
       "attackType": "bodyAttack",
+      "attackTime": 1.5,
       "animations": {
-        "walk": { "mode": "loop", "suffixes": ["", "walk_1", "walk_2", "walk_1"] },
-        "attack": { "mode": "sequence", "suffixes": ["attack"] }
+        "walk": { "mode": "loop", "suffixes": ["walk"] },
+        "attack": { "mode": "sequence", "suffixes": ["attack"] },
+        "damage": { "mode": "sequence", "suffixes": ["damage"] },
+        "preDefeat": { "mode": "sequence", "suffixes": ["preDefeat"] },
+        "defeat": { "mode": "sequence", "suffixes": ["preDefeat", "defeat"] }
       }
     },
     "JammingJabber": {

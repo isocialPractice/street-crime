@@ -7,29 +7,46 @@
 
 ## Current
 
-- [ ] Core collision detection
-- [ ] Key actions
+### User Only - Update Assets
+
+#### Create
+
+- [ ] Player block sprites
+  - Unpause `Auto map assets` when ready
 - [ ] Add interactable background elements
-  - **User only**: Create graphics
+  - Create graphics
   - Config system to map interactable background elements i.e.
     - Open door
     - Climb something
     - Talk to friendly character
+- [ ] Add weapons
+  - Create graphics
+
+#### Organize
+
+- [ ] Rename player and enemy asset layer names, allowing for sprite customization
+
+#### Effects
+
+- [ ] Effects for graphics:
+  - Attack collision
+  - Character movements
+  - Stage background elements
+- [ ] Sound effects
+
+  ### Game
+
+- [ ] **Pause**: Auto map assets
+  - Create plan to map and apply new actions using JSON configuration
+- [ ] Core collision detection
+- [ ] Key actions
 - [ ] Add object sprites with different states relative:
   - Attack impacts
   - Stage progression
-- [ ] Add weapons
-  - **User only**: Create graphics
   - Config system to map weapon use
 - [ ] Use side-scrolling image as level background art
 - [ ] Add configuration system to map where enemies spawn for each level
 - [ ] Add interactable object elements
-- [ ] **User only**: Rename player and enemy asset layer names, allowing for sprite customization
-- [ ] **User only**: Effect graphics for:
-  - Attack collision
-  - Character movements
-  - Stage background elements
- - [ ] **User only**: Sound effects
 
 ## 1. Major
 

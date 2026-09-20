@@ -23,6 +23,14 @@
 // exist. Dropping "SassyGirl_defeat_0.svg" and "SassyGirl_defeat_1.svg" into
 // assets/ is enough to turn a one-frame defeat into a two-frame one.
 //
+// Attack pacing
+// -------------
+// The attack timings in config/enemies.json are shared by every character, so
+// they can only suit one sequence length. An enemy may declare "attackTime",
+// the seconds its attack frames take to play, and a long run then reads at its
+// own rate without dragging out everyone else's swing. The blow keeps landing
+// on the frame the artwork connects on: see Enemy._attackHitDelay.
+//
 // Get-ups and power attacks
 // -------------------------
 // An enemy may declare "canGetUp" and a "getUps" count: how many times it
@@ -193,6 +201,11 @@ function _mergeEnemyAssetEntry(defaults = {}, typeDefaults = {}, entry = {}) {
         // A get-up count is meaningless without the ability to get up, so it is
         // forced to zero rather than left as a trap for a half-written entry.
         getUps: canGetUp ? Math.max(0, Number(_pickEnemyField('getUps', layers, 0)) || 0) : 0,
+        // Seconds this enemy's attack frames take to play, or 0 to keep the
+        // shared pacing in config/enemies.json. Sequence lengths vary further
+        // than one global can cover: a two frame jab and a fourteen frame
+        // weapon draw cannot read at the same rate. See Enemy._attackFrameTime.
+        attackTime: Math.max(0, Number(_pickEnemyField('attackTime', layers, 0)) || 0),
         animations: {},
     };
     const defaultAnimations = defaults.animations || {};
@@ -408,6 +421,7 @@ function _buildEnemyChar(enemyKey, defaults, typeDefaults, entry) {
         attackType: merged.attackType,
         canGetUp: merged.canGetUp,
         getUps: merged.getUps,
+        attackTime: merged.attackTime,
         powerAttackEffect: merged.powerAttackEffect,
         // Layers are least specific first, so an enemy entry wins over the
         // attack-type block and that over the global defaults.
