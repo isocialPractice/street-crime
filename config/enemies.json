@@ -12,6 +12,7 @@
   "enemyAtkCooldown": 2.2,
   "enemyFlankRadius": 160,
   "enemyFlankSpeed": 0.32,
+  "enemyWalkMinSpeed": 10,
   "enemyStaticAtkRange": 80,
   "enemyStaticAtkCooldown": 1.6,
   "enemyEngageDelayMin": 1.5,

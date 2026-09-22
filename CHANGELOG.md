@@ -8,6 +8,50 @@ anything earlier, see the commit log.
 
 ---
 
+## [2026.09.22]
+
+### Added
+- **Idle animations for seven characters.** `BadGirl`, `CrimeGuy`,
+  `HyJungScout`, `JammingJabber`, `SassyGirl` and `TightRomper` each gained an
+  `idle` entry in `config/enemy-assets.json`; `JumpingJunkie` already had one
+  and picked its new frame up without an edit. Each is a loop led by the
+  character's base sprite and followed by the contiguous run on disk, which is
+  the form `JumpingJunkie` was already using.
+  - Every one of the seven sets is drawn as a closed cycle, so all seven play
+    straight through rather than ping-ponging. Measured as the pixel difference
+    between consecutive frames, the wrap from the last frame back to the first
+    is in line with each cycle's own typical step for all of them: the widest
+    gap is `BadGirl` at 1.3x its step, and the rest sit at or below theirs.
+  - The base sprite leads each loop rather than being dropped. It reads as part
+    of the cycle in six of the seven, and it is also the frame `_enemyUnitPx()`
+    measures a character's on-screen scale from, so keeping it first means no
+    character silently resizes. Handing that job to a new first frame would have
+    moved `HyJungScout` by 2.5% and `SassyGirl` by 2%.
+- **`enemyWalkMinSpeed` (10 px/s)**, the speed below which an enemy counts as
+  standing rather than walking. Standing still is a question of speed, not of
+  movement being exactly zero: `_approach()` ramps down as it closes on its
+  target, so an enemy settling onto a deadzone spends its last moments creeping
+  a few pixels a second, which is real movement by the arithmetic and none at
+  all to look at. It was enough to keep a walk cycle turning under a character
+  that had to all appearances stopped, which is only visible now that standing
+  still has artwork of its own. On a slider in the debug enemy panel.
+  - This is the threshold only for choosing the pose. Whether the enemy is
+    stepped at all is unchanged, so the creep still closes the last pixels.
+  - For the slowest enemy in the roster the AI's own speeds are 116 px/s
+    rushing, 37 flanking and 33 holding off a rush, all far above the line. It
+    catches the tail of an approach and nothing else.
+
+### Notes
+- Six of the seven characters name their frames `<Enemy>_ideal_<n>.svg`;
+  `JumpingJunkie` names its `_idle_<n>.svg`. The config takes the files as they
+  are, so nothing is blocked, but the sets disagree with each other and with the
+  `idle` state they feed. The spelling is not just the filename: it is the root
+  `id` inside each SVG, so it comes from the layer names in the drawing
+  document and would come back on the next export. Worth fixing there rather
+  than here, alongside the open TODO to rename the asset layers.
+
+---
+
 ## [2026.09.20]
 
 ### Added

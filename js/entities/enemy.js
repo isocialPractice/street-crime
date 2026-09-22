@@ -36,14 +36,14 @@ const ENEMY_DEFS = {
     kingbrute:   { img:'KingBruteBreaker',    hp:550,  spd: 85,  dmg:30,  pts:2000,w:92, h:148, boss:true },
 };
 
-// How long an enemy holds its walk cycle after its velocity drops to zero
-// before settling into its idle pose. _approach() returns exactly 0 inside its
-// deadzone and the AI re-decides between walking and standing every frame, so
-// an enemy parked on a deadzone, on enemyCloseEnough, or on the radius that
-// counts it as a rusher used to flip state on every frame. Every flip rewound
-// animT, which pinned the walk to its opening pose and strobed the idle sprite
-// against it. Riding out a flicker this short costs nothing and an enemy that
-// has genuinely stopped still stands within a sixth of a second.
+// How long an enemy holds its walk cycle after it stops moving before settling
+// into its idle pose. _approach() returns exactly 0 inside its deadzone and the
+// AI re-decides between walking and standing every frame, so an enemy parked on
+// a deadzone, on enemyCloseEnough, or on the radius that counts it as a rusher
+// used to flip state on every frame. Every flip rewound animT, which pinned the
+// walk to its opening pose and strobed the idle sprite against it. Riding out a
+// flicker this short costs nothing, and an enemy that has genuinely stopped
+// still stands within a sixth of a second.
 const ENEMY_IDLE_SETTLE = 0.15;
 
 function _enemyAnimationState(charKey, stateKey, visited = new Set()) {
@@ -237,19 +237,27 @@ class Enemy extends Entity {
         return Math.sign(delta) * Math.min(maxSpeed, dist * 4);
     }
 
-    // _walkOrIdle - pick this frame's locomotion pose.
+    // _walkOrIdle - pick this frame's locomotion pose from the velocity the AI
+    // has just set.
     //
-    // The AI asks this question every frame from a velocity that _approach()
-    // snaps to exactly 0 inside its deadzone, so an enemy hovering on one of
-    // those edges answers differently on consecutive frames. Two guards make
-    // that flicker invisible: the walk is held for ENEMY_IDLE_SETTLE past the
-    // last movement, so a one-frame stall never reaches the idle pose at all,
-    // and animT is carried across the swap, so a walk that does get interrupted
-    // resumes its cycle where it left off rather than restarting.
+    // Standing still is a question of speed, not of movement being exactly
+    // zero. _approach() ramps down to nothing as it closes on its target, so an
+    // enemy settling onto a deadzone spends its last moments creeping a few
+    // pixels a second: real movement by the arithmetic, none at all to look at,
+    // and enough to keep a walk cycle turning under a character that has to all
+    // appearances stopped. Anything slower than enemyWalkMinSpeed is treated as
+    // standing.
     //
-    // Callers keep their own guard against interrupting an attack; this only
-    // ever chooses between walking and standing.
-    _walkOrIdle(moving, dt) {
+    // Two guards keep the pair from flickering against each other. The walk is
+    // held for ENEMY_IDLE_SETTLE past the last real movement, so a one-frame
+    // stall never reaches the idle pose at all, and animT is carried across the
+    // swap, so a walk that does get interrupted resumes its cycle where it left
+    // off rather than restarting.
+    //
+    // Callers keep their own guard against interrupting an attack, and decide
+    // separately whether to step the enemy; this only chooses the pose.
+    _walkOrIdle(dt) {
+        const moving = Math.hypot(this.vx, this.vy) >= CFG.enemyWalkMinSpeed;
         if (moving) this.stillT = 0;
         else        this.stillT += dt;
 
@@ -435,9 +443,8 @@ class Enemy extends Entity {
             if (this.state === 'attack') {
                 // Don't interrupt attack animation while re-engaging
             } else {
-                const moving = this.vx !== 0 || this.vy !== 0;
-                this._walkOrIdle(moving, dt);
-                if (moving) this.moveXY(dt);
+                this._walkOrIdle(dt);
+                if (this.vx !== 0 || this.vy !== 0) this.moveXY(dt);
             }
             if (cam.x > 0) this.x = Math.max(cam.x - 250, this.x);
             return;
@@ -456,7 +463,7 @@ class Enemy extends Entity {
                 this.vx = this._approach(dx, 20, rushSpd);
                 this.vy = this._approach(dy, 12, rushSpd * 0.5);
                 if (this.state !== 'attack') {
-                    this._walkOrIdle(this.vx !== 0 || this.vy !== 0, dt);
+                    this._walkOrIdle(dt);
                     this.moveXY(dt);
                 }
             } else {
@@ -466,14 +473,13 @@ class Enemy extends Entity {
                 this.vx = this._approach(hdx, 35, holdSpd * 0.28);
                 this.vy = this._approach(dy,  22, holdSpd * 0.22);
                 if (this.state !== 'attack') {
-                    const moving = this.vx !== 0 || this.vy !== 0;
-                    this._walkOrIdle(moving, dt);
-                    if (moving) this.moveXY(dt);
+                    this._walkOrIdle(dt);
+                    if (this.vx !== 0 || this.vy !== 0) this.moveXY(dt);
                 }
             }
         } else {
             this.vx = 0; this.vy = 0;
-            if (this.state !== 'attack') this._walkOrIdle(false, dt);
+            if (this.state !== 'attack') this._walkOrIdle(dt);
 
             const feet_dy = (player.y + player.h) - (this.y + this.h);
             if (this.atkCD <= 0 && Math.abs(feet_dy) < 50) {

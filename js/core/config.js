@@ -151,6 +151,11 @@ const CFG = {
     enemyFlankRadius:       160,   // orbit radius when flanking player (px)
     enemyFlankSpeed:       0.32,   // fraction of enemy speed used during flanking
     enemySeparationSpeed:   150,   // max px/s an enemy is nudged apart from others
+    // Speed below which an enemy counts as standing rather than walking, so it
+    // shows its idle pose instead of turning a walk cycle over a creep nobody
+    // can see. _approach() ramps down as it closes on a target, so this is the
+    // last couple of pixels of an approach. See Enemy._walkOrIdle.
+    enemyWalkMinSpeed:       10,   // px/s
     // ── Enemy animation ──────────────────────────────────────────────────────
     enemyAttackDuration:     0.95,
     enemyAttackFrameHold:    0.50,
