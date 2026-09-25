@@ -8,6 +8,107 @@ anything earlier, see the commit log.
 
 ---
 
+## [2026.09.25]
+
+### Fixed
+- **The loading screen no longer appears to freeze.** Startup took 23.6s
+  measured from page start to the screen being dismissed, and looked hung
+  rather than slow because all of it ran on the main thread: every sprite file
+  in the game was fetched over synchronous XHR, one blocking round trip at a
+  time, so the page could not repaint for the duration. It is now 3.0s, and
+  6 synchronous requests rather than 370.
+  - This was not new. The same measurement against the previous commit gives
+    18-37s; it had been growing with every asset drop and had simply reached
+    the point of reading as a hang.
+  - The server was never the problem. It answers in about 12ms a file; Chrome
+    charges roughly 48ms for each *synchronous* XHR on top. The same 306 files
+    fetched in parallel take 10ms in total.
+- **`loadSvgFile()` hands back its Image immediately** and notes the path down.
+  Everything noted is fetched in one parallel pass once the document has been
+  parsed. The sprite modules keep their plain declarative shape and what they
+  hand out is unchanged, since an Image is what they were getting before; it
+  fills in a moment later, well before `ASSETS_READY` lets the game start.
+  - `loadOptionalSvgFile()` can no longer answer "absent" on the spot, so it
+    returns an Image that carries `img.missing` once the batch has settled.
+    `dropMissingSvgFiles()` nulls those out for a caller, which is how
+    `PLAYER.knockDownPose` still reads as null when there is no artwork.
+  - `PLAYER_DAMAGE_FRAMES` and `PLAYER_COLLAPSE_FRAMES` are built when the
+    batch settles rather than at evaluation, for the same reason.
+  - A file `fetch` cannot deliver falls back to the original synchronous read,
+    so opening the game straight off disk over `file://` still works.
+- **The enemy build resolves its assets in parallel rounds.** Resolution cannot
+  know what an animation is made of without first knowing which files exist,
+  and it answers that by fetching, which made it 306 of those 370 requests and
+  14.6s of the 23.6s on its own. One round now fetches the literal for every
+  base, then one round per frame index: every base still on a run asks for `_0`
+  together, whichever of those exist ask for `_1` together, and so on. That is
+  the contiguous-run rule turned inside out, costing about as many round trips
+  as the longest animation has frames instead of one per file.
+  - The build that follows is unchanged and issues no requests of its own, since
+    the warm-up fills the same cache the synchronous path reads from. Anything
+    the warm-up does not reach still resolves the old way, so none of it is
+    load-bearing.
+  - `ENEMY_CHARS` is filled in rather than assigned, so every reference already
+    held stays valid, and `ASSETS_READY` now waits on the build before it waits
+    on the decodes.
+- Verified in a headless browser against the real files: 25 characters, 321
+  enemy frames and 60 player, object and weather sprites, none undecoded, all
+  carrying the authored viewBox size that on-screen scaling depends on, with no
+  console errors or warnings.
+
+### Added
+- **`attackType` takes a list.** A single name still reads as one name; a list
+  is how a character that changes the way it fights declares the order. The
+  first entry is what it opens with and each later one is what it brings out
+  after being knocked down and standing back up.
+  - The list sets the get-up count: one fewer than the number of attacks, since
+    the only way to the next attack is to go down and get up again. An entry may
+    still state `canGetUp` or `getUps` outright and win, and an enemy with no
+    list behaves exactly as before.
+  - `attackTypeDefaults` blocks are folded together for every type in the list,
+    later types winning, so a character that opens `bodyAttack` and escalates to
+    `weaponAttack` inherits the weapon block's get-up wiring without restating
+    any of it.
+  - `Enemy._attackStage()` is how many times the enemy has stood up and
+    `_attackStateKey()` turns that into the animation it swings: stage 0 is
+    `attack` and every later stage `powerAttack`, which is the escalation
+    `SassyGirl` already had. This replaces the `hasGottenUp` latch, and the
+    power-attack reach and the power-attack effect now follow the stage rather
+    than being hardwired to one animation name.
+- **SquirrlyGambler is fully animated** and out of `wipEnemies`. It is the first
+  character to use a list: `["bodyAttack", "weaponAttack"]`, so it gets one
+  get-up, opens with an eight frame kick, and comes back throwing flaming dice.
+  - The reach falls out of the artwork with nothing to tune. At stage 0 it has
+    no power attack, so it closes to 95px and kicks. At stage 1 the thrown dice
+    and the fire are drawn 388px out, so it stops there and throws instead, well
+    outside the range the player has been fighting it at.
+  - `walk` is an eight frame cycle, `attack` is `preAttack` plus the kick,
+    `powerAttack` is `preAttack` plus the throw plus the `postPowerAttack` smoke
+    drifting away, and `getUp` is its own four frames. `taunt` reuses
+    `preAttack`, the way `SassyGirl` does.
+- **Player burn reaction.** `SquirrlyGambler` declares `"applyDamage": "Burned"`,
+  which resolves to `Player_Damage_Burned_0` through `_9` and plays in place of
+  the stock damage reaction. This is the second user of the mechanism added in
+  `2026.09.16`, after `SassyGirl`'s electrocution.
+
+### Notes
+- `applyDamage` is a property of the enemy, not of the stage, so
+  `SquirrlyGambler`'s kick sets the player alight the same way its fire does.
+  That is what was asked for and it is what the config can currently express;
+  making the burn belong to the `weaponAttack` stage alone would need
+  `applyDamage` to be declarable per attack type.
+- The reach above includes the `postPowerAttack` smoke, which drifts about 48px
+  further than the fire does. Dropping those two frames from the `powerAttack`
+  sequence would put the reach at 340px, at the cost of losing the beat where
+  the smoke clears.
+- `SquirrlyGambler` has no idle frames, so it holds its base sprite where the
+  characters finished on `2026.09.22` breathe. Its eleven frame attack also runs
+  at the shared pacing, about 45ms a frame, and the blow lands on `attack_2`
+  rather than the fully extended kick; `attackTime` would fix both, the way
+  `HyJungScout` uses it.
+
+---
+
 ## [2026.09.22]
 
 ### Added

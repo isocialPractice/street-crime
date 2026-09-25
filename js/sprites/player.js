@@ -69,15 +69,31 @@ const PLAYER = {
     runningKick: loadSvgFile('assets/Player_RunningKick.svg'),
 };
 
-// Frame lists for the one-shot hit reactions. Filtering happens here, at load,
-// so a frame that is not on disk drops out of its sequence once instead of
-// being tested every time the animation is drawn. Either list may legitimately
-// come out empty; the player falls back to single-frame artwork when it does.
-const PLAYER_DAMAGE_FRAMES = [
-    PLAYER.damage0, PLAYER.damage1, PLAYER.damage2, PLAYER.damage3,
-].filter(Boolean);
+// Frame lists for the one-shot hit reactions. Filtering happens once, as the
+// sprite files land, so a frame that is not on disk drops out of its sequence
+// there instead of being tested every time the animation is drawn. Either list
+// may legitimately come out empty; the player falls back to single-frame
+// artwork when it does.
+//
+// Sprite files are fetched as one parallel batch rather than one blocking
+// request per line above, so which of the optional frames actually exist is not
+// known until that batch settles. Both lists are built there. They are empty
+// until then, which is the same thing the renderer already falls back on, and
+// the game does not start before ASSETS_READY waits the batch out.
+let PLAYER_DAMAGE_FRAMES = [];
+let PLAYER_COLLAPSE_FRAMES = [];
 
-const PLAYER_COLLAPSE_FRAMES = [
-    PLAYER.preDefeat0, PLAYER.preDefeat1, PLAYER.preDefeat2, PLAYER.preDefeat3,
-    PLAYER.preDefeat4, PLAYER.preDefeat5, PLAYER.preDefeat6, PLAYER.preDefeat7,
-].filter(Boolean);
+SVG_FILES_READY.then(() => {
+    // An optional sprite with nothing behind it comes back flagged rather than
+    // null, since the Image had to be handed out before the answer was known.
+    dropMissingSvgFiles(PLAYER);
+
+    PLAYER_DAMAGE_FRAMES = [
+        PLAYER.damage0, PLAYER.damage1, PLAYER.damage2, PLAYER.damage3,
+    ].filter(Boolean);
+
+    PLAYER_COLLAPSE_FRAMES = [
+        PLAYER.preDefeat0, PLAYER.preDefeat1, PLAYER.preDefeat2, PLAYER.preDefeat3,
+        PLAYER.preDefeat4, PLAYER.preDefeat5, PLAYER.preDefeat6, PLAYER.preDefeat7,
+    ].filter(Boolean);
+});

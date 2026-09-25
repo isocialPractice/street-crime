@@ -46,6 +46,12 @@ const ENEMY_DEFS = {
 // still stands within a sixth of a second.
 const ENEMY_IDLE_SETTLE = 0.15;
 
+// Animation each attack stage swings. The first stage is the plain attack and
+// every later one the power attack, which is the escalation SassyGirl already
+// used; a stage past the end of this list reuses the last, so a longer
+// attackType list keeps escalating for as long as there is artwork for it.
+const ENEMY_ATTACK_STAGE_STATES = ['attack', 'powerAttack'];
+
 function _enemyAnimationState(charKey, stateKey, visited = new Set()) {
     const animDef = ENEMY_CHARS[charKey]?.animations?.[stateKey];
     if (!animDef || visited.has(stateKey)) return null;
@@ -103,10 +109,11 @@ const _enemyPowerReachCache = Object.create(null);
 // the swing covers. The widest frame is used rather than the last one because a
 // power attack authored as a ping-pong loop ends back on its retracted pose,
 // which would understate the reach by half.
-function _enemyPowerReach(charKey) {
-    const cached = _enemyPowerReachCache[charKey];
+function _enemyPowerReach(charKey, stateKey = 'powerAttack') {
+    const cacheKey = `${charKey}/${stateKey}`;
+    const cached = _enemyPowerReachCache[cacheKey];
     if (cached) return cached;
-    const frames = ENEMY_CHARS[charKey]?.animations?.powerAttack?.frames || [];
+    const frames = ENEMY_CHARS[charKey]?.animations?.[stateKey]?.frames || [];
     let reach = 0;
     for (const img of frames) {
         // Undecoded frames would measure short, so the answer is left uncached
@@ -114,7 +121,7 @@ function _enemyPowerReach(charKey) {
         if (!img || !img.naturalWidth) return 0;
         reach = Math.max(reach, _enemyDrawSize(charKey, img).w);
     }
-    if (reach > 0) _enemyPowerReachCache[charKey] = reach;
+    if (reach > 0) _enemyPowerReachCache[cacheKey] = reach;
     return reach;
 }
 
@@ -193,10 +200,8 @@ class Enemy extends Entity {
         // Get-ups: how many times a lethal blow only knocks this enemy down
         // instead of finishing it. Weapon carriers get one by default; see the
         // attackTypeDefaults block in config/enemy-assets.json.
-        this.getUpsLeft  = ENEMY_CHARS[def.img]?.getUps || 0;
-        // Latched once the enemy has stood back up. From then on it swings the
-        // powerAttack variant instead of its normal attack.
-        this.hasGottenUp = false;
+        this.getUps      = ENEMY_CHARS[def.img]?.getUps || 0;
+        this.getUpsLeft  = this.getUps;
     }
 
     // A body lasts for the whole defeat outro: the animation, the held blink,
@@ -326,7 +331,7 @@ class Enemy extends Entity {
     // _powerReach - the distance this enemy's power attack covers, or 0 when it
     // is not swinging one.
     _powerReach() {
-        return this._isSwingingPowerAttack() ? _enemyPowerReach(this.def.img) : 0;
+        return this._isSwingingPowerAttack() ? _enemyPowerReach(this.def.img, this._attackStateKey()) : 0;
     }
 
     // attackRange - how far a landing blow can connect. A power attack reaches
@@ -354,10 +359,29 @@ class Enemy extends Entity {
                               0, this._powerAttackEffect(), this._appliedPlayerAnims());
     }
 
+    // _attackStage - how many times this enemy has stood back up, which is also
+    // which of its attacks it is fighting with.
+    //
+    // The count is the bound: an enemy with a list of attack types gets one
+    // get-up per escalation, and one that declares get-ups without a list still
+    // escalates from its attack to its power attack the way SassyGirl always
+    // has. What artwork exists for a given stage is _attackStateKey's problem.
+    _attackStage() {
+        return Math.max(0, this.getUps - this.getUpsLeft);
+    }
+
+    // _attackStateKey - the animation this enemy's current stage swings.
+    _attackStateKey() {
+        const stage = this._attackStage();
+        return ENEMY_ATTACK_STAGE_STATES[Math.min(stage, ENEMY_ATTACK_STAGE_STATES.length - 1)];
+    }
+
     // _isSwingingPowerAttack - true while this enemy's attack is the heavier
     // variant it earns by getting back up.
     _isSwingingPowerAttack() {
-        return this.hasGottenUp && _enemyHasDirectFrames(this.def.img, 'powerAttack');
+        const stateKey = this._attackStateKey();
+        return stateKey !== ENEMY_ATTACK_STAGE_STATES[0]
+            && _enemyHasDirectFrames(this.def.img, stateKey);
     }
 
     // _powerAttackEffect - the reaction a landing blow should have on the
@@ -594,7 +618,6 @@ class Enemy extends Entity {
     // a player standing over it would chain-hit the revive into nothing.
     _beginGetUp() {
         this.getUpsLeft--;
-        this.hasGottenUp = true;
         this.hp          = Math.max(1, Math.round(this.maxHp * CFG.enemyGetUpHealthFactor));
         this.strike      = null;
         this.vz          = 0;
@@ -623,7 +646,7 @@ class Enemy extends Entity {
             case 'attack':
                 // powerAttack falls back to 'attack' when a character has no
                 // power frames of its own, so this is safe for every enemy.
-                return _enemyPickFrame(charKey, this.hasGottenUp ? 'powerAttack' : 'attack', this.animT, {
+                return _enemyPickFrame(charKey, this._attackStateKey(), this.animT, {
                     duration: this._attackDuration(),
                     holdTail: CFG.enemyAttackFrameHold,
                 }) || idleImg;

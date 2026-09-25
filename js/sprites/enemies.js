@@ -37,6 +37,12 @@
 // stands back up before a lethal blow finishes it. Weapon-wielding enemies get
 // this by default through the attackTypeDefaults block in the config.
 //
+// "attackType" also takes a list, which is how a character that changes how it
+// fights declares the order. Each entry after the first is an attack it only
+// brings out once it has been knocked down and stood back up, so the list sets
+// the get-up count too: one fewer than the number of attacks. The stage an
+// enemy is on picks the animation it swings; see Enemy._attackStateKey.
+//
 // "powerAttack" is the optional harder swing used once an enemy has stood back
 // up. When it is not authored it is derived from the attack sequence by
 // swapping the final frame for "<EnemyName>_attack_powerAttack", which the
@@ -191,16 +197,59 @@ function _pickEnemyField(field, layers, fallback) {
     return fallback;
 }
 
-// Config layers stack: defaults < attackTypeDefaults[attackType] < enemy entry.
+// _enemyAttackTypes - the attack types an enemy works through, in order.
+//
+// One type is the common case and stays a plain string in the config. A list is
+// how a character that changes how it fights partway through a scrap declares
+// it: the first entry is what it opens with, and each later one is what it
+// brings out after being knocked down and standing back up again.
+function _enemyAttackTypes(value, fallback = 'bodyAttack') {
+    const raw = Array.isArray(value) ? value : [value];
+    const types = raw.map(name => (typeof name === 'string' ? name.trim() : '')).filter(Boolean);
+    return types.length ? types : [fallback];
+}
+
+// _mergeAttackTypeDefaults - fold the attackTypeDefaults block of every type an
+// enemy uses into one config layer, later types winning. A character that opens
+// bodyAttack and escalates to weaponAttack picks up the weapon block's get-up
+// wiring without having to restate any of it.
+function _mergeAttackTypeDefaults(attackTypeDefaults = {}, types = []) {
+    const merged = { animations: {} };
+    for (const type of types) {
+        const block = attackTypeDefaults[type];
+        if (!block) continue;
+        for (const [key, value] of Object.entries(block)) {
+            if (key === 'animations') Object.assign(merged.animations, value || {});
+            else merged[key] = value;
+        }
+    }
+    return merged;
+}
+
+// Config layers stack: defaults < the merged attackTypeDefaults for every type
+// this enemy uses < enemy entry.
 function _mergeEnemyAssetEntry(defaults = {}, typeDefaults = {}, entry = {}) {
     const layers = [entry, typeDefaults, defaults];
-    const canGetUp = !!_pickEnemyField('canGetUp', layers, false);
+    const attackType = _enemyAttackTypes(_pickEnemyField('attackType', [entry, defaults]));
+
+    // A list of attack types is a list of stages, and the only way to the next
+    // stage is to be knocked down and get up again, so the list itself says how
+    // many get-ups the enemy has: one fewer than the number of attacks it has to
+    // work through. The list is more specific than an attack-type block, which
+    // knows nothing about how many attacks it is one of, and less specific than
+    // the entry, which can still state either field outright.
+    const stagedGetUps = attackType.length - 1;
+    const canGetUp = !!_pickEnemyField('canGetUp', layers, stagedGetUps > 0);
+    const getUpsDefault = stagedGetUps > 0
+        ? stagedGetUps
+        : Math.max(0, Number(_pickEnemyField('getUps', [typeDefaults, defaults], 0)) || 0);
+
     const merged = {
-        attackType: entry.attackType || defaults.attackType || 'bodyAttack',
+        attackType,
         canGetUp,
         // A get-up count is meaningless without the ability to get up, so it is
         // forced to zero rather than left as a trap for a half-written entry.
-        getUps: canGetUp ? Math.max(0, Number(_pickEnemyField('getUps', layers, 0)) || 0) : 0,
+        getUps: canGetUp ? Math.max(0, Number(_pickEnemyField('getUps', [entry], getUpsDefault)) || 0) : 0,
         // Seconds this enemy's attack frames take to play, or 0 to keep the
         // shared pacing in config/enemies.json. Sequence lengths vary further
         // than one global can cover: a two frame jab and a fourteen frame
@@ -459,20 +508,135 @@ function _buildEnemyChar(enemyKey, defaults, typeDefaults, entry) {
 
 const ENEMY_ASSET_CONFIG = _loadEnemyAssetConfig();
 
-const ENEMY_CHARS = (() => {
-    const built = {};
+// _enemyConfigEntries - every enemy the config builds, WIP stubs included.
+function _enemyConfigEntries() {
     const wipEntries = {};
     for (const enemyKey of ENEMY_ASSET_CONFIG.wipEnemies || []) {
         wipEntries[enemyKey] = {};
     }
-    const mergedEntries = Object.assign({}, wipEntries, ENEMY_ASSET_CONFIG.enemies || {});
+    return Object.assign({}, wipEntries, ENEMY_ASSET_CONFIG.enemies || {});
+}
+
+// ── Parallel warm-up ─────────────────────────────────────────────────────────
+// Resolution cannot know what an animation is made of without first knowing
+// which files exist, and the only way it can answer that is by fetching. Asked
+// one file at a time over synchronous XHR, that was comfortably the slowest
+// thing in the whole startup: around 300 blocking round trips with the main
+// thread held for all of them, so the loading screen could not so much as
+// repaint while it happened and the game looked hung rather than slow.
+//
+// The same files are now fetched in parallel rounds before the build runs,
+// filling the very cache the synchronous path reads from. The build that
+// follows is unchanged and issues no requests of its own.
+//
+// Nothing here is load-bearing. A path the warm-up does not reach, or a whole
+// warm-up that fails because fetch is unavailable (opening the game straight
+// off disk over file://, for one), just leaves the cache cold and the
+// synchronous path picks it up exactly as it always did.
+
+// _enemyWarmBases - every file base the config could ask about.
+//
+// Deliberately generous: it takes the suffixes as written across all three
+// config layers without resolving them, so it covers literals, the states an
+// assembled animation reaches through, and the stems of numbered runs alike. A
+// base that turns out to name nothing costs one 404 in a batch that was going
+// out anyway.
+function _enemyWarmBases() {
+    const bases = new Set();
     const defaults = ENEMY_ASSET_CONFIG.defaults || {};
     const attackTypeDefaults = ENEMY_ASSET_CONFIG.attackTypeDefaults || {};
-    for (const [enemyKey, entry] of Object.entries(mergedEntries)) {
-        const attackType = entry.attackType || defaults.attackType || 'bodyAttack';
+
+    for (const [enemyKey, entry] of Object.entries(_enemyConfigEntries())) {
+        const types = _enemyAttackTypes(entry.attackType || defaults.attackType);
+        const typeDefaults = _mergeAttackTypeDefaults(attackTypeDefaults, types);
+        bases.add(enemyKey);
+        bases.add(`${enemyKey}_${ENEMY_POWER_ATTACK_SUFFIX}`);
+
+        for (const layer of [defaults.animations, typeDefaults.animations, entry.animations]) {
+            for (const [stateKey, animDef] of Object.entries(layer || {})) {
+                if (_isEnemyEffectKey(stateKey) || !animDef || typeof animDef !== 'object') continue;
+                for (const suffix of animDef.suffixes || []) {
+                    bases.add(suffix ? `${enemyKey}_${suffix}` : enemyKey);
+                }
+                for (const fileBase of animDef.files || []) bases.add(fileBase);
+            }
+        }
+
+        // The player animations this enemy's hits swap in are fetched from the
+        // same pass; they resolve by the same literal-then-numbered-run rule.
+        for (const layer of [defaults, typeDefaults, entry]) {
+            for (const [key, value] of Object.entries(layer || {})) {
+                const match = ENEMY_APPLY_RE.exec(key);
+                if (match && typeof value === 'string' && value) bases.add(`Player_${match[1]}_${value}`);
+            }
+        }
+    }
+    return [...bases];
+}
+
+// _fetchEnemyAssets - pull a batch of paths into the cache at once.
+//
+// A path that cannot be read is recorded as absent, which is the same answer
+// the synchronous probe would reach. A path that throws is left out of the
+// cache entirely so the synchronous path still gets its turn at it.
+function _fetchEnemyAssets(paths) {
+    return Promise.all(paths.map(path => {
+        if (path in _enemyAssetCache) return null;
+        return fetch(path)
+            .then(res => (res.ok ? res.text().then(text => ({ ok: true, text })) : { ok: false, text: '' }))
+            .then(entry => { _enemyAssetCache[path] = entry; })
+            .catch(() => {});
+    }));
+}
+
+// _warmEnemyAssets - fetch everything the build is about to read.
+//
+// One round for the literal of every base, then a round per numbered index: all
+// bases still on a run ask for "_0" together, whichever of those exist ask for
+// "_1" together, and so on. That is the contiguous-run rule the synchronous
+// resolver applies, turned inside out, so the whole set costs about as many
+// round trips as the longest animation has frames instead of one per file.
+async function _warmEnemyAssets() {
+    if (typeof fetch !== 'function') return;
+    const bases = _enemyWarmBases();
+    await _fetchEnemyAssets(bases.map(_enemyAssetPath));
+
+    // Nothing at all came back, so fetch is present but cannot serve these (a
+    // file:// page, say). Stop rather than spend a round per frame index
+    // finding that out again; the synchronous path still reads every file.
+    if (!Object.keys(_enemyAssetCache).length) return;
+
+    let running = bases.filter(fileBase => !_enemyAssetExists(_enemyAssetPath(fileBase)));
+    for (let i = 0; i < ENEMY_RANGE_LIMIT && running.length; i++) {
+        await _fetchEnemyAssets(running.map(fileBase => _enemyAssetPath(`${fileBase}_${i}`)));
+        running = running.filter(fileBase => _enemyAssetExists(_enemyAssetPath(`${fileBase}_${i}`)));
+    }
+}
+
+function _buildEnemyChars() {
+    const built = {};
+    const defaults = ENEMY_ASSET_CONFIG.defaults || {};
+    const attackTypeDefaults = ENEMY_ASSET_CONFIG.attackTypeDefaults || {};
+    for (const [enemyKey, entry] of Object.entries(_enemyConfigEntries())) {
+        const types = _enemyAttackTypes(entry.attackType || defaults.attackType);
         built[enemyKey] = _buildEnemyChar(
-            enemyKey, defaults, attackTypeDefaults[attackType] || {}, entry
+            enemyKey, defaults, _mergeAttackTypeDefaults(attackTypeDefaults, types), entry
         );
     }
     return built;
+}
+
+// ENEMY_CHARS is filled in rather than assigned, so the reference every other
+// module already holds stays valid. Nothing reads it before ASSETS_READY, which
+// waits on ENEMY_CHARS_READY.
+const ENEMY_CHARS = {};
+
+const ENEMY_CHARS_READY = (async () => {
+    try {
+        await _warmEnemyAssets();
+    } catch (e) {
+        console.warn('[enemy-assets] Parallel warm-up failed, loading one file at a time', e);
+    }
+    Object.assign(ENEMY_CHARS, _buildEnemyChars());
+    return ENEMY_CHARS;
 })();

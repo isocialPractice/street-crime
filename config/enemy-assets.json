@@ -37,7 +37,6 @@
     "SlenderCriminal",
     "MaskedMayhem",
     "NinjaWarriorOfCrime",
-    "SquirrlyGambler",
     "BruteBreaker"
   ],
   "enemies": {
@@ -131,6 +130,21 @@
         "damage": { "mode": "sequence", "suffixes": ["damage_0", "damage_1", "damage_2", "damage_3", "damage_4", "damage_5", "damage_6"] },
         "preDefeat": { "mode": "sequence", "suffixes": ["preDefeat_0", "preDefeat_1", "preDefeat_2", "preDefeat_3", "preDefeat_4"] },
         "defeat": { "mode": "sequence", "suffixes": ["preDefeat", "defeat_0", "defeat_1", "defeat_2"] }
+      }
+    },
+    "SquirrlyGambler": {
+      "attackType": ["bodyAttack", "weaponAttack"],
+      "applyDamage": "Burned",
+      "animations": {
+        "walk": { "mode": "loop", "suffixes": ["walk"] },
+        "preAttack": { "mode": "sequence", "suffixes": ["preAttack"] },
+        "attack": { "mode": "sequence", "suffixes": ["preAttack", "attack"] },
+        "powerAttack": { "mode": "sequence", "suffixes": ["preAttack", "powerAttack", "postPowerAttack"] },
+        "taunt": { "mode": "sequence", "suffixes": ["preAttack"] },
+        "damage": { "mode": "sequence", "suffixes": ["damage"] },
+        "getUp": { "mode": "sequence", "suffixes": ["getUp"] },
+        "preDefeat": { "mode": "sequence", "suffixes": ["preDefeat"] },
+        "defeat": { "mode": "sequence", "suffixes": ["preDefeat", "defeat"] }
       }
     }
   }
