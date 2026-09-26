@@ -131,6 +131,35 @@ function _enemyDrawSize(charKey, img) {
     return svgDrawSize(img, _enemyUnitPx(charKey));
 }
 
+const _enemyAnchorPxCache = Object.create(null);
+
+// _enemyAnchorPx - px from the centre line back to the rear edge of the
+// character's reference pose, which is where an armed frame's back edge is
+// held. 0 until the reference has decoded.
+function _enemyAnchorPx(charKey) {
+    const cached = _enemyAnchorPxCache[charKey];
+    if (cached) return cached;
+    const ref = _enemyReferenceFrame(charKey);
+    const unitPx = _enemyUnitPx(charKey);
+    if (!(unitPx > 0) || !(ref?.authoredW > 0)) return 0;
+    return (_enemyAnchorPxCache[charKey] = ref.authoredW * unitPx / 2);
+}
+
+// _enemyDrawLeft - where a frame's left edge goes, in px from the centre line,
+// before the facing flip.
+//
+// Frames are centred, except those of an armed animation, which carry
+// anchorBackX and are placed by their back edge instead, so the body holds
+// still while the weapon reaches out. The flip that follows mirrors around the
+// same line, which is what keeps the right edge fixed on an enemy facing left.
+// See "Weapon anchoring" in js/sprites/enemies.js.
+function _enemyDrawLeft(charKey, img, dw) {
+    if (typeof img.anchorBackX !== 'number') return -dw / 2;
+    const anchorPx = _enemyAnchorPx(charKey);
+    if (!anchorPx) return -dw / 2;
+    return -anchorPx - img.anchorBackX * _enemyUnitPx(charKey);
+}
+
 // _enemySequenceFrame - the frame a run of poses is showing at animT, holding
 // the last one once the run is over.
 function _enemySequenceFrame(frames, animT, duration, holdTail) {
@@ -727,7 +756,7 @@ class Enemy extends Entity {
                 }
             }
         }
-        ctx.drawImage(img, -dw / 2, -dh, dw, dh);
+        ctx.drawImage(img, _enemyDrawLeft(this.def.img, img, dw), -dh, dw, dh);
         ctx.restore();
 
         // Boss/mini HP bar

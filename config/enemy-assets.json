@@ -16,6 +16,7 @@
     "weaponAttack": {
       "canGetUp": true,
       "getUps": 1,
+      "anchorWeapon": true,
       "animations": {
         "getUp": { "mode": "sequence", "suffixes": ["getUp"], "fallbackState": "preDefeat" }
       }

@@ -8,6 +8,40 @@ anything earlier, see the commit log.
 
 ---
 
+## [2026.09.26]
+
+### Fixed
+- **Weapon attacks hold the character in place.** Every enemy frame was drawn
+  centred, and every artboard is cropped to its artwork, so a frame with a
+  weapon out is wider by however far the weapon reaches. Centring it shoved the
+  body backward by half of that: SassyGirl slid back out of her own hitbox as
+  the taser came out, and SquirrlyGambler's flame attack threw him about 150px
+  behind his, before both snapped forward again when the attack ended.
+  - Any animation with a frame carrying a layer whose id starts with `weapon`
+    is now pinned by the back of the character: the artboard edge the weapon
+    points away from is held where the character's reference pose has its own,
+    from the first frame to the last. Only the weapon moves.
+  - Art faces right and is flipped at draw time, so that is the left edge as
+    authored; on an enemy facing left the flip carries it to the right edge.
+  - The frames of such a run with no weapon in them, a wind-up or a recovery,
+    are pinned too, so the armed frames line up with them.
+  - A weapon that reaches behind the body, such as a wind-up over the
+    shoulder, does not count towards the back edge. It is measured from the
+    body's own artwork instead, so the swing does not drag the character
+    forward either.
+  - What the weapon reaches now matches what it hits. Power-attack reach was
+    already the widest frame's drawn width, but the centred weapon only ever
+    showed half of it.
+
+### Added
+- **`anchorWeapon`** in `config/enemy-assets.json`. The `weaponAttack` block of
+  `attackTypeDefaults` turns it on, so every weapon-fighting enemy, current and
+  future, is anchored without restating it. An enemy entry can set it either
+  way. HyJungScout draws a `weapon` layer but fights as a `bodyAttack`, so its
+  lunge is unchanged.
+
+---
+
 ## [2026.09.25]
 
 ### Fixed

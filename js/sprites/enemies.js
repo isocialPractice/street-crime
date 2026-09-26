@@ -49,6 +49,31 @@
 // numbered-range rule expands when attack_powerAttack_0..n exist. With no such
 // asset the original final frame is kept, so powerAttack is just the normal
 // attack.
+//
+// Weapon anchoring
+// ----------------
+// Frames are drawn centred on the enemy, which holds a character still only as
+// long as its artboard is its body. Every artboard is cropped to its artwork,
+// so a frame that brings a weapon out grows by however far the weapon reaches,
+// and centring that wider frame shoves the character backward by half of it:
+// the body slides back as the weapon comes out and snaps forward again when the
+// attack ends.
+//
+// A layer whose id starts with "weapon" marks a frame that carries one, and an
+// animation with any such frame in it is pinned by the back of the character
+// instead. Art is authored facing right, so that is the artboard's left edge,
+// and every frame from the first to the last holds it where the character's
+// reference pose has its own. The body stays put and only the weapon travels.
+// The facing flip is applied afterwards, around the same centre line, so on an
+// enemy facing left it is the right edge that holds still on screen.
+//
+// Where the weapon itself reaches furthest back, as in a wind-up behind the
+// shoulder, the edge is measured from the body's artwork rather than taken from
+// the artboard, so the swing does not drag the character forward either.
+//
+// Enemies opt in with "anchorWeapon". The weaponAttack block of
+// attackTypeDefaults turns it on, so a character fighting with a weapon gets it
+// without restating it.
 
 function _loadEnemyAssetConfig() {
     try {
@@ -255,6 +280,9 @@ function _mergeEnemyAssetEntry(defaults = {}, typeDefaults = {}, entry = {}) {
         // than one global can cover: a two frame jab and a fourteen frame
         // weapon draw cannot read at the same rate. See Enemy._attackFrameTime.
         attackTime: Math.max(0, Number(_pickEnemyField('attackTime', layers, 0)) || 0),
+        // Pin armed animations by the back of the character rather than
+        // centring them. See "Weapon anchoring" above.
+        anchorWeapon: !!_pickEnemyField('anchorWeapon', layers, false),
         animations: {},
     };
     const defaultAnimations = defaults.animations || {};
@@ -463,6 +491,82 @@ function _deriveEnemyPowerAttack(enemyKey, merged) {
     power.files = null;
 }
 
+// Layer ids that mark weapon artwork: "weapon", "weapon-dark", "weapon_2" and
+// the like. A longer word such as "weaponAttack" is a name, not a weapon layer.
+const ENEMY_WEAPON_ID_RE = /^weapon(?![a-z])/i;
+
+function _enemyWeaponLayers(root) {
+    return [...root.querySelectorAll('[id]')].filter(el => ENEMY_WEAPON_ID_RE.test(el.id));
+}
+
+// _measureEnemyBodyBackX - how far in from the left of its artboard a frame's
+// body begins, in authored units, with every weapon layer left out.
+//
+// Geometry needs layout, so the frame is mounted out of sight for the one
+// getBBox call and taken straight back down. Its stylesheet is dropped first:
+// mounted inline it would apply to the whole page, and nothing in it moves any
+// artwork. Anything that goes wrong answers 0, the artboard edge, which is
+// where the body begins on every frame the weapon does not reach behind.
+function _measureEnemyBodyBackX(root) {
+    if (typeof document === 'undefined' || !document.body) return 0;
+    const svg = document.importNode(root, true);
+    for (const style of svg.querySelectorAll('style')) style.remove();
+    for (const layer of _enemyWeaponLayers(svg)) layer.setAttribute('display', 'none');
+
+    const host = document.createElement('div');
+    host.style.cssText = 'position:absolute;left:0;top:0;visibility:hidden;pointer-events:none';
+    host.appendChild(svg);
+    let backX = 0;
+    try {
+        document.body.appendChild(host);
+        const box = svg.getBBox();
+        const viewBox = svg.viewBox && svg.viewBox.baseVal;
+        if (box.width > 0) backX = box.x - (viewBox ? viewBox.x : 0);
+    } catch (e) {
+        // Keep the artboard edge.
+    } finally {
+        host.remove();
+    }
+    return backX;
+}
+
+const _enemyFrameAnchorCache = Object.create(null);
+
+// _enemyFrameAnchor - whether one frame carries a weapon, and where its body's
+// back edge sits. Frames recur across states (a wind-up shared by an attack and
+// a taunt, say), so each file is looked at once.
+function _enemyFrameAnchor(fileBase) {
+    const path = _enemyAssetPath(fileBase);
+    if (path in _enemyFrameAnchorCache) return _enemyFrameAnchorCache[path];
+    const anchor = { armed: false, backX: 0 };
+    const src = _enemyAssetSource(path);
+    if (src.ok && typeof DOMParser === 'function') {
+        const root = new DOMParser().parseFromString(src.text, 'image/svg+xml').documentElement;
+        if (_enemyWeaponLayers(root).length) {
+            anchor.armed = true;
+            anchor.backX = _measureEnemyBodyBackX(root);
+        }
+    }
+    _enemyFrameAnchorCache[path] = anchor;
+    return anchor;
+}
+
+// _anchorEnemyWeaponStates - pin every frame of each armed animation by its
+// back edge, stamped on the frame as anchorBackX for the renderer to find. The
+// frames without a weapon in such a run, a wind-up or a recovery, are pinned
+// too; they are what the armed frames have to line up with. Each state loads
+// its own Images, so stamping one leaves the same file in any other state
+// centred as before.
+function _anchorEnemyWeaponStates(charDef, bases) {
+    for (const [stateKey, fileBases] of Object.entries(bases)) {
+        const anchors = fileBases.map(_enemyFrameAnchor);
+        if (!anchors.some(anchor => anchor.armed)) continue;
+        charDef.animations[stateKey].frames.forEach((img, i) => {
+            img.anchorBackX = anchors[i].backX;
+        });
+    }
+}
+
 function _buildEnemyChar(enemyKey, defaults, typeDefaults, entry) {
     const merged = _mergeEnemyAssetEntry(defaults, typeDefaults, entry);
     if (merged.canGetUp) _deriveEnemyPowerAttack(enemyKey, merged);
@@ -493,6 +597,7 @@ function _buildEnemyChar(enemyKey, defaults, typeDefaults, entry) {
             frames: (bases[stateKey] || []).map(_loadEnemyFrame),
         };
     }
+    if (merged.anchorWeapon) _anchorEnemyWeaponStates(charDef, bases);
 
     charDef.idle = _firstEnemyFrame(charDef, 'idle');
     charDef.idle2 = _firstEnemyFrame(charDef, 'idle', 1);
