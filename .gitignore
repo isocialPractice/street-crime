@@ -1,0 +1,6 @@
+.claude/
+.prompts/
+updateAssets.bat
+updateAnimate.bat
+updateAll.bat
+userScripts/
