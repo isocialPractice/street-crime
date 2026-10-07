@@ -8,6 +8,56 @@ anything earlier, see the commit log.
 
 ---
 
+## [2026.10.06]
+
+### Added
+- **NinjaWarriorOfCrime and BadOne are wired up** and out of `wipEnemies`,
+  which leaves fourteen characters still on the bare defaults.
+  - `NinjaWarriorOfCrime` is a twelve frame sword sequence, `attack_0` through
+    `attack_11`: the draw, the slash, the follow-through and sheathing it
+    again. Six frames of hit reaction, five of collapse and two on the floor.
+  - `BadOne` throws his jacket open to fight. `attackTransition_0` through `_2`
+    are the wind-up and lead straight into `attack_0` through `attack_6`, which
+    the config assembles into one ten frame swing the way `SassyGirl` assembles
+    her `preAttack`. Seven frames of walk, six of hit reaction, four of collapse
+    and two on the floor.
+- **`anchorWeapon` on NinjaWarriorOfCrime.** Every one of its frames carries a
+  weapon layer, sheathed across the back while walking and drawn during the
+  attack, and the blade reaches far enough to grow the artboard by half again
+  at full extension (116.97 units against 79.78 at rest). Centred, that would
+  slide the body backward as the sword came out. The flag is set on the enemy
+  directly rather than taken from the `weaponAttack` block, because that block
+  also grants a get-up and a `getUp` animation and there are no get-up frames
+  drawn for this character: without them the state falls back to `preDefeat`
+  and it would play its collapse forward again in place of standing up. This is
+  the same reasoning `HyJungScout` is held at `bodyAttack` for, except that
+  anchoring can now be had on its own.
+  - Measured in the browser, the anchor moves only where it has to:
+    `0 0 0 7.7 7.7 7.7 0 0 10.1 0 0 0` across the swing. The non-zero frames are
+    the raised-blade wind-ups and the follow-through, the ones where the sword
+    reaches behind the body; the forward slash sits at 0 because the body's back
+    edge is the artboard edge there, which is exactly what should hold still.
+
+### Notes
+- `NinjaWarriorOfCrime_walk_5` is left out of the walk. It renders 0.1%
+  different from `walk_0`, which is to say it is the closing repeat of the first
+  pose rather than a sixth position, and looping all six would hold that pose
+  for two frames every cycle. The walk is the five that move: `walk_0` through
+  `walk_4`. The other states take the whole contiguous run as usual.
+- BadOne's jacket is open in his idle and walk art but closed through all three
+  `attackTransition` frames, then open again from `attack_0`. Read forward it is
+  a jacket swinging shut on the wind-up and flying open on the strike, which is
+  how it is wired; worth a look if it was meant the other way round.
+- The blow lands on `attack_6` for the ninja, its full forward slash, which is
+  as good as the shared timing gets. BadOne's lands on `attack_2`, a guard pose,
+  because his punch is in the last three frames of ten while `enemyAtkHitDelay`
+  falls at 54% of any sequence. An `attackTime` will not move it: the hit delay
+  scales with the sequence, by design, so it keeps the same relative position.
+  Moving it onto the punch needs the hit anchored to a frame rather than to a
+  fraction.
+
+---
+
 ## [2026.09.26]
 
 ### Fixed

@@ -23,7 +23,6 @@
     }
   },
   "wipEnemies": [
-    "BadOne",
     "GreenJetter",
     "RoadFighter",
     "Stomper",
@@ -37,7 +36,6 @@
     "DivaMohawk",
     "SlenderCriminal",
     "MaskedMayhem",
-    "NinjaWarriorOfCrime",
     "BruteBreaker"
   ],
   "enemies": {
@@ -50,6 +48,16 @@
         "attack": { "mode": "sequence", "suffixes": ["kick_0", "kick_1", "kick_2", "kick_1", "kick_0"] },
         "preDefeat": { "mode": "sequence", "suffixes": ["preDefeat_0", "preDefeat_1"] },
         "defeat": { "mode": "hold", "suffixes": ["damage_2", "preDefeat", "defeat"] }
+      }
+    },
+    "BadOne": {
+      "attackType": "bodyAttack",
+      "animations": {
+        "walk": { "mode": "loop", "suffixes": ["walk"] },
+        "attack": { "mode": "sequence", "suffixes": ["attackTransition", "attack"] },
+        "damage": { "mode": "sequence", "suffixes": ["damage"] },
+        "preDefeat": { "mode": "sequence", "suffixes": ["preDefeat"] },
+        "defeat": { "mode": "sequence", "suffixes": ["preDefeat", "defeat"] }
       }
     },
     "CrimeGuy": {
@@ -103,6 +111,17 @@
         "powerAttackEffect": { "mode": "array", "array": ["playerKnockedBack", "playerTakesAdditionalDamage"] },
         "walk": { "mode": "loop", "suffixes": ["walk"] },
         "attack": { "mode": "sequence", "suffixes": ["attack"] }
+      }
+    },
+    "NinjaWarriorOfCrime": {
+      "attackType": "bodyAttack",
+      "anchorWeapon": true,
+      "animations": {
+        "walk": { "mode": "loop", "suffixes": ["walk_0", "walk_1", "walk_2", "walk_3", "walk_4"] },
+        "attack": { "mode": "sequence", "suffixes": ["attack"] },
+        "damage": { "mode": "sequence", "suffixes": ["damage"] },
+        "preDefeat": { "mode": "sequence", "suffixes": ["preDefeat"] },
+        "defeat": { "mode": "sequence", "suffixes": ["preDefeat", "defeat"] }
       }
     },
     "SassyGirl": {
