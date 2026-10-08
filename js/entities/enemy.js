@@ -219,6 +219,8 @@ class Enemy extends Entity {
         this.deadT     = 0;
         // Time since this enemy last had any velocity. See _walkOrIdle.
         this.stillT    = 0;
+        // Counts down while a guard shudders from a blow it turned aside.
+        this.resistT   = 0;
         this.engageDelay = CFG.enemyEngageDelayMin + Math.random() * CFG.enemyEngageDelayMax;
         this.flankDir    = Math.random() < 0.5 ? 1 : -1;
         this.depthSlot   = (Math.random() - 0.5) * 80;
@@ -433,6 +435,7 @@ class Enemy extends Entity {
         const preX = this.x;
         if (this.dead) { this.deadT += dt; return; }
         if (this.atkCD > 0) this.atkCD -= dt;
+        if (this.resistT > 0) this.resistT -= dt;
         this._updateStrike(dt, player);
 
         // ── Knockdown ────────────────────────────────────────────────────────
@@ -600,9 +603,44 @@ class Enemy extends Entity {
         }
     }
 
+    // blocking is true while this enemy has its guard up. Nothing drives the
+    // state yet: the artwork, the config and the damage rule are in place, but
+    // choosing when to raise a guard is an AI decision no character has been
+    // given. Set state to 'block' and the rest already works.
+    get blocking() { return this.state === 'block'; }
+
+    // _isGuarding - whether a blow travelling in dir is one this guard turns
+    // aside. Facing the blow means facing the opposite way to its travel, the
+    // same rule the player's guard follows.
+    _isGuarding(dir) {
+        return CFG.blockForEnemies && this.blocking
+            && this.facing === -dir
+            && _enemyHasDirectFrames(this.def.img, 'block');
+    }
+
+    // _absorbBlockedHit - what a turned-aside blow still costs this enemy.
+    // blockNoDamage is the toggle and wins; with it off blockDamageTaken reads
+    // as a 1 to 10 scale against the blow's own damage. Shared wording with
+    // Player._absorbBlockedHit because it is deliberately the same rule.
+    _absorbBlockedHit(amount) {
+        const scale = Math.min(10, Math.max(1, Number(CFG.blockDamageTaken) || 1)) / 10;
+        const taken = CFG.blockNoDamage ? 0 : Math.round(amount * scale);
+        this.resistT = CFG.blockResistTime;
+        if (taken <= 0) return;
+        this.hp -= taken;
+        if (this.hp <= 0) {
+            this.hp = 0;
+            if (this.getUpsLeft > 0) { this._beginGetUp(); return; }
+            this._die();
+        }
+    }
+
     takeDamage(amount, dir, launch = 0) {
         if (this.dead || this.invincible) return;
         if (debugMode && CFG.infiniteEnemyHealth) return;
+        // A blow the guard turns aside stops here, exactly as it does for the
+        // player: no flinch, no knockback, no interrupted swing.
+        if (this._isGuarding(dir)) { this._absorbBlockedHit(amount); return; }
         // Being hit interrupts any swing already in flight.
         this.strike = null;
         this.hp -= amount;
@@ -701,6 +739,21 @@ class Enemy extends Entity {
             case 'getup':
                 return _enemyPickFrame(charKey, 'getUp', this.animT, { duration: CFG.enemyGetupTime }) ||
                     _enemyPickFrame(charKey, 'preDefeat', this.animT) || idleImg;
+            case 'block': {
+                // The run plays once over blockEnterTime and holds its last
+                // frame, which is the pose the guard settles on. A blow being
+                // turned aside shudders it against the resist pose, when the
+                // character has one drawn.
+                const settled = _enemyPickFrame(charKey, 'block', this.animT, {
+                    duration: CFG.blockEnterTime,
+                }) || idleImg;
+                if (this.resistT > 0 && _enemyHasDirectFrames(charKey, 'blockResist')) {
+                    return (Math.floor(this.resistT * CFG.blockResistFPS) % 2)
+                        ? (_enemyPickFrame(charKey, 'blockResist', 0) || settled)
+                        : settled;
+                }
+                return settled;
+            }
             case 'taunt':
                 return _enemyPickFrame(charKey, 'taunt', this.animT, { duration: CFG.enemyTauntTime }) || idleImg;
             case 'dead':

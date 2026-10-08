@@ -8,6 +8,77 @@ anything earlier, see the commit log.
 
 ---
 
+## [2026.10.07]
+
+### Added
+- **Block, held on C.** A new player control and state. The guard is held
+  rather than tapped: it comes up while C is down and drops the moment it is
+  released, movement and attacks are shut off behind it, and it only covers the
+  way the player is facing, so walking into a crowd on block still leaves the
+  ones behind free to land.
+  - `Player_Block_0` and `_1` play over `blockEnterTime` and settle on
+    `Player_Block_hold`, which the guard holds for as long as it is up. A blow
+    turned aside shudders the guard between that pose and
+    `Player_Block_resist` for `blockResistTime` at `blockResistFPS`, then
+    settles back. All four are optional: with none of them on disk the state
+    falls back to the idle pose rather than drawing blank.
+  - A blocked blow stops before the ordinary hit response, so there is no hurt
+    state, no knockback, no invulnerability window and none of the enemy
+    reactions an unblocked hit would carry.
+- **Block configuration**, in `config/configuration.json` and on the debug
+  player panel.
+  - `blockForPlayer` and `blockForEnemies` say who can raise a guard at all.
+  - `blockNoDamage` is the toggle and wins outright: on, a guarded blow costs
+    nothing. With it off, `blockDamageTaken` is read as a 1 to 10 scale against
+    the blow's own damage, so a guarded hit tracks whatever the attack hits for
+    rather than a flat figure a weak jab and a boss swing would both land for.
+    At 3, a 40 damage blow costs 12; at 10 it costs the full 40.
+- **Enemy block mapping.** `block` and `blockResist` are now states in the
+  `config/enemy-assets.json` defaults, resolving down one ladder whatever
+  artwork a character has:
+  - `block_hold` and `block_resist` together are the full form: the run plays,
+    settles on the hold pose, and shudders against the resist pose.
+  - A numbered run on its own plays and holds its last frame, with no resist.
+  - A single `<EnemyName>_block.svg` is the guard on its own.
+  - Nothing drawn resolves to nothing and the character has no guard.
+- **Optional animation states.** An animation declared `"optional": true`
+  resolves to nothing without warning, which is what lets `block` and
+  `blockResist` sit in the defaults for all twenty five characters while none
+  of them have the artwork yet. Every other state saying nothing resolved is
+  still worth hearing about, and still does.
+- **Layer map script.** `scripts/mapLayers.jsx` renames layers, groups and
+  paths in an Illustrator source file from `scripts/data/layerMap.json`.
+  Illustrator writes those names out as SVG ids, and named ids are what color
+  and outfit changes will key off.
+  - The map holds two copies of one tree, `current` and `change`. A key
+    matches at any depth, so `Player_Walk > front-glove` reaches the glove in
+    every frame without naming the frames. A `layers` list renames a matched
+    item's children by position.
+  - A list can stop short: `[ "<Path>" ]` renames only a group's first child
+    and leaves the rest alone. Nothing is renamed unless every listed child
+    matches its `current` entry, so a frame drawn differently is skipped and
+    reported. `exact=1` also skips any group whose child count differs from
+    its list.
+  - `dry=1` previews the renames and `reverse=1` undoes a run.
+- **`scripts/runAdobeScript.pl`**, a cross-platform port of
+  `runAdobeScript.bat`. It runs a `.jsx` in Illustrator through COM on Windows
+  or AppleScript on macOS, passes arguments through, and prints the result.
+- **`support/` for source artwork.** Illustrator sources go in `support/`,
+  which is git-ignored since they grow large. `source-player.ai` and
+  `source-enemies.ai` are force-added as examples for the scripts.
+
+### Notes
+- A guard only covers the way its owner faces. The spec did not say either way;
+  a guard that worked from behind would be strictly better than moving, so it
+  is front-only. `Player._isGuarding` is the one line if that is wrong.
+- Nothing raises an enemy guard yet. The artwork path, the config, the drawing
+  and the damage rule are all in place and shared with the player, so setting
+  an enemy's state to `block` works today, but deciding *when* a character
+  should guard is an AI rule that was not specified and has not been invented.
+  That and the enemy block artwork are what is left.
+
+---
+
 ## [2026.10.06]
 
 ### Added

@@ -11,8 +11,7 @@
 
 #### Create
 
-- [ ] Player block sprites
-  - Unpause `Auto map assets` when ready
+- [x] Player block sprites
 - [ ] Add interactable background elements
   - Create graphics
   - Config system to map interactable background elements i.e.
@@ -25,6 +24,8 @@
 #### Organize
 
 - [ ] Rename player and enemy asset layer names, allowing for sprite customization
+  - Fill in `scripts/data/layerMap.json` and run `scripts/mapLayers.jsx` (see [scripts/README.md](scripts/README.md) and [Asset Scripts](#asset-scripts))
+  - Re-export the renamed artboards to `assets/`
 
 #### Effects
 
@@ -47,6 +48,72 @@
 - [ ] Use side-scrolling image as level background art
 - [ ] Add configuration system to map where enemies spawn for each level
 - [ ] Add interactable object elements
+
+### Asset Scripts
+
+> Goal: every part of every sprite has a name in its source `.ai`, so each
+> exported SVG part has an id the game can recolor or swap. Covers the player,
+> enemies, objects and the environment art still to come. Tooling lives in
+> `scripts/`, with usage in [scripts/README.md](scripts/README.md).
+
+- [x] `scripts/mapLayers.jsx`: rename layers from a JSON map (`scripts/data/layerMap.json`)
+- [x] `scripts/runAdobeScript.pl`: run Illustrator scripts from the command line (port of `runAdobeScript.bat`)
+- [x] `support/` for source `.ai` files: git-ignored, with `source-player.ai` and `source-enemies.ai` force-added as examples
+
+#### Port from `userScripts/`
+
+`userScripts/` is local and git-ignored. Whether each script should get a copy
+in `scripts/`:
+
+- [ ] **`extractLayerNameList.jsx`: port first**, as `scripts/exportLayerMap.jsx`
+  - It writes the selected group's hierarchy to `layerNames.txt`. That
+    hierarchy is the `current` tree of a layer map, which is typed by hand
+    for now
+  - Emit JSON instead: `current` filled from the document, `change` as an
+    identical copy to edit, unnamed items as `<Path>`, `<Group>`, ...
+  - Take `doc=`, `layer=` (or the selection when run from the menu) and
+    `out=` arguments, so it runs through `runAdobeScript.pl`
+  - ExtendScript has no `JSON.stringify`, so it needs a small writer
+- [ ] **`groups.jsx`: port**
+  - It names each frame group after its artboard (`walk_0`, ...), and that
+    name becomes the `<g id>` the frame's parts sit under
+  - Replace the `prompt` with a `layer=` argument, and add `all=1` for every layer
+- [ ] **`artboards.jsx`: port**
+  - Artboard names become exported file names (`Player_Walk_0.svg`), so this
+    is where the `<name>_<action>_<n>` naming gets enforced (see
+    [Template Repo](#9-template-repo-draft-plan))
+  - Replace the `prompt` with a `suffix=` argument
+- [ ] **`renameSelectedLayers.jsx`: keep local, no port**
+  - It works on the live selection and prompts for a pattern, and a
+    command-line run has neither. `mapLayers.jsx` covers the batch case
+
+#### Layer naming for customization
+
+- [ ] Agree on a naming scheme and document it in `scripts/README.md`
+  - Parts: the names already in use (`front-glove`, `back-shoe`, `Head`, `hair`, ...)
+  - Tones inside a part: `<part>-light`, `<part>-mid`, `<part>-dark`,
+    `outline`, which `Player_Block_0.svg` already does with `arm-light`,
+    `arm-mid` and `arm-dark`
+  - Outfit pieces: one group per swappable piece (`jacket-a`, `jacket-b`, `hat`)
+- [ ] One map per character in `scripts/data/maps/<Name>.json`, with `map=` accepting a folder
+  - [ ] Player (`support/source-player.ai`)
+  - [ ] Enemies (`support/source-enemies.ai`)
+  - [ ] Objects (`support/source-objects.ai`)
+  - [ ] Environment (`support/source-environment.ai`, once that art exists)
+- [ ] Re-export the renamed artboards and confirm the new ids reach `assets/*.svg`
+
+#### Game side
+
+- [ ] Variant loader: transform the SVG text in `_applySvgText` (`js/sprites/loader.js`) before it becomes an image
+  - Parse with `DOMParser`, apply the variant, serialize, then Blob as now.
+    Cache by path plus variant
+  - Exported fills come from `.cls-N` classes in `<style>`, so a recolor sets
+    an inline `fill`, which wins over the class, instead of editing the class
+  - Find parts by ancestor path and base name with the export's `-N` suffix
+    stripped (`strokes-12` is `front-glove > strokes`)
+- [ ] Variant config, such as `config/variants.json`: per character, a palette of `part-tone` colors and the outfit pieces to show or hide
+- [ ] Use it for the enemy palette-swap elites listed under [Character Elements](#3-character-elements)
+- [ ] Player outfit and color select, tied to the character select screen under [Major](#1-major)
 
 ## 1. Major
 
@@ -178,5 +245,46 @@
 - [ ] Add JSDoc type annotations to the major classes (Player, Enemy, LevelManager, HUD) for IDE support
 - [ ] Set up a GitHub Actions CI workflow that runs linting and tests on each push
 - [ ] Reduce SVG parse time by converting frequently used sprites to pre-rendered PNG sprite sheets at build time
+
+---
+
+## 9. Template Repo (Draft Plan)
+
+> For later, once the asset pipeline is good enough: reverse engineer this repo
+> into a template repo where adding a character only takes art named
+> `<name>_<action>.svg` or `<name>_<action>_<n>.svg`. The `<action>` ending,
+> with or without a frame number, is what makes an asset plug and play.
+
+- [ ] **Naming contract**: `<name>_<action>.svg` is a single pose,
+  `<name>_<action>_<n>.svg` is frame `n` of a sequence, sorted by number so
+  `_10` comes after `_9`, and a bare `<name>.svg` is the default pose
+- [ ] **Action vocabulary**: a fixed list of actions the engine understands
+  (`idle`, `walk`, `run`, `attack`, `kick`, `punch`, `jump`, `damage`,
+  `preDefeat`, `defeat`, `block`, `block_hold`, `block_resist`, ...), each with
+  a default mode (`loop`, `sequence`, `hold`) and fallback state, as
+  `config/enemy-assets.json` already sets under `defaults`. Unknown actions
+  warn and are ignored
+- [ ] **Manifest generator**: a static site cannot list a folder, so a script
+  in `scripts/` scans `assets/`, groups files by name and action, and writes
+  `config/asset-manifest.json`. The loader reads that in place of
+  hand-written `suffixes` lists, which stay as overrides
+- [ ] **Entity type**: choose between folders (`assets/player/`,
+  `assets/enemies/`, `assets/objects/`, `assets/environment/`) and a name
+  prefix rule
+- [ ] **Normalize this repo's names first**, or have the manifest tolerate them:
+  - `ideal` stands in for `idle` (`Player_Ideal_*`, `BadGirl_ideal_*`)
+  - Action case varies: `Player_Walk` and `Player_PreDefeat` against
+    `BadOne_walk` and `BadGirl_preDefeat`
+  - Frames start at `_0` in some sets (`BadOne_walk_0`, `BadGirl_ideal_0`) and
+    at `_1` in others (`BadGirl_walk_1`, `Player_Ideal_1`)
+- [ ] **Illustrator side**: ship `scripts/` (the ported `artboards.jsx`
+  enforcing the naming contract, `mapLayers.jsx`, the layer map export) and
+  the `support/` convention, and document the SVG export settings
+- [ ] **Strip game content**: cut levels, roster and stages down to one sample
+  character, one enemy and one stage
+- [ ] **Publish**: mark the repo as a GitHub template, with a first-run script
+  that renames the game and clears the sample art
+- [ ] Fold in the paused **Auto map assets** item under [Game](#game), which
+  this plan would replace
 
 ---

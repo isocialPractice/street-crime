@@ -9,7 +9,9 @@
       "preDefeat": { "mode": "hold", "suffixes": [], "fallbackState": "damage" },
       "defeat": { "mode": "hold", "suffixes": ["defeat"], "fallbackState": "idle" },
       "powerAttack": { "mode": "sequence", "suffixes": [], "fallbackState": "attack" },
-      "taunt": { "mode": "sequence", "suffixes": [] }
+      "taunt": { "mode": "sequence", "suffixes": [] },
+      "block": { "mode": "sequence", "suffixes": ["block", "block_hold"], "optional": true, "fallbackState": "idle" },
+      "blockResist": { "mode": "hold", "suffixes": ["block_resist"], "optional": true }
     }
   },
   "attackTypeDefaults": {

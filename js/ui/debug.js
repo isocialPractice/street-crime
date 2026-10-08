@@ -140,6 +140,9 @@ function buildDebugPanel() {
     html += `<label class="dbg-toggle"><input type="checkbox" id="dbg-inf-hp"${CFG.infiniteHealth ? ' checked' : ''}> Infinite Health</label>`;
     html += `<label class="dbg-toggle"><input type="checkbox" id="dbg-inf-enemy-hp"${CFG.infiniteEnemyHealth ? ' checked' : ''}> Infinite Enemy Health</label>`;
     html += `<label class="dbg-toggle"><input type="checkbox" id="dbg-show-hb"${CFG.showHitboxes  ? ' checked' : ''}> Show Hitboxes</label>`;
+    html += `<label class="dbg-toggle"><input type="checkbox" id="dbg-block-nodmg"${CFG.blockNoDamage ? ' checked' : ''}> Block: No Damage</label>`;
+    html += `<label class="dbg-toggle"><input type="checkbox" id="dbg-block-player"${CFG.blockForPlayer ? ' checked' : ''}> Block: Player</label>`;
+    html += `<label class="dbg-toggle"><input type="checkbox" id="dbg-block-enemies"${CFG.blockForEnemies ? ' checked' : ''}> Block: Enemies</label>`;
     html += `<label class="dbg-toggle"><input type="checkbox" id="dbg-bg-amb"${CFG.bgAmbience ? ' checked' : ''}> BG Ambience</label>`;
     html += `<label class="dbg-toggle"><input type="checkbox" id="dbg-weather"${CFG.weather ? ' checked' : ''}> Local Weather</label>`;
     for (const r of rows) {
@@ -178,6 +181,9 @@ function buildDebugPanel() {
     document.getElementById('dbg-inf-hp').addEventListener('change', e => { CFG.infiniteHealth = e.target.checked; });
     document.getElementById('dbg-inf-enemy-hp').addEventListener('change', e => { CFG.infiniteEnemyHealth = e.target.checked; });
     document.getElementById('dbg-show-hb').addEventListener('change', e => { CFG.showHitboxes   = e.target.checked; });
+    document.getElementById('dbg-block-nodmg').addEventListener('change', e => { CFG.blockNoDamage = e.target.checked; });
+    document.getElementById('dbg-block-player').addEventListener('change', e => { CFG.blockForPlayer = e.target.checked; });
+    document.getElementById('dbg-block-enemies').addEventListener('change', e => { CFG.blockForEnemies = e.target.checked; });
     document.getElementById('dbg-bg-amb').addEventListener('change', e => { CFG.bgAmbience     = e.target.checked; });
     document.getElementById('dbg-weather').addEventListener('change', e => { CFG.weather       = e.target.checked; });
     document.getElementById('dbg-export').addEventListener('click', exportConfig);
@@ -212,6 +218,11 @@ const _DEBUG_FOCUS_ROWS = {
         { key:'playerIdleFPS',        label:'Idle FPS',           min:1,   max:10,   step:1    },
         { key:'playerTransitionTime', label:'Run Transition (s)', min:0.1, max:1.5,  step:0.05 },
         { key:'playerInvFlashRate',   label:'Inv Flash Rate',     min:1,   max:30,   step:1    },
+        { section: 'BLOCK' },
+        { key:'blockDamageTaken',     label:'Damage Taken (1-10)',min:1,   max:10,   step:1    },
+        { key:'blockEnterTime',       label:'Guard Up (s)',       min:0.02,max:1.0,  step:0.02 },
+        { key:'blockResistTime',      label:'Resist Time (s)',    min:0.05,max:1.0,  step:0.05 },
+        { key:'blockResistFPS',       label:'Resist FPS',         min:2,   max:30,   step:1    },
         { section: 'ATTACK RANGES (px)' },
         { key:'punchRange',           label:'Punch Range',        min:10,  max:200,  step:1    },
         { key:'kickRange',            label:'Kick Range',         min:10,  max:200,  step:1    },

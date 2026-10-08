@@ -72,6 +72,9 @@ class Player extends Entity {
         // Power attack freeze: while this is running, movement and key presses
         // are ignored and the player blinks. Set by playerFreeze reactions.
         this.freezeT  = 0;
+        // Counts down while the guard shudders from a blow it just turned
+        // aside. See _absorbBlockedHit and the 'block' case in getImg.
+        this.resistT  = 0;
         // Animations the enemy that landed the current hit swaps in for the
         // player's own, keyed by the player state each one replaces. Replaced on
         // every hit, so one enemy's effect never carries over to another's blow.
@@ -92,7 +95,43 @@ class Player extends Entity {
     // prevent new actions or restrict movement.
     get busy() {
         return ['punch1','punch2','kick1','kick2','uppercut','runningkick','jumpkick',
-                'hurt','knockdown','knockedUp','defeat'].includes(this.state);
+                'hurt','knockdown','knockedUp','defeat','block'].includes(this.state);
+    }
+
+    // blocking is true while the guard is up. Movement and attacks are already
+    // shut off by busy; this is what the hit response reads.
+    get blocking() { return this.state === 'block'; }
+
+    // _isGuarding - whether a blow coming in travelling in dir is one this
+    // guard actually turns aside.
+    //
+    // dir is the direction the blow travels, so the player is facing it when
+    // they face the opposite way. A guard only covers the way it is pointed:
+    // walk into a crowd holding block and the ones behind still land, which is
+    // what stops it being simply better than moving.
+    _isGuarding(dir) {
+        return CFG.blockForPlayer && this.blocking && this.facing === -dir;
+    }
+
+    // _absorbBlockedHit - what a turned-aside blow still costs.
+    //
+    // blockNoDamage is the toggle and wins outright. With it off,
+    // blockDamageTaken is read as a 1 to 10 scale against the blow's own
+    // damage, so the figure tracks whatever the attack happens to hit for
+    // rather than being a flat number that a weak jab and a boss swing would
+    // both land for. The guard stays up throughout: no hurt state, no
+    // knockback and no invulnerability, since riding a hit out behind a guard
+    // is the thing being paid for.
+    _absorbBlockedHit(amount) {
+        const scale = Math.min(10, Math.max(1, Number(CFG.blockDamageTaken) || 1)) / 10;
+        const taken = CFG.blockNoDamage ? 0 : Math.round(amount * scale);
+        this.resistT = CFG.blockResistTime;
+        screenShake(2);
+        effects.push(new HitFX(this.x + this.w / 2, this.y - this.h * 0.5, 'small'));
+        if (taken <= 0) return;
+        this.hp -= taken;
+        if (this.hp <= 0) { this.hp = 0; this._die(); return; }
+        _hpHUD(this);
     }
 
     update(dt, enemies, effects, pickups, breakables) {
@@ -100,6 +139,7 @@ class Player extends Entity {
         this.applyGravity(dt);
         if (this.atkCD > 0) this.atkCD -= dt;
         if (this.invT  > 0) this.invT  -= dt;
+        if (this.resistT > 0) this.resistT -= dt;
         if (this.freezeT > 0) {
             this.freezeT -= dt;
             // Key presses are disabled outright, so nothing queues up during the
@@ -157,6 +197,18 @@ class Player extends Entity {
             this.downT -= dt;
             if (this.downT <= 0) { this.setState('idle'); this.invT = 1.0; }
             return;
+        }
+
+        // ── Block ─────────────────────────────────────────────────────────────
+        // Held rather than tapped, so the guard is up for exactly as long as C
+        // is down. Decided before canMove and canAct below, which read busy and
+        // therefore shut off movement and attacks on the same frame it goes up.
+        const blockHeld = CFG.blockForPlayer && Keys['KeyC'];
+        if (this.state === 'block') {
+            if (!blockHeld || !this.grounded || this.frozen) this.setState('idle');
+        } else if (blockHeld && this.grounded && !this.frozen && !this.busy) {
+            this.setState('block');
+            this.vx = 0; this.vy = 0; this.isRun = false;
         }
 
         const canMove = !this.frozen && (!this.busy || this.state === 'jump' || this.state === 'jumpkick');
@@ -457,6 +509,10 @@ class Player extends Entity {
     takeDamage(amount, dir, launch = 0, effect = null, applied = null) {
         if (this.invT > 0 || this.dead || this.defeated) return;
         if (debugMode && CFG.infiniteHealth) return;
+        // A blow the guard turns aside stops here: no reaction animation, no
+        // enemy-supplied one either, and none of the power-attack reactions,
+        // which is the whole point of having the guard up.
+        if (this._isGuarding(dir)) { this._absorbBlockedHit(amount); return; }
         this.appliedAnims = applied;
         if (effect?.modes?.includes('playerTakesAdditionalDamage')) {
             const bonus = this._reactionParam(effect, 'playerTakesAdditionalDamage',
@@ -572,6 +628,20 @@ class Player extends Entity {
                 const p = Math.min(0.9999, Math.max(0, this.animT / dur));
                 const i = Math.floor(p * n);
                 return TRANS_FRAMES[this.state === 'runstart' ? i : (n - 1 - i)] || PLAYER.run;
+            }
+            case 'block': {
+                // Nothing drawn for the guard at all, so it reads as standing.
+                if (!PLAYER_BLOCK_FRAMES.length) return IDLE_FRAMES[0];
+                const settled = PLAYER_BLOCK_FRAMES[PLAYER_BLOCK_FRAMES.length - 1];
+                // Turning a blow aside shudders the guard between the pose it
+                // settled on and the resist pose; with nothing coming in it
+                // simply holds, which is where the run leaves it anyway.
+                if (this.resistT > 0 && PLAYER.blockResist) {
+                    return (Math.floor(this.resistT * CFG.blockResistFPS) % 2)
+                        ? PLAYER.blockResist : settled;
+                }
+                return _playerSeqFrame(PLAYER_BLOCK_FRAMES, this.animT, CFG.blockEnterTime)
+                    || settled;
             }
             case 'jump':        return PLAYER.jump;
             case 'jumpkick':    return PLAYER.jumpKick;

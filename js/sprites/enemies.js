@@ -31,6 +31,19 @@
 // own rate without dragging out everyone else's swing. The blow keeps landing
 // on the frame the artwork connects on: see Enemy._attackHitDelay.
 //
+// Blocking
+// --------
+// A character's guard resolves down the same ladder whatever artwork it has.
+// "block_hold" and "block_resist" together are the full form: the run plays,
+// settles on the hold pose, and shudders between that and the resist pose
+// while a blow is being turned aside. With only a numbered run the guard plays
+// and holds its last frame, with no resist. With only "<EnemyName>_block.svg"
+// that one pose is the guard. With none of it the state resolves to nothing
+// and the enemy simply has no guard.
+//
+// Both states are marked optional, which is what keeps an enemy with no block
+// artwork from warning about it on every startup.
+//
 // Get-ups and power attacks
 // -------------------------
 // An enemy may declare "canGetUp" and a "getUps" count: how many times it
@@ -191,6 +204,10 @@ function _cloneEnemyAnimDef(def = {}) {
         suffixes: Array.isArray(def.suffixes) ? [...def.suffixes] : [],
         files: Array.isArray(def.files) ? [...def.files] : null,
         fallbackState: def.fallbackState || null,
+        // An optional state is one a character is allowed not to have. It
+        // resolves to nothing without warning, where every other state saying
+        // nothing resolved is worth hearing about.
+        optional: !!def.optional,
     };
 }
 
@@ -201,6 +218,9 @@ function _applyEnemyAnimOverride(animDef, override = {}) {
     }
     if (Object.prototype.hasOwnProperty.call(override, 'fallbackState')) {
         animDef.fallbackState = override.fallbackState || null;
+    }
+    if (Object.prototype.hasOwnProperty.call(override, 'optional')) {
+        animDef.optional = !!override.optional;
     }
     if (Object.prototype.hasOwnProperty.call(override, 'suffixes')) {
         animDef.suffixes = Array.isArray(override.suffixes) ? [...override.suffixes] : [];
@@ -427,7 +447,7 @@ function _enemyAnimFileBases(enemyKey, stateKey, animations, seen) {
         const ranged = _enemyRangeBases(fileBase);
         if (ranged.length) { bases.push(...ranged); continue; }
 
-        _warnMissingEnemyAsset(fileBase);
+        if (!animDef.optional) _warnMissingEnemyAsset(fileBase);
     }
     return bases;
 }

@@ -1,0 +1,20 @@
+{
+  "current": {
+    "Player_Walk": {
+      "back-glove": {
+        "strokes": {
+          "layers": [ "<Path>" ]
+        }
+      }
+    }
+  },
+  "change": {
+    "Player_Walk": {
+      "back-glove": {
+        "strokes": {
+          "layers": [ "thumb" ]
+        }
+      }
+    }
+  }
+}

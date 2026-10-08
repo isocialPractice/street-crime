@@ -58,6 +58,25 @@ const CFG = {
     // inputBufferTime = seconds an attack/jump press is remembered while the
     // player is busy or on cooldown, so rapid combo inputs are never dropped.
     inputBufferTime:       0.18,
+    // ── Block ────────────────────────────────────────────────────────────────
+    // Who can put a guard up. Held rather than tapped: the guard stays up for
+    // as long as the key is down, and nothing can be thrown from behind it.
+    blockForPlayer:        true,
+    blockForEnemies:       true,
+    // What a guarded blow still costs. With blockNoDamage on it costs nothing.
+    // With it off, blockDamageTaken is how much of the blow still lands, on a
+    // 1 to 10 scale against the attack's own damage: 10 is the whole hit, 1 is
+    // a tenth of it. The toggle wins, so the scale only matters once it is off.
+    blockNoDamage:         true,
+    blockDamageTaken:         3,
+    // Seconds the guard takes to come up, over which the block frames play once
+    // before settling on the last of them.
+    blockEnterTime:        0.14,
+    // How long a guard shudders after turning a blow aside, and how fast it
+    // alternates between the pose it settled on and the resist pose while it
+    // does. With nothing coming in it simply holds.
+    blockResistTime:       0.22,
+    blockResistFPS:          14,
     // ── Enemy AI ────────────────────────────────────────────────────────────
     enemyCloseEnough:        72,
     enemyAtkCheckDist:       95,

@@ -65,6 +65,14 @@ const PLAYER = {
     preDefeat7:    loadOptionalSvgFile('assets/Player_PreDefeat_7.svg'),
     // The settled pose the body holds at the end of the defeat outro.
     defeat:        loadOptionalSvgFile('assets/Player_Defeat.svg'),
+    // block0-1 is the guard coming up. blockHold is the pose it settles on and
+    // holds for as long as the key is down; blockResist is what it alternates
+    // with while a blow is being turned aside. All optional: with none of them
+    // on disk the block state falls back to the idle pose.
+    block0:        loadOptionalSvgFile('assets/Player_Block_0.svg'),
+    block1:        loadOptionalSvgFile('assets/Player_Block_1.svg'),
+    blockHold:     loadOptionalSvgFile('assets/Player_Block_hold.svg'),
+    blockResist:   loadOptionalSvgFile('assets/Player_Block_resist.svg'),
     upperCut:    loadSvgFile('assets/Player_UpperCut.svg'),
     runningKick: loadSvgFile('assets/Player_RunningKick.svg'),
 };
@@ -83,6 +91,11 @@ const PLAYER = {
 let PLAYER_DAMAGE_FRAMES = [];
 let PLAYER_COLLAPSE_FRAMES = [];
 
+// The guard coming up, ending on the pose it settles on. PLAYER.blockResist is
+// kept out: it is not part of the run, it is the frame the last one alternates
+// with while a blow lands.
+let PLAYER_BLOCK_FRAMES = [];
+
 SVG_FILES_READY.then(() => {
     // An optional sprite with nothing behind it comes back flagged rather than
     // null, since the Image had to be handed out before the answer was known.
@@ -95,5 +108,9 @@ SVG_FILES_READY.then(() => {
     PLAYER_COLLAPSE_FRAMES = [
         PLAYER.preDefeat0, PLAYER.preDefeat1, PLAYER.preDefeat2, PLAYER.preDefeat3,
         PLAYER.preDefeat4, PLAYER.preDefeat5, PLAYER.preDefeat6, PLAYER.preDefeat7,
+    ].filter(Boolean);
+
+    PLAYER_BLOCK_FRAMES = [
+        PLAYER.block0, PLAYER.block1, PLAYER.blockHold,
     ].filter(Boolean);
 });
