@@ -8,6 +8,108 @@ anything earlier, see the commit log.
 
 ---
 
+## [2026.10.12]
+
+### Added
+- **A `yoyo` animation mode.** The frames run forward and then return, without
+  either end repeating, so five frames make an eight step cycle
+  (`0 1 2 3 4 3 2 1`) and the step after it is `0` again. It is the ping-pong
+  that walk cycles were already being written out by hand as, with the return
+  half inferred instead of spelled, so a set drawn as a half cycle lists its
+  frames once.
+  - Rate is read exactly as `loop` reads it, an explicit fps or one whole cycle
+    across a duration, so the two are interchangeable wherever a state is
+    played.
+  - `SassyGirl` is the first to use it. Her walk was eight suffixes with three
+    of them repeats; it is now five, and plays the identical cycle frame for
+    frame, which is checked against the old list over three full cycles.
+  - The modes are now written up together at the top of `js/sprites/enemies.js`:
+    `hold`, `loop`, `sequence` and `yoyo`, and that an unrecognised mode is
+    treated as `hold`.
+
+### Notes
+- `SassyGirl`'s walk keeps its suffixes written out rather than taking the bare
+  `"walk"` form. Her numbered run starts at `walk_1` and the numbered-range rule
+  begins at `_0` and stops at the first gap, so the bare form resolves to
+  nothing for her: it leaves her walking on the single base pose and warns. The
+  bare form is fine for a character whose run starts at `_0`, which is what
+  `GreenJetter` and `TightRomper` do.
+- Three other walks are still hand-written ping-pongs that `yoyo` would shorten
+  in the same way: `BadGirl`, `JammingJabber` and `JumpingJunkie` all carry
+  `["", "walk_1", "walk_2", "walk_1"]`, which is `yoyo` over the first three.
+  Left alone, since only `SassyGirl` was asked for.
+
+---
+
+## [2026.10.11]
+
+### Changed
+- **Stage 1 has a new sub-boss and a new boss.** `BadOne` takes the sub-boss
+  slot and `SquirrlyGambler` steps up from it to boss, displacing
+  `MaskedMayhem`, which stays on as the boss of stage 2.
+  - `BadOne` was the one enemy in the game that no stage could spawn. It had a
+    full character set wired up on `2026.10.06` and thirty four frames of
+    artwork with nowhere to appear; the debug arena was the only way to see it.
+    Every enemy defined now reaches the field.
+  - The `mini` and `boss` flags moved with the slots, since those are what the
+    roles are made of: they drive the health bar drawn over the head, the
+    distance the character stops at, how many may rush at once, and how often
+    it swings. `BadOne` gains `mini`, `SquirrlyGambler` trades `mini` for
+    `boss` and so swings on the 1.1s boss cooldown rather than the 1.5s
+    sub-boss one. Its get-up is untouched, so it still opens with the kick and
+    comes back throwing fire.
+
+### Added
+- **GreenJetter is wired up** and out of `wipEnemies`, which leaves thirteen
+  characters still on the bare defaults. Stage 2's sub-boss now has artwork for
+  everything it does rather than fighting on its one standing pose.
+  - `idle` is a six frame loop led by the base sprite, `walk` a three frame
+    cycle, and `attack` is the four frame wind-up assembled in front of the five
+    frame rising kick, the way `SquirrlyGambler` assembles its own. Seven frames
+    of hit reaction, four of collapse and three on the floor.
+  - Both cycles close: measured as the pixel difference between consecutive
+    frames, the wrap back to the first frame is in line with each cycle's own
+    typical step, so both play straight through rather than ping-ponging.
+  - Its frames are the first to arrive named `idle` rather than `ideal`, so this
+    is also the first character the config addresses by the state's real name.
+    The six wired up before it still use the old spelling on disk.
+
+### Changed
+- `GreenJetter_defeat.svg` was renamed to `_defeat_0` as the first frame of its
+  run. Nothing in the config was needed for that beyond the entry above: a
+  literal always beats an inferred run, so removing the literal is what lets the
+  numbered rule pick the run up.
+
+---
+
+## [2026.10.10]
+
+### Added
+- **`scripts/mapSelectLayers.jsx`.** Selects the items a layer map renames,
+  in a document that is already open, without renaming anything. It shows in
+  Illustrator which paths `mapLayers.jsx` is about to touch, or already has.
+  - It works both before and after a run: a container fitting `current` reports
+    `renames to <name>`, and one fitting `change` reports `already mapped`.
+  - From the command line it only works on an open document, the active one
+    or `doc=`, and never opens a file. With no document open, it prints a
+    one-line error to stdout and changes nothing.
+  - From File > Scripts it selects in the active document, and shows an alert
+    only when something did not fit or nothing could be selected.
+
+### Changed
+- **Shared layer map engine.** The matching code moved out of
+  `mapLayers.jsx` into `scripts/lib/layerMap.jsxinc`, which both map scripts
+  `//@include`. `mapLayers.jsx` behaves as before.
+- **`runAdobeScript.pl` sets `$.runAdobeScript`** in Illustrator around each
+  run. A script can now tell a terminal run from a File > Scripts run even
+  when no arguments are passed. Before, a no-argument run looked like a menu
+  run, so an alert could stop the terminal call until someone dismissed it
+  in Illustrator.
+- Errors the user can fix, such as an unknown option or a missing map, no
+  longer carry a source line number.
+
+---
+
 ## [2026.10.07]
 
 ### Added

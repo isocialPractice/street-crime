@@ -15,8 +15,8 @@ const STAGES = [
             { gang: [['crimeguy',350],['badgirl',600],['jammingjabber',850]] },
             { gang: [['tightromper',320],['sassygirl',570],['crimeguy',820],['jumpingjunkie',1070]] },
         ],
-        subboss: 'squirrly',
-        boss:    'maskedmayhem',
+        subboss: 'badone',
+        boss:    'squirrly',
         objects: [[380,545],[670,555],[1050,535],[1540,550]],
     },
     {

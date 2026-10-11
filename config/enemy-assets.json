@@ -25,7 +25,6 @@
     }
   },
   "wipEnemies": [
-    "GreenJetter",
     "RoadFighter",
     "Stomper",
     "GreenStomper",
@@ -70,6 +69,17 @@
         "damage": { "mode": "sequence", "suffixes": ["damage_0", "damage_1", "damage_0", "damage_2"] },
         "preDefeat": { "mode": "hold", "suffixes": ["preDefeat"] },
         "defeat": { "mode": "sequence", "suffixes": ["damage_2", "preDefeat", "defeat"] }
+      }
+    },
+    "GreenJetter": {
+      "attackType": "bodyAttack",
+      "animations": {
+        "idle": { "mode": "loop", "suffixes": ["", "idle"] },
+        "walk": { "mode": "yoyo", "suffixes": ["", "walk"] },
+        "attack": { "mode": "sequence", "suffixes": ["preAttack", "attack", "attack_2", "attack_1"] },
+        "damage": { "mode": "sequence", "suffixes": ["damage"] },
+        "preDefeat": { "mode": "sequence", "suffixes": ["preDefeat"] },
+        "defeat": { "mode": "sequence", "suffixes": ["preDefeat", "defeat"] }
       }
     },
     "HyJungScout": {
@@ -132,7 +142,7 @@
       "animations": {
         "idle": { "mode": "loop", "suffixes": ["", "ideal"] },
         "powerAttackEffect": { "mode": "playerFreeze" },
-        "walk": { "mode": "loop", "suffixes": ["", "walk_1", "walk_2", "walk_3", "walk_4", "walk_3", "walk_2", "walk_1"] },
+        "walk": { "mode": "yoyo", "suffixes": ["", "walk_1", "walk_2", "walk_3", "walk_4"] },
         "preAttack": { "mode": "sequence", "suffixes": ["preAttack_1", "preAttack_2"]},
         "attack": { "mode": "sequence", "suffixes": ["preAttack", "attack_1", "attack_2", "attack_3", "attack_4"] },
         "powerAttack": { "mode": "loop", "suffixes": ["attack_powerAttack_0", "attack_powerAttack_1", "attack_powerAttack_2", "attack_powerAttack_1", "attack_powerAttack_0"]},

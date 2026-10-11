@@ -8,7 +8,8 @@
 # (DoJavaScriptFile) through PowerShell on Windows, AppleScript
 # (do javascript ... with arguments) through osascript on macOS. Either way the
 # script receives the arguments as its `arguments` array, the call waits for it
-# to finish, and whatever the script returns is printed.
+# to finish, and whatever the script returns is printed. While it runs,
+# `$.runAdobeScript` is true, which scripts read to skip dialogs.
 #
 # Usage:
 #   perl scripts/runAdobeScript.pl [options] <script.jsx> [arg ...]
@@ -35,6 +36,13 @@ use Encode ();
 use File::Basename ();
 use File::Spec;
 use MIME::Base64 ();
+
+# Set in Illustrator's persistent script engine around each run, so a script
+# can tell it was started from here rather than from the Scripts menu, which
+# it cannot otherwise do when no arguments are passed. Cleared afterwards
+# whether the script succeeds or not.
+use constant RUN_FLAG_SET   => '$.runAdobeScript = true;';
+use constant RUN_FLAG_CLEAR => '$.runAdobeScript = undefined;';
 
 # Applications a script can target. The target comes from the script's own
 # `#target` / `//@target` directive, and Illustrator is assumed without one.
@@ -111,7 +119,12 @@ sub run_windows {
         q{[Console]::OutputEncoding = [System.Text.Encoding]::UTF8},
         q[try {],
         sprintf(q{    $app = New-Object -ComObject %s}, ps_quote($app->{com})),
-        qq{    \$result = $call},
+        sprintf(q{    $null = $app.DoJavaScript(%s)}, ps_quote(RUN_FLAG_SET)),
+        q[    try {],
+        qq{        \$result = $call},
+        q[    } finally {],
+        sprintf(q{        try { $null = $app.DoJavaScript(%s) } catch {}}, ps_quote(RUN_FLAG_CLEAR)),
+        q[    }],
         q{    if ($null -ne $result -and "$result" -ne '') { [Console]::Out.WriteLine([string]$result) }},
         q[} catch {],
         q{    [Console]::Error.WriteLine($_.Exception.Message)},
@@ -142,7 +155,15 @@ sub run_macos {
         '-e', 'set scriptFile to (POSIX file (item 1 of argv)) as alias',
         '-e', 'set scriptArgs to rest of argv',
         '-e', qq{tell application id "$app->{bundle_id}"},
-        '-e', 'return do javascript scriptFile with arguments scriptArgs',
+        '-e', sprintf('do javascript "%s"', RUN_FLAG_SET),
+        '-e', 'try',
+        '-e', 'set scriptResult to do javascript scriptFile with arguments scriptArgs',
+        '-e', 'on error errText number errNumber',
+        '-e', sprintf('do javascript "%s"', RUN_FLAG_CLEAR),
+        '-e', 'error errText number errNumber',
+        '-e', 'end try',
+        '-e', sprintf('do javascript "%s"', RUN_FLAG_CLEAR),
+        '-e', 'return scriptResult',
         '-e', 'end tell',
         '-e', 'end run',
         $script, @$args,

@@ -1,0 +1,580 @@
+/**
+ * layerMap.jsxinc
+ *
+ * Shared engine for the layer map scripts, mapLayers.jsx and
+ * mapSelectLayers.jsx: reading and checking a layer map, finding the items it
+ * points at, and the option and report handling both use. The map format is
+ * described in mapLayers.jsx.
+ *
+ * Include it at the top of the script's wrapper function, so everything
+ * declared here stays local to that script:
+ *
+ *   (function (scriptArgs) {
+ *       //@include "lib/layerMap.jsxinc"
+ *       ...
+ *   })(typeof arguments !== 'undefined' && arguments ? arguments : []);
+ *
+ * The include path resolves from the including script. $.fileName read in
+ * here names this file, not the script, so scripts pass their own $.fileName
+ * wherever their folder is needed.
+ */
+
+// The key in a map node holding its list of child names. Every other key
+// names an item to step into.
+var LIST_KEY = 'layers';
+
+// Layers panel labels for unnamed items, and the kind of item each means.
+var KINDS = {
+    'Path':          function (it) { return it.typename === 'PathItem'; },
+    'Clipping Path': function (it) { return it.typename === 'PathItem' && it.clipping; },
+    'Compound Path': function (it) { return it.typename === 'CompoundPathItem'; },
+    'Group':         function (it) { return it.typename === 'GroupItem'; },
+    'Clip Group':    function (it) { return it.typename === 'GroupItem' && it.clipped; },
+    'Image':         function (it) { return it.typename === 'RasterItem'; },
+    'Linked File':   function (it) { return it.typename === 'PlacedItem'; },
+    'Mesh':          function (it) { return it.typename === 'MeshItem'; },
+    'Text':          function (it) { return it.typename === 'TextFrame'; },
+    'Symbol':        function (it) { return it.typename === 'SymbolItem'; }
+};
+
+// Live shapes get their own panel labels but are plain paths to scripting.
+var LIVE_SHAPES = ['Rectangle', 'Rounded Rectangle', 'Ellipse', 'Polygon', 'Star', 'Line'];
+for (var s = 0; s < LIVE_SHAPES.length; s++) {
+    KINDS[LIVE_SHAPES[s]] = KINDS['Path'];
+}
+
+// ── Options ──────────────────────────────────────────────────────────────────
+
+/**
+ * Reads "key=value" options from the script's arguments and $.arguments.
+ *
+ * @param {Array} scriptArgs - The script's top-level arguments.
+ * @param {Object} spec - {values: [...], flags: [...]}: names of options that
+ *     take a value and of options read as on or off. A bare *.json argument
+ *     fills map and a bare *.ai argument fills doc.
+ * @returns {Object} The options, plus commandLine: true unless the script
+ *     was started from Illustrator's own Scripts menu.
+ */
+function readOptions(scriptArgs, spec) {
+    var fromRunner = takeRunFlag();
+    var raw = collectArguments(scriptArgs);
+    var opts = { commandLine: fromRunner || raw.length > 0 };
+    var i;
+    for (i = 0; i < spec.values.length; i++) {
+        opts[spec.values[i]] = '';
+    }
+    for (i = 0; i < spec.flags.length; i++) {
+        opts[spec.flags[i]] = false;
+    }
+
+    for (i = 0; i < raw.length; i++) {
+        var arg = trim(raw[i]);
+        if (arg === '') {
+            continue;
+        }
+        var pair = /^([A-Za-z]+)\s*=\s*([\s\S]*)$/.exec(arg);
+        if (pair) {
+            var key = pair[1].toLowerCase();
+            var value = trim(pair[2]);
+            if (inList(spec.values, key)) {
+                opts[key] = value;
+            } else if (inList(spec.flags, key)) {
+                opts[key] = /^(1|true|yes|on)$/i.test(value);
+            } else {
+                throw failure('unknown option "' + pair[1] + '".');
+            }
+        } else if (/\.json$/i.test(arg) && inList(spec.values, 'map')) {
+            opts.map = arg;
+        } else if (/\.ai$/i.test(arg) && inList(spec.values, 'doc')) {
+            opts.doc = arg;
+        } else {
+            throw failure('unrecognised argument "' + arg + '".');
+        }
+    }
+    return opts;
+}
+
+/**
+ * runAdobeScript.pl sets $.runAdobeScript before each run and clears it after.
+ * Without it, a command-line run with no arguments looks exactly like a run
+ * from the Scripts menu. Cleared here as well, so a value stranded by a
+ * crashed run cannot mislabel the next menu run.
+ */
+function takeRunFlag() {
+    var flag = (typeof $.runAdobeScript !== 'undefined') && $.runAdobeScript === true;
+    $.runAdobeScript = undefined;
+    return flag;
+}
+
+/**
+ * Gathers string arguments from the script's arguments array and from
+ * $.arguments, the convention the other user scripts share. Launchers such as
+ * ESTK can hand over a BridgeTalk object instead of strings, which is ignored.
+ */
+function collectArguments(scriptArgs) {
+    var list = [];
+    for (var i = 0; i < scriptArgs.length; i++) {
+        if (typeof scriptArgs[i] === 'string') {
+            list.push(scriptArgs[i]);
+        }
+    }
+
+    var extra = (typeof $.arguments !== 'undefined') ? $.arguments : null;
+    // Cleared so a later run from the Scripts menu does not reuse it.
+    $.arguments = null;
+    if (extra instanceof Array) {
+        for (var j = 0; j < extra.length; j++) {
+            list.push(String(extra[j]));
+        }
+    } else if (extra !== null && trim(String(extra)) !== '') {
+        // "map=a.json, dry=1": split only on commas that start a new key, so
+        // a path with a comma in it survives.
+        var parts = String(extra).split(/\s*,\s*(?=[A-Za-z]+\s*=)/);
+        for (var k = 0; k < parts.length; k++) {
+            list.push(parts[k]);
+        }
+    }
+    return list;
+}
+
+// ── Map file ─────────────────────────────────────────────────────────────────
+
+/**
+ * The map to use: map=, else data/layerMap.json beside the script, else (from
+ * the Scripts menu only) one the user picks.
+ *
+ * @param {Object} opts - Options from readOptions.
+ * @param {string} scriptFile - The calling script's $.fileName.
+ * @returns {File|null} null when the user cancels the picker.
+ */
+function resolveMapFile(opts, scriptFile) {
+    if (opts.map) {
+        return new File(opts.map);
+    }
+    var here = folderOf(scriptFile);
+    if (here) {
+        var fallback = new File(here.fsName + '/data/layerMap.json');
+        if (fallback.exists || opts.commandLine) {
+            return fallback;
+        }
+    }
+    if (opts.commandLine) {
+        throw failure('no layer map given. Pass map=<file.json>.');
+    }
+    return File.openDialog('Select a layer map', 'JSON:*.json');
+}
+
+function folderOf(path) {
+    try {
+        return path ? new File(path).parent : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+/**
+ * Reads and checks the map, so a malformed one stops the run before any
+ * document is touched.
+ *
+ * @returns {{current: Object, change: Object}}
+ */
+function loadMap(file, reverse) {
+    if (!file.exists) {
+        throw failure('layer map not found: ' + file.fsName);
+    }
+    var map = parseJson(readText(file), file.fsName);
+    if (!isNode(map) || !isNode(map.current) || !isNode(map.change)) {
+        throw failure(file.fsName + ' needs a "current" and a "change" object.');
+    }
+    var problems = [];
+    compareNodes(map.current, map.change, '', problems);
+    if (problems.length > 0) {
+        throw failure('"current" and "change" do not line up:\n  ' + problems.join('\n  '));
+    }
+    return reverse
+        ? { current: map.change, change: map.current }
+        : { current: map.current, change: map.change };
+}
+
+function compareNodes(cur, chg, path, problems) {
+    var key;
+    for (key in cur) {
+        if (!cur.hasOwnProperty(key)) {
+            continue;
+        }
+        var at = path ? path + ' > ' + key : key;
+        if (!chg.hasOwnProperty(key)) {
+            problems.push('"change" has no ' + at);
+        } else if (key === LIST_KEY) {
+            compareLists(cur[key], chg[key], at, problems);
+        } else if (!isNode(cur[key]) || !isNode(chg[key])) {
+            problems.push(at + ' must be an object in both trees');
+        } else {
+            compareNodes(cur[key], chg[key], at, problems);
+        }
+    }
+    for (key in chg) {
+        if (chg.hasOwnProperty(key) && !cur.hasOwnProperty(key)) {
+            problems.push('"current" has no ' + (path ? path + ' > ' + key : key));
+        }
+    }
+}
+
+function compareLists(cur, chg, at, problems) {
+    if (!(cur instanceof Array) || !(chg instanceof Array)) {
+        problems.push(at + ' must be a list in both trees');
+        return;
+    }
+    if (cur.length !== chg.length) {
+        problems.push(at + ' lists ' + cur.length + ' names in "current" but ' + chg.length + ' in "change"');
+        return;
+    }
+    for (var i = 0; i < cur.length; i++) {
+        if (!isEntry(cur[i]) || !isEntry(chg[i])) {
+            problems.push(at + ' [' + i + '] must be a name or null');
+        }
+    }
+}
+
+function isNode(value) {
+    return value !== null && typeof value === 'object' && !(value instanceof Array);
+}
+
+function isEntry(value) {
+    return value === null || typeof value === 'string';
+}
+
+/**
+ * ExtendScript is ES3 and has no JSON object. The text is checked with
+ * json2's validation pass (only JSON punctuation may be left once strings,
+ * numbers and literals are stripped) before eval is allowed near it.
+ */
+function parseJson(text, source) {
+    var clean = text.replace(/^﻿/, '');
+    var probe = clean
+        .replace(/\\(?:["\\\/bfnrt]|u[0-9a-fA-F]{4})/g, '@')
+        .replace(/"[^"\\\n\r]*"|true|false|null|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?/g, ']')
+        .replace(/(?:^|:|,)(?:\s*\[)+/g, '');
+    if (!/^[\],:{}\s]*$/.test(probe)) {
+        throw failure(source + ' is not valid JSON.');
+    }
+    try {
+        return eval('(' + clean + ')');
+    } catch (e) {
+        throw failure(source + ' is not valid JSON: ' + errorText(e));
+    }
+}
+
+// ── Walking the map ──────────────────────────────────────────────────────────
+
+/**
+ * Walks a layer map over a document. Each key is looked up below every
+ * container the level above it matched, and each "layers" list is handed to
+ * visit.list once for every container it applies to. Nothing is changed
+ * here; what a list means is up to the caller.
+ *
+ * @param {Document} doc - Document to walk.
+ * @param {Object} current - Root of the "current" tree.
+ * @param {Object} change - Root of the "change" tree.
+ * @param {Object} visit - {missing: function (entry, key),
+ *     list: function (entry, curList, chgList)}. An entry is
+ *     {item, crumb}, where crumb is the item's path for reports.
+ */
+function walkMap(doc, current, change, visit) {
+    walkNode([{ item: doc, crumb: '' }], current, change, visit);
+}
+
+function walkNode(containers, curNode, chgNode, visit) {
+    for (var key in curNode) {
+        if (!curNode.hasOwnProperty(key) || key === LIST_KEY) {
+            continue;
+        }
+        var selector = parseSelector(key);
+        var matches = [];
+        for (var c = 0; c < containers.length; c++) {
+            if (findMatches(containers[c], selector, matches) === 0) {
+                visit.missing(containers[c], key);
+            }
+        }
+        if (matches.length > 0) {
+            walkNode(matches, curNode[key], chgNode[key], visit);
+        }
+    }
+
+    if (curNode.hasOwnProperty(LIST_KEY)) {
+        for (var i = 0; i < containers.length; i++) {
+            visit.list(containers[i], curNode[LIST_KEY], chgNode[LIST_KEY]);
+        }
+    }
+}
+
+/**
+ * Collects the items below a container that a selector matches. A match is
+ * not searched any further for the same name, so "strokes" finds the nearest
+ * strokes group on each branch rather than every one nested inside it too.
+ *
+ * @returns {number} How many matches this container contributed.
+ */
+function findMatches(entry, selector, out) {
+    var kids = childEntries(entry);
+    var found = 0;
+    for (var i = 0; i < kids.length; i++) {
+        if (selector.test(kids[i].item)) {
+            out.push(kids[i]);
+            found++;
+        } else if (!selector.direct) {
+            found += findMatches(kids[i], selector, out);
+        }
+    }
+    return found;
+}
+
+function parseSelector(key) {
+    var direct = key.charAt(0) === '>';
+    var name = direct ? trim(key.substr(1)) : key;
+    return { direct: direct, test: makeMatcher(name) };
+}
+
+/**
+ * Builds the test for one map entry: an exact name, an <Unnamed Kind> token,
+ * or a wildcard ("*" or null).
+ */
+function makeMatcher(entry) {
+    if (entry === null || entry === '*') {
+        return function () { return true; };
+    }
+    var token = /^<(.+)>$/.exec(entry);
+    if (token) {
+        var kind = KINDS.hasOwnProperty(token[1]) ? KINDS[token[1]] : null;
+        return function (item) { return itemName(item) === '' && (!kind || kind(item)); };
+    }
+    return function (item) { return itemName(item) === entry; };
+}
+
+/**
+ * A list fits when each entry matches the child at its position. Without
+ * exact, a list shorter than the children fits on its first entries.
+ *
+ * @returns {string} Why the children do not fit the list, or '' if they do.
+ */
+function listMismatch(kids, list, exact) {
+    if (kids.length < list.length || (exact && kids.length !== list.length)) {
+        return 'has ' + kids.length + ' children, map lists ' + list.length;
+    }
+    for (var i = 0; i < list.length; i++) {
+        if (!makeMatcher(list[i])(kids[i])) {
+            return 'child [' + i + '] is ' + label(kids[i]) + ', map expects ' + list[i];
+        }
+    }
+    return '';
+}
+
+// The name a "change" entry asks for: null to leave it, '' to clear it.
+function targetName(entry) {
+    if (entry === null || entry === '*') {
+        return null;
+    }
+    return /^<.+>$/.test(entry) ? '' : entry;
+}
+
+// ── Document tree ────────────────────────────────────────────────────────────
+
+/**
+ * Direct children of a document, layer or group, top to bottom. A layer's
+ * sublayers come before its artwork, since scripting keeps the two in
+ * separate collections.
+ */
+function childrenOf(item) {
+    var kids = [];
+    switch (item.typename) {
+        case 'Document':
+            pushAll(kids, item.layers);
+            break;
+        case 'Layer':
+            pushAll(kids, item.layers);
+            pushAll(kids, item.pageItems);
+            break;
+        case 'GroupItem':
+            pushAll(kids, item.pageItems);
+            break;
+    }
+    return kids;
+}
+
+function childEntries(entry) {
+    var kids = childrenOf(entry.item);
+    var entries = [];
+    for (var i = 0; i < kids.length; i++) {
+        entries.push({
+            item: kids[i],
+            crumb: (entry.crumb ? entry.crumb + ' > ' : '') + label(kids[i])
+        });
+    }
+    return entries;
+}
+
+function pushAll(out, collection) {
+    for (var i = 0; i < collection.length; i++) {
+        out.push(collection[i]);
+    }
+}
+
+function itemName(item) {
+    return item.typename === 'Document' ? '' : item.name;
+}
+
+// An item's Layers panel label: its name, or <Kind> when it has none.
+function label(item) {
+    var name = itemName(item);
+    return name !== '' ? name : '<' + kindLabel(item) + '>';
+}
+
+function kindLabel(item) {
+    switch (item.typename) {
+        case 'PathItem':         return item.clipping ? 'Clipping Path' : 'Path';
+        case 'CompoundPathItem': return 'Compound Path';
+        case 'GroupItem':        return item.clipped ? 'Clip Group' : 'Group';
+        case 'RasterItem':       return 'Image';
+        case 'PlacedItem':       return 'Linked File';
+        case 'MeshItem':         return 'Mesh';
+        case 'TextFrame':        return 'Text';
+        case 'SymbolItem':       return 'Symbol';
+        default:                 return item.typename.replace(/Item$/, '');
+    }
+}
+
+function where(entry) {
+    return entry.crumb || '(document)';
+}
+
+// ── Documents ────────────────────────────────────────────────────────────────
+
+function findOpenDocument(file) {
+    var wanted = comparablePath(file.fsName);
+    for (var i = 0; i < app.documents.length; i++) {
+        try {
+            if (comparablePath(app.documents[i].fullName.fsName) === wanted) {
+                return app.documents[i];
+            }
+        } catch (e) {
+            // A document that was never saved has no file to compare.
+        }
+    }
+    return null;
+}
+
+function comparablePath(path) {
+    return String(path).replace(/\\/g, '/').toLowerCase();
+}
+
+// ── Report ───────────────────────────────────────────────────────────────────
+
+/**
+ * Collects report lines grouped by outcome. The first note is the heading;
+ * later notes follow the summary.
+ *
+ * @param {Array} order - Outcome kinds, in the order their lines are listed.
+ * @param {Function} summarize - Builds the summary line, given count(kind).
+ */
+function newReport(order, summarize) {
+    var notes = [];
+    var buckets = {};
+    for (var i = 0; i < order.length; i++) {
+        buckets[order[i]] = [];
+    }
+
+    function count(kind) {
+        return buckets[kind].length;
+    }
+
+    function lines() {
+        var all = [];
+        for (var k = 0; k < order.length; k++) {
+            all = all.concat(buckets[order[k]]);
+        }
+        return all;
+    }
+
+    return {
+        note: function (text) { notes.push(text); },
+        add: function (kind, text) { buckets[kind].push(padRight(kind, 9) + text); },
+        count: count,
+        text: function () {
+            return notes.slice(0, 1).concat(lines(), ['', summarize(count)], notes.slice(1)).join('\n');
+        },
+        brief: function (limit) {
+            var all = lines();
+            var shown = all.slice(0, limit);
+            if (all.length > limit) {
+                shown.push('... and ' + (all.length - limit) + ' more');
+            }
+            return [summarize(count), ''].concat(shown, notes.slice(1)).join('\n');
+        }
+    };
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * An error for a problem the user can fix (a bad option, a missing file), as
+ * opposed to a fault in the script. Reported without a source line number.
+ */
+function failure(message) {
+    var err = new Error(message);
+    err.expected = true;
+    return err;
+}
+
+function errorText(err) {
+    var text = (err && err.message) ? err.message : String(err);
+    return (err && err.line && !err.expected) ? text + ' (line ' + err.line + ')' : text;
+}
+
+function readText(file) {
+    file.encoding = 'UTF-8';
+    if (!file.open('r')) {
+        throw failure('cannot read ' + file.fsName);
+    }
+    try {
+        return file.read();
+    } finally {
+        file.close();
+    }
+}
+
+function writeText(file, text) {
+    if (!file.parent.exists) {
+        file.parent.create();
+    }
+    file.encoding = 'UTF-8';
+    file.lineFeed = 'Unix';
+    if (!file.open('w')) {
+        throw failure('cannot write ' + file.fsName);
+    }
+    try {
+        file.write(text);
+    } finally {
+        file.close();
+    }
+}
+
+// ExtendScript is ES3: no String.prototype.trim, padEnd or Array indexOf.
+function trim(text) {
+    return String(text).replace(/^\s+|\s+$/g, '');
+}
+
+function padRight(text, width) {
+    while (text.length < width) {
+        text += ' ';
+    }
+    return text;
+}
+
+function inList(list, value) {
+    for (var i = 0; i < list.length; i++) {
+        if (list[i] === value) {
+            return true;
+        }
+    }
+    return false;
+}

@@ -35,7 +35,7 @@
   - Stage background elements
 - [ ] Sound effects
 
-  ### Game
+### Game
 
 - [ ] **Pause**: Auto map assets
   - Create plan to map and apply new actions using JSON configuration
@@ -58,6 +58,10 @@
 
 - [x] `scripts/mapLayers.jsx`: rename layers from a JSON map (`scripts/data/layerMap.json`)
 - [x] `scripts/runAdobeScript.pl`: run Illustrator scripts from the command line (port of `runAdobeScript.bat`)
+- [x] `scripts/mapSelectLayers.jsx`: select what a layer map points at in an open document, to check a map before running it
+- [ ] `scripts/mapSelectLayers.jsx`: exit with status 1 on errors (no document open, `doc=` not open, bad map or option)
+  - Errors already print as one line on stdout, but the exit status stays 0, so a batch file cannot tell a failure from a success
+  - Keep the one-line stdout message. The runner needs a way to recognise a failure result, since a thrown error is what turns into status 1 today and it prints as Illustrator's longer `Error 54: Uncaught JavaScript exception: ...` text
 - [x] `support/` for source `.ai` files: git-ignored, with `source-player.ai` and `source-enemies.ai` force-added as examples
 
 #### Port from `userScripts/`

@@ -63,7 +63,7 @@ index.html  — canvas and DOM shell
 
 Character, enemy and object art is drawn in Adobe Illustrator and exported to `assets/` as one SVG per frame. Keep the source `.ai` files in `support/`. That folder is git-ignored because source files for detailed game art get large. The two files committed there, `source-player.ai` and `source-enemies.ai`, are examples for trying the scripts.
 
-`scripts/` holds the command-line tooling for those sources. `mapLayers.jsx` renames layers and paths from a JSON layer map, so exported SVGs carry ids the game can use for color and outfit changes. `runAdobeScript.pl` runs any Illustrator script from a terminal on Windows or macOS:
+`scripts/` holds the command-line tooling for those sources. `mapLayers.jsx` renames layers and paths from a JSON layer map, so exported SVGs carry ids the game can use for color and outfit changes. `mapSelectLayers.jsx` selects what that map points at, so you can check it in Illustrator first. `runAdobeScript.pl` runs any Illustrator script from a terminal on Windows or macOS:
 
 ```sh
 perl scripts/runAdobeScript.pl scripts/mapLayers.jsx doc=support/source-player.ai dry=1

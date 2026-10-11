@@ -1,18 +1,18 @@
 {
   "current": {
-    "Player_Walk": {
-      "back-glove": {
-        "strokes": {
-          "layers": [ "<Path>" ]
+    "GreenJetter": {
+      "head-assembly": {
+        "hair": {
+         "layers": [ "outline" ]
         }
       }
     }
   },
   "change": {
-    "Player_Walk": {
-      "back-glove": {
-        "strokes": {
-          "layers": [ "thumb" ]
+    "GreenJetter": {
+      "head-assembly": {
+        "hair": {
+         "layers": [ "thumb" ]
         }
       }
     }

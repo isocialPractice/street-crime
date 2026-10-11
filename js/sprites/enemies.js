@@ -16,6 +16,20 @@
 // collapse. A literal asset always wins, so enemies that still ship a real
 // "<EnemyName>_preDefeat.svg" keep using that exact file and are unaffected.
 //
+// Animation modes
+// ---------------
+// "mode" says how a state's frames are played:
+//   hold     - one pose. Given a duration, plays through and holds the last.
+//   loop     - cycles, at an explicit fps or once across a duration.
+//   sequence - plays once across a duration and holds the last frame.
+//   yoyo     - out and back: the frames run forward then return, without
+//              either end repeating, so five frames make an eight step cycle
+//              (0 1 2 3 4 3 2 1). It is the ping-pong that walk cycles were
+//              written out by hand as, with the return half inferred, so a set
+//              drawn as a half cycle lists its frames once. See
+//              Enemy._enemyPickFrame.
+// An unrecognised mode is treated as hold.
+//
 // Numbered ranges
 // ---------------
 // A suffix with no literal file and no matching state expands to the

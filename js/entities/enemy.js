@@ -9,7 +9,7 @@ const ENEMY_DEFS = {
     crimeguy:      { img:'CrimeGuy',            hp: 50,  spd: 85,  dmg: 8,  pts:100, w:55, h:95  },
     badgirl:       { img:'BadGirl',             hp: 45,  spd: 95,  dmg: 7,  pts:100, w:50, h:90  },
     sassygirl:     { img:'SassyGirl',           hp: 45,  spd:100,  dmg: 7,  pts:100, w:50, h:90  },
-    badone:        { img:'BadOne',              hp: 55,  spd: 80,  dmg: 9,  pts:120, w:60, h:100 },
+    badone:        { img:'BadOne',              hp: 55,  spd: 80,  dmg: 9,  pts:120, w:60, h:100, mini:true },
     tightromper:   { img:'TightRomper',         hp: 60,  spd: 75,  dmg:10,  pts:130, w:60, h:100 },
     jammingjabber: { img:'JammingJabber',       hp: 60,  spd: 88,  dmg:10,  pts:130, w:55, h:95  },
     jumpingjunkie: { img:'JumpingJunkie',       hp: 55,  spd:108,  dmg: 9,  pts:125, w:50, h:95  },
@@ -28,7 +28,7 @@ const ENEMY_DEFS = {
     hyjung:      { img:'HyJungScout',         hp: 80,  spd:105,  dmg:13,  pts:230, w:55, h:95  },
     lowgoblin:   { img:'LowGoblin',           hp: 65,  spd:100,  dmg:11,  pts:200, w:50, h:80  },
     // ── Sub-bosses ────────────────────────────────────────────────────────────
-    squirrly:    { img:'SquirrlyGambler',     hp:150,  spd:100,  dmg:15,  pts:400, w:65, h:110, mini:true },
+    squirrly:    { img:'SquirrlyGambler',     hp:150,  spd:100,  dmg:15,  pts:400, w:65, h:110, boss:true },
     greenjetter: { img:'GreenJetter',         hp:180,  spd: 95,  dmg:18,  pts:500, w:70, h:115, mini:true },
     badblob:     { img:'BadBlob',             hp:200,  spd: 80,  dmg:20,  pts:600, w:80, h:110, mini:true },
     maskedmayhem:{ img:'MaskedMayhem',        hp:280,  spd: 95,  dmg:22,  pts:800, w:75, h:118, boss:true },
@@ -184,6 +184,22 @@ function _enemyPickFrame(charKey, stateKey, animT, { fps = 0, duration = 0, hold
             // for the whole swing because no caller passes an attack an fps.
             const rate = fps > 0 ? fps : (duration > 0 ? frames.length / duration : 0);
             return rate > 0 ? frames[Math.floor(animT * rate) % frames.length] : frames[0];
+        }
+        case 'yoyo': {
+            // Out and back. The frames play forward and then return, without
+            // either end repeating, so five frames are an eight step cycle
+            // (0 1 2 3 4 3 2 1) and the step after it is 0 again. It is the
+            // ping-pong walks were already written out by hand as, with the
+            // return half inferred rather than spelled: a set authored as a
+            // half cycle needs only its own frames listed once.
+            //
+            // Rate is read the same way a loop reads it, an explicit fps or a
+            // whole cycle across a duration, so the two are interchangeable.
+            const span = Math.max(1, (frames.length - 1) * 2);
+            const rate = fps > 0 ? fps : (duration > 0 ? span / duration : 0);
+            if (rate <= 0) return frames[0];
+            const step = Math.floor(animT * rate) % span;
+            return frames[step < frames.length ? step : span - step];
         }
         case 'sequence':
             return _enemySequenceFrame(frames, animT, duration, holdTail);

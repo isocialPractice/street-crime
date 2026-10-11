@@ -11,7 +11,9 @@ recolor a glove or swap an outfit piece, those parts need names in the source
 |---|---|
 | `runAdobeScript.pl` | Runs any `.jsx` in Illustrator from a terminal, passing arguments to it and printing what it returns. |
 | `mapLayers.jsx` | Renames layers, groups and paths from a JSON layer map. |
-| `data/layerMap.json` | The layer map `mapLayers.jsx` reads by default. |
+| `mapSelectLayers.jsx` | Selects the items a layer map renames, in a document that is already open, without renaming anything. |
+| `lib/layerMap.jsxinc` | Matching engine shared by both map scripts, pulled in with `//@include`. |
+| `data/layerMap.json` | The layer map both scripts read by default. |
 
 ## Source files: `support/`
 
@@ -49,6 +51,10 @@ perl scripts/runAdobeScript.pl [options] <script.jsx> [arg ...]
 - Illustrator is started if it is not already running. The call waits for the
   script to finish, prints whatever the script returns, and exits with `1` if
   the script throws.
+- While the script runs, `$.runAdobeScript` is `true` in Illustrator's script
+  engine, and it is cleared afterwards. Scripts read it to tell a terminal run
+  from a **File > Scripts** run, which otherwise look the same when no
+  arguments are passed, so they can skip dialogs nobody is there to answer.
 - The script's `#target` / `//@target` line is read. Illustrator is the only
   application wired up so far; others can be added to `%APPS`.
 
@@ -79,8 +85,8 @@ perl scripts/runAdobeScript.pl scripts/mapLayers.jsx doc=support/source-player.a
 | `exact=1` | off | Skip any container whose child count differs from its list length, instead of mapping only the first children. |
 | `log=<file>` | none | Also write the report to a file. |
 
-With no arguments (for example from **File > Scripts > Other Script...**), it
-maps the active document with the default map and shows a summary alert.
+From **File > Scripts > Other Script...**, it maps the active document with
+the default map and shows a summary alert.
 
 ### Layer map format
 
@@ -124,6 +130,45 @@ maps the active document with the default map and shows a summary alert.
 The report lists every container as `renamed` (or `rename` in a dry run),
 `mapped` (already renamed), `skipped` (children do not fit the list) or
 `missing` (nothing matched a key), followed by a one-line summary.
+
+## mapSelectLayers.jsx
+
+Selects what a layer map points at, so you can see in Illustrator which paths
+`mapLayers.jsx` is about to rename, or has renamed, before you commit to it. It
+reads the same map with the same matching rules and renames nothing.
+
+```sh
+# Select in the active document
+perl scripts/runAdobeScript.pl scripts/mapSelectLayers.jsx
+
+# Select in a particular open document, with another map
+perl scripts/runAdobeScript.pl scripts/mapSelectLayers.jsx doc=support/source-player.ai map=scripts/data/layerMap.json
+```
+
+| Option | Default | |
+|---|---|---|
+| `map=<file.json>` | `scripts/data/layerMap.json` | Layer map to read. |
+| `doc=<file.ai>` | active document | Open document to select in. It is brought to the front. |
+| `exact=1` | off | As in `mapLayers.jsx`. |
+
+- **What is selected:** every child a `layers` list gives a name to, in each
+  container that fits either `current` (not renamed yet) or `change` (already
+  renamed). Each line of the report says which: `renames to thumb` or
+  `already mapped`. Entries left as `*` or `null` in `change` are placeholders
+  and stay unselected. Any earlier selection is cleared first.
+- **Layers:** a layer cannot be selected itself, so a layer named in a list
+  has its artwork selected instead.
+- **From the command line**, it works only on a document that is already
+  open, and never opens one. With no document open, or with `doc=` naming a
+  file that is not open, it prints a one-line error such as
+  `mapSelectLayers: no document is open in Illustrator. ...` and changes
+  nothing. Every failure comes back the same way, as a single line on stdout,
+  with exit status `0`.
+- **From File > Scripts**, it selects in the active document. It shows an
+  alert only when nothing could be selected or part of the map did not fit;
+  a clean selection needs no alert.
+- Locked or hidden items, or items under a locked or hidden layer, cannot be
+  selected and are reported as `failed`.
 
 ### SVG ids after export
 
