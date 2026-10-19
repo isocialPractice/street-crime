@@ -20,6 +20,7 @@
             <button class="title-btn" id="btn-game">&#9654; GAME</button>
             <button class="title-btn" id="btn-debug">&#9881; DEBUG MODE</button>
             <button class="title-btn" id="btn-debug-level">&#9635; DEBUG LEVEL</button>
+            <button class="title-btn" id="btn-sandbox">&#9874; SANDBOX TEST</button>
         </div>
     </div>
 
@@ -89,7 +90,8 @@
                 Move: ←↑↓→ / WASD &nbsp;|&nbsp; Run: SHIFT + direction &nbsp;|&nbsp;
                 Punch: J/Z &nbsp;|&nbsp; Kick: K/X &nbsp;|&nbsp; Jump: SPACE &nbsp;|&nbsp;
                 Block: hold C &nbsp;|&nbsp;
-                Run-Kick: SHIFT + dir + K/X (uses SP)
+                Run-Kick: SHIFT + dir + K/X (uses SP) &nbsp;|&nbsp;
+                Enter door: E
             </div>
         </div>
     </div>
@@ -105,6 +107,7 @@
     <script src="js/sprites/backgrounds.js"></script>
     <script src="js/sprites/weather.js"></script>
     <script src="js/level/svg-scenes.js"></script>
+    <script src="js/level/level-map.js"></script>
     <script src="js/sprites/ready.js"></script>
 
     <!-- ── Core: canvas refs, config, input, camera ─────────────────────────── -->
@@ -119,16 +122,20 @@
     <script src="js/entities/breakfx.js"></script>
     <script src="js/entities/pickup.js"></script>
     <script src="js/entities/breakable.js"></script>
+    <script src="js/entities/level-objects.js"></script>
     <script src="js/entities/player.js"></script>
     <script src="js/entities/enemy.js"></script>
 
     <!-- ── Level: stage data and level manager FSM ───────────────────────────── -->
     <script src="js/level/data.js"></script>
+    <script src="js/level/sequence.js"></script>
     <script src="js/level/manager.js"></script>
+    <script src="js/level/level-runtime.js"></script>
 
     <!-- ── UI: HUD helpers and debug panels ─────────────────────────────────── -->
     <script src="js/ui/hud.js"></script>
     <script src="js/ui/debug.js"></script>
+    <script src="js/ui/sandbox.js"></script>
 
     <!-- ── Rendering: background draw, main scene draw, debug overlay ────────── -->
     <script src="js/rendering/background.js"></script>

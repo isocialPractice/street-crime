@@ -532,8 +532,20 @@ class Enemy extends Entity {
         if (dist > closeEnough) {
             if (activeRushers < maxSimul) {
                 const rushSpd = this.speed * CFG.enemySpeedMultiplier;
-                this.vx = this._approach(dx, 20, rushSpd);
-                this.vy = this._approach(dy, 12, rushSpd * 0.5);
+                // A hole between this enemy and the player (a parked car, in
+                // theStreets) is walked around by its corners rather than
+                // pushed against for good. Corners are followed with a tight
+                // deadzone so the enemy actually reaches each one.
+                const feet = { x: this.x + this.w * 0.5, y: this.y + this.h };
+                const waypoint = stageHoleWaypoint(stageData, feet,
+                    { x: player.x + player.w * 0.5, y: player.y + player.h });
+                if (waypoint) {
+                    this.vx = this._approach(waypoint.x - feet.x, 2, rushSpd);
+                    this.vy = this._approach(waypoint.y - feet.y, 2, rushSpd * 0.5);
+                } else {
+                    this.vx = this._approach(dx, 20, rushSpd);
+                    this.vy = this._approach(dy, 12, rushSpd * 0.5);
+                }
                 if (this.state !== 'attack') {
                     this._walkOrIdle(dt);
                     this.moveXY(dt);

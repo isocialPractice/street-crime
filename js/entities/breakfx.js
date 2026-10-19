@@ -12,7 +12,9 @@
 const BREAKFX_COLORS = ['#a67cac', '#8f5e7e', '#7c5587', '#5c3f6f', '#2b2f75', '#19112f'];
 
 class BreakFX {
-    constructor(wx, wy, count = CFG.objBreakFxCount) {
+    // colors picks the splinter palette; left out or empty, the crate's own.
+    constructor(wx, wy, count = CFG.objBreakFxCount, colors = null) {
+        const palette = colors && colors.length ? colors : BREAKFX_COLORS;
         this.wx = wx; this.wy = wy;
         this.max = CFG.objBreakFxTime;
         this.t   = this.max;
@@ -35,7 +37,7 @@ class BreakFX {
                 spin: (Math.random() - 0.5) * 14,
                 w:    3 + Math.random() * 6,
                 h:    2 + Math.random() * 5,
-                col:  BREAKFX_COLORS[(Math.random() * BREAKFX_COLORS.length) | 0],
+                col:  palette[(Math.random() * palette.length) | 0],
             });
         }
     }

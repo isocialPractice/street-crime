@@ -12,6 +12,7 @@ recolor a glove or swap an outfit piece, those parts need names in the source
 | `runAdobeScript.pl` | Runs any `.jsx` in Illustrator from a terminal, passing arguments to it and printing what it returns. |
 | `mapLayers.jsx` | Renames layers, groups and paths from a JSON layer map. |
 | `mapSelectLayers.jsx` | Selects the items a layer map renames, in a document that is already open, without renaming anything. |
+| `renameSelectedLayers.jsx` | Renames whatever is selected in Illustrator from one naming pattern (`walk_##`, `*_ii`). Interactive: run it from **File > Scripts**. |
 | `lib/layerMap.jsxinc` | Matching engine shared by both map scripts, pulled in with `//@include`. |
 | `data/layerMap.json` | The layer map both scripts read by default. |
 
@@ -177,3 +178,37 @@ so on to keep ids unique. The `strokes` group under `front-glove` in
 `Player_Walk_0.svg` comes out as `id="strokes-12"`, for example. Anything that
 looks parts up in exported SVGs should match on the ancestor path plus the
 base name with the `-N` suffix stripped, not on the raw id.
+
+## renameSelectedLayers.jsx
+
+Renames every item selected in Illustrator from one naming pattern. Use it to
+rename a handful of items by hand; for the same parts across many frames, use
+`mapLayers.jsx` and a map.
+
+Select the art to rename, then run the script from **File > Scripts > Other
+Script...**. It asks for the pattern. With nothing selected it renames the
+active layer instead, because a script can read which art is selected but not
+which rows are highlighted in the Layers panel.
+
+| Token | |
+|---|---|
+| `#` | Sequence number. A run of `#` sets the zero padding: `##` gives `01`, `02`, ... |
+| `*` | The item's current name, or its type (`Path`, `Group`, ...) when it has none. |
+| `,N` at the end | Start numbering at `N` instead of 1. |
+
+| Pattern, three items selected | Result |
+|---|---|
+| `walk_##` | `walk_01`, `walk_02`, `walk_03` |
+| `walk_##,5` | `walk_05`, `walk_06`, `walk_07` |
+| `*_ii` | Appends `_ii` to each current name |
+| `hitbox` | Every item is named `hitbox` |
+
+- Items are numbered in selection order, which Illustrator reports top to
+  bottom as the Layers panel shows them.
+- It is interactive. The pattern comes from the prompt, or from
+  `$.arguments` when another script calls it (`$.arguments = "walk_##,1";`
+  then `$.evalFile(...)`). It does not read the arguments
+  `runAdobeScript.pl` passes, so a terminal run still opens the prompt in
+  Illustrator, and the terminal waits until you answer it.
+- Items that cannot be renamed are listed in an alert at the end. The rest are
+  still renamed.

@@ -138,7 +138,18 @@ class LevelMgr {
         if (this.phase === 'clear') {
             this.clearT -= dt;
             if (this.clearT <= 0) {
-                if (this.stageIdx < STAGES.length - 1) {
+                // What follows this level is a question for config/levels.json
+                // rather than for the length of STAGES, since the sequence is
+                // what decides the order a run goes in.
+                const nextLevel = this.stageIdx + 2;
+                const gap = levelSequenceGap(nextLevel);
+                if (gap) {
+                    // The sequence asks for a level the game cannot produce.
+                    // Its own state, so Enter starts a new game rather than
+                    // advancing into a stage that is not there.
+                    gameState = 'sequencegap';
+                    showOverlay(gap.title, gap.detail);
+                } else if (levelSource(nextLevel)) {
                     gameState = 'stageclear';
                     showOverlay(`STAGE ${this.stageIdx + 1} CLEAR!`, `Score: ${score}`);
                 } else {

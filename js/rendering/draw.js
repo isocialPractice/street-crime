@@ -12,6 +12,7 @@ function draw() {
 
     const stageData = (typeof getCurrentStageData === 'function') ? getCurrentStageData() : null;
     drawStageBackground(stageData);
+    drawLevelAnimations(stageData);
     // Sky-side weather (moon, storm clouds, sky tone) sits between the stage
     // art and the characters. The matching front pass runs after the entities.
     drawWeatherSky(stageData);
@@ -34,6 +35,13 @@ function draw() {
     // Near-field weather (rain, splashes, lightning, heat haze) falls in front
     // of everything the depth sort just drew, but stays under the HUD overlays.
     drawWeatherFront();
+
+    // A level map's door prompt, and the fade through a door: over the scene,
+    // under the stage overlays and the debug layer.
+    if (levelRuntime) {
+        levelRuntime.drawPrompt(player);
+        levelRuntime.drawFade();
+    }
 
     // Stage intro overlay
     if (levelMgr && levelMgr.phase === 'intro') {
@@ -98,6 +106,8 @@ function drawDebug() {
         ctx.textAlign = 'left';
         ctx.fillText('FIELD', field[0].x - cam.x + 8, Math.max(14, field[0].y - 10));
     }
+
+    drawLevelMapDebug(stageData);
 
     // ── Player hitbox ──────────────────────────────────────────────────────
     ctx.strokeStyle = 'rgba(80,160,255,0.85)';
@@ -200,4 +210,64 @@ function drawDebug() {
 
     ctx.restore();
     _updateDebugStatus();
+}
+
+// How each kind of level-map entry is outlined. Containers (ENTERABLE, OBJECT)
+// label above their box and what sits inside them labels inside its own, so an
+// OBJECT and the one ANIMATE filling it do not print their names on top of
+// each other.
+const LEVEL_MAP_DEBUG_STYLE = {
+    'ENTERABLE':      { stroke: 'rgba(120,255,140,0.5)',  dash: [2, 4], above: true },
+    'ENTER':          { stroke: 'rgba(80,255,120,0.95)',  fill: 'rgba(80,255,120,0.12)' },
+    'OBJECT':         { stroke: 'rgba(255,165,0,0.85)',   dash: [6, 4], above: true },
+    'ANIMATE':        { stroke: 'rgba(255,80,255,0.95)' },
+    'BREAKABLE':      { stroke: 'rgba(255,230,0,0.95)',   fill: 'rgba(255,230,0,0.12)' },
+    'negative-space': { stroke: 'rgba(255,60,60,0.95)',   fill: 'rgba(255,60,60,0.28)' },
+};
+
+// drawLevelMapDebug - outline every entry of the scene's level map, labelled
+// with its id, so a layer named in Illustrator can be checked against where the
+// game thinks it is. Holes are drawn as their real outline, the rest as boxes.
+function drawLevelMapDebug(stageData) {
+    const scene = stageData?.scene;
+    const map = scene?.map;
+    if (!map) return;
+
+    const holes = new Map(map.holes.map(hole => [hole.id, hole]));
+    ctx.save();
+    ctx.lineWidth = 1;
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'left';
+    for (const region of map.regions) {
+        const style = LEVEL_MAP_DEBUG_STYLE[region.kind];
+        const { x, y, w, h } = region.world;
+        const sx = x - cam.x;
+        if (sx > W || sx + w < 0) continue;
+
+        ctx.beginPath();
+        const hole = holes.get(region.id);
+        if (hole) {
+            hole.normalizedPoints.forEach((p, i) => {
+                const px = p.x * scene.worldWidth - cam.x;
+                const py = p.y * scene.worldHeight;
+                if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            });
+            ctx.closePath();
+        } else {
+            ctx.rect(sx, y, w, h);
+        }
+        if (style.fill) {
+            ctx.fillStyle = style.fill;
+            ctx.fill();
+        }
+        ctx.strokeStyle = style.stroke;
+        ctx.setLineDash(style.dash || []);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = style.stroke;
+        const labelY = style.above && y > 12 ? y - 3 : y + 10;
+        ctx.fillText(region.id, sx + 3, labelY);
+    }
+    ctx.restore();
 }

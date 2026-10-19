@@ -15,9 +15,9 @@
 - [ ] Add interactable background elements
   - Create graphics
   - Config system to map interactable background elements i.e.
-    - Open door
-    - Climb something
-    - Talk to friendly character
+    - [x] Open door: `ENTERABLE-<name>` / `ENTER-building` in the level SVG (see [Level Map](#level-map))
+    - [ ] Climb something
+    - [ ] Talk to friendly character
 - [ ] Add weapons
   - Create graphics
 
@@ -48,6 +48,33 @@
 - [ ] Use side-scrolling image as level background art
 - [ ] Add configuration system to map where enemies spawn for each level
 - [ ] Add interactable object elements
+  - [x] Breakable scenery cut from the level SVG (`BREAKABLE-<name>`)
+  - [x] Animated scenery from frame files (`ANIMATE-<asset-name>`)
+  - [x] Interact areas that report `interact:<name>` on E (`OBJECT-<name>`)
+  - [ ] Something that listens to `interact:` and does more than report it
+
+### Level Map
+
+> Doors, breakable and animated scenery, and no-go areas set up by layer name
+> in a level SVG (`js/level/level-map.js`, the README's
+> [Level Map Ids](README.md#level-map-ids)). Tried out in SANDBOX TEST, from
+> `config/debug/sandbox.json`.
+
+- [x] Read map ids from a level SVG, with a debug overlay and typo warnings
+- [x] `negative-space` holes in the field; rushing enemies walk around them
+- [x] `ANIMATE-` frames, `loop` / `yoyo`
+- [x] `BREAKABLE-` pieces that break like crates, with optional `_damaged` / `_broken` art
+- [x] `ENTER-building` doors with a fade, an interior, and the way back out
+- [x] SANDBOX TEST menu entry and `config/debug/sandbox.json`
+- [ ] `ENTER-vehicle` handler: a different movement mode while driving (recognised and stubbed today)
+- [ ] Load a level from its folder through `config/levels.json` (still reports "not built yet"), using the level map
+- [ ] Draw tall breakables in correct depth order (the gate arm sorts by its bottom edge)
+- [ ] Flanking and holding enemies steer around holes too (only rushing ones do)
+- [ ] Art: trim `#field` in `level-theStreets.svg` to the 2915-unit viewBox (it runs to x 13113)
+- [ ] Art: outline the BAD BAR sign text and its three frames (Myriad Pro is not available to browsers)
+- [ ] Art: replace the placeholder `enterables/badBar.svg` with the bar's interior, with an `ENTER-exit` at its door
+- [ ] Art: if the gate should seal the lot until it breaks, extend the arm or add `negative-space` (there is room past it above and below)
+- [ ] Art (optional): `parking-gate-arm_damaged.svg` and `parking-gate-arm_broken.svg` in `theStreets/objects/`
 
 ### Asset Scripts
 
@@ -87,9 +114,9 @@ in `scripts/`:
     is where the `<name>_<action>_<n>` naming gets enforced (see
     [Template Repo](#9-template-repo-draft-plan))
   - Replace the `prompt` with a `suffix=` argument
-- [ ] **`renameSelectedLayers.jsx`: keep local, no port**
-  - It works on the live selection and prompts for a pattern, and a
-    command-line run has neither. `mapLayers.jsx` covers the batch case
+- [x] **`renameSelectedLayers.jsx`: moved to `scripts/` unchanged**
+  - It works on the live selection and prompts for a pattern, so it runs from
+    File > Scripts, not the command line. `mapLayers.jsx` covers the batch case
 
 #### Layer naming for customization
 

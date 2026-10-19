@@ -23,6 +23,17 @@ class BreakableObj {
         // blow came from, so the crate rocks away from the player.
         this.shakeT   = 0;
         this.shakeDir = 1;
+        // Splinter colors for BreakFX. Null is the crate's own palette; a
+        // breakable cut from level art passes the colors it is painted in.
+        this.breakColors = null;
+    }
+
+    // inHitDepth - whether a player whose feet are at feetY is level with this
+    // object on the depth axis, closely enough (tol) for a blow to land. A
+    // crate stands on one line of depth, its bottom edge. Breakables that span
+    // depth, such as a gate arm lying across the street, override this.
+    inHitDepth(feetY, tol) {
+        return Math.abs(feetY - this.y) < tol;
     }
 
     // Centre of the crate in world space — where impact effects are anchored.
@@ -70,22 +81,23 @@ class BreakableObj {
         this.broken = true;
         this.hits   = Math.max(this.hits, Math.round(CFG.objBreakHits));
         effects.push(new HitFX(this.cx, this.cy - 4, 'hard'));
-        effects.push(new BreakFX(this.cx, this.cy));
+        effects.push(new BreakFX(this.cx, this.cy, undefined, this.breakColors));
         // Drop chance controlled by CFG.objBreakDropChance (default 65%).
         if (Math.random() < CFG.objBreakDropChance)
             pickups.push(new Pickup(this.x + 8 + Math.random() * 28, this.y - 10, 'health'));
     }
 
+    // _shakeOffset - this frame's sideways jolt in px. The jolt is a decaying
+    // wobble: it starts at objHitShakeDist px and rings down to nothing over
+    // objHitShakeTime, so a crate that survives a blow visibly takes it.
+    _shakeOffset() {
+        if (this.shakeT <= 0 || CFG.objHitShakeTime <= 0) return 0;
+        const a = this.shakeT / CFG.objHitShakeTime;
+        return Math.sin(a * Math.PI * 3) * CFG.objHitShakeDist * a * this.shakeDir;
+    }
+
     draw() {
-        // The jolt is a decaying wobble: it starts at objHitShakeDist px and
-        // rings down to nothing over objHitShakeTime, so a crate that survives a
-        // blow visibly takes it.
-        let ox = 0;
-        if (this.shakeT > 0 && CFG.objHitShakeTime > 0) {
-            const a = this.shakeT / CFG.objHitShakeTime;
-            ox = Math.sin(a * Math.PI * 3) * CFG.objHitShakeDist * a * this.shakeDir;
-        }
-        const sx = this.x - cam.x + ox;
+        const sx = this.x - cam.x + this._shakeOffset();
         ctx.drawImage(this.img, sx, this.y - this.h, this.w, this.h);
     }
 }

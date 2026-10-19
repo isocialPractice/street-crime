@@ -157,6 +157,8 @@ function buildDebugPanel() {
         </div>`;
     }
     html += '<button id="dbg-export">&#x2B07; Export All (configuration.json)</button>';
+    html += `<button class="dbg-reset" id="dbg-reset-all">${DBG_RESET_ALL_LABEL}</button>`;
+    html += '<div class="dbg-status" id="dbg-reset-status"></div>';
     panel.innerHTML = html;
 
     panel.querySelectorAll('.dbg-slider').forEach(slider => {
@@ -187,7 +189,57 @@ function buildDebugPanel() {
     document.getElementById('dbg-bg-amb').addEventListener('change', e => { CFG.bgAmbience     = e.target.checked; });
     document.getElementById('dbg-weather').addEventListener('change', e => { CFG.weather       = e.target.checked; });
     document.getElementById('dbg-export').addEventListener('click', exportConfig);
+    _wireResetButton(document.getElementById('dbg-reset-all'), DBG_RESET_ALL_LABEL, () => {
+        _afterReset(resetCfgToDefaults(), 'dbg-reset-status');
+    });
     makeDebugPanelResizable(panel, 'right');
+}
+
+// ── Reset to defaults ─────────────────────────────────────────────────────────
+// Both panels can put values back to the defaults in config/defaults/ (see
+// resetCfgToDefaults in js/core/config.js): the right panel everything, each
+// Debug Focus mode just its own sliders.
+const DBG_RESET_ALL_LABEL = '&#x21BA; Reset All to Defaults';
+const DBG_RESET_CONFIRM_MS = 3000;
+
+// _wireResetButton - a reset throws away whatever has been tuned since the
+// last export, so it takes two clicks. The first relabels the button to ask;
+// a second within DBG_RESET_CONFIRM_MS does it, and waiting puts it back.
+function _wireResetButton(btn, label, reset) {
+    let timer = null;
+    btn.addEventListener('click', () => {
+        // A focused button is pressed again by Space or Enter, which also jump
+        // and continue in the game.
+        btn.blur();
+        if (timer === null) {
+            btn.textContent = 'Click again to reset';
+            btn.classList.add('armed');
+            timer = setTimeout(() => {
+                timer = null;
+                btn.innerHTML = label;
+                btn.classList.remove('armed');
+            }, DBG_RESET_CONFIRM_MS);
+            return;
+        }
+        clearTimeout(timer);
+        timer = null;
+        reset();
+    });
+}
+
+// _afterReset - rebuild both panels so every slider and toggle shows its value
+// again (a value can appear in both), then say what happened under the button
+// that did it. A default file that could not be read is named, since its keys
+// fell back to the files before it and js/core/config.js instead of the file.
+function _afterReset({ count, missing }, statusId) {
+    buildDebugPanel();
+    _renderFocusContent(_currentFocusMode);
+    const status = document.getElementById(statusId);
+    if (!status) return;
+    status.textContent = `${count} values reset to defaults`
+        + (missing.length ? `; ${missing.join(', ')} could not be read, so its keys fell back `
+                          + 'to the other default files and js/core/config.js' : '');
+    status.classList.toggle('problem', missing.length > 0);
 }
 
 function exportConfig() {
@@ -318,6 +370,11 @@ const _DEBUG_FOCUS_ROWS = {
         { section: 'PICKUP COLLECTION' },
         { key:'pickupRange',          label:'Pickup Range',       min:10,  max:150, step:1    },
         { key:'pickupDepthTol',       label:'Pickup Depth Tol',   min:10,  max:120, step:1    },
+        { section: 'LEVEL MAP (doors, animated art)' },
+        { key:'enterDepthTol',        label:'Door Reach (px)',    min:0,   max:60,  step:1    },
+        { key:'enterHoldTime',        label:'Push To Enter (s)',  min:0,   max:1.5, step:0.05 },
+        { key:'enterFadeTime',        label:'Door Fade (s)',      min:0.05,max:1.5, step:0.05 },
+        { key:'levelAnimateFPS',      label:'Animate FPS',        min:1,   max:30,  step:1    },
     ],
 };
 
@@ -390,6 +447,9 @@ function _renderFocusContent(mode) {
         object: '&#x2B07; Export objects.json',
     };
     html += `<button class="dbg-focus-export" data-mode="${mode}">${exportLabels[mode]}</button>`;
+    const resetLabel = `&#x21BA; Reset ${mode[0].toUpperCase() + mode.slice(1)} to Defaults`;
+    html += `<button class="dbg-reset dbg-focus-reset">${resetLabel}</button>`;
+    html += '<div class="dbg-status" id="dbg-focus-reset-status"></div>';
     container.innerHTML = html;
 
     container.querySelectorAll('.dbg-focus-slider').forEach(slider => {
@@ -416,6 +476,10 @@ function _renderFocusContent(mode) {
         if      (mode === 'player') exportConfig();
         else if (mode === 'enemy')  exportEnemies();
         else if (mode === 'object') exportObjects();
+    });
+    const keys = rows.filter(r => r.key).map(r => r.key);
+    _wireResetButton(container.querySelector('.dbg-focus-reset'), resetLabel, () => {
+        _afterReset(resetCfgToDefaults(keys), 'dbg-focus-reset-status');
     });
 }
 
@@ -446,6 +510,7 @@ function exportObjects() {
         'objBlockDepthExpand','objCollisionRange','objCollisionOverlap','objCollisionDepthTol',
         'objBreakDropChance','objBreakHits','objHitShakeTime','objHitShakeDist',
         'objBreakFxCount','objBreakFxTime','pickupRange','pickupDepthTol',
+        'enterDepthTol','enterHoldTime','enterFadeTime','levelAnimateFPS',
     ];
     const out = {};
     for (const k of OBJ_KEYS) if (k in CFG) out[k] = CFG[k];
@@ -470,6 +535,7 @@ function _resetDebugPlayfield(stageData, stageLabel) {
     breakables = [];
     pickups    = [];
     levelMgr   = null;
+    levelRuntime = null;
     hideOverlay();
     _hideBossHUD();
     _updateComboHUD(0);
@@ -482,6 +548,7 @@ function initDebugArena() {
     currentStageData = DEBUG_ARENA_STAGE;
     _hpHUD(player);
     livesEl.textContent = player.lives;
+    debugRestart = initDebugArena;
     gameState = 'playing';
 }
 
@@ -499,6 +566,7 @@ function initDebugLevel() {
     hideOverlay();
     _hpHUD(player);
     livesEl.textContent = player.lives;
+    debugRestart = initDebugLevel;
 }
 
 function spawnDebugEnemy(typeId) {
@@ -519,7 +587,10 @@ function spawnDebugEnemy(typeId) {
 }
 
 function spawnDebugObject() {
-    breakables = []; pickups = [];
+    // A fresh crate replaces the last one, but pieces of the level itself (a
+    // gate arm cut from the level SVG) stay where the level put them.
+    breakables = breakables.filter(obj => obj instanceof LevelBreakable);
+    pickups = [];
     const stageData = (typeof getCurrentStageData === 'function') ? getCurrentStageData() : null;
     const spawn = stageHasField(stageData)
         ? sampleStageObjectPosition(stageData, 48, 56, {

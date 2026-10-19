@@ -99,11 +99,11 @@ is a matter of turning `CFG.weather` off.
 
 | Path | Role |
 | --- | --- |
-| `assets/weather/cloud.svg` | Cloud body, copied from the weather server assets |
-| `assets/weather/rain.svg` | Single raindrop, copied from the weather server assets |
-| `assets/weather/moon.svg` | Moon disc, copied from the weather server assets |
-| `assets/weather/sun.svg` | Sun disc, copy from the server when a day render is requested |
-| `assets/weather/snow.svg` | Snowflake, copy from the server when a cold render is requested |
+| `assets/levels/weather/cloud.svg` | Cloud body, copied from the weather server assets |
+| `assets/levels/weather/rain.svg` | Single raindrop, copied from the weather server assets |
+| `assets/levels/weather/moon.svg` | Moon disc, copied from the weather server assets |
+| `assets/levels/weather/sun.svg` | Sun disc, copy from the server when a day render is requested |
+| `assets/levels/weather/snow.svg` | Snowflake, copy from the server when a cold render is requested |
 | `js/sprites/weather.js` | Loads the weather SVGs into `WEATHER_SPRITES` |
 | `js/rendering/weather.js` | `drawWeatherSky()` and `drawWeatherFront()` |
 
@@ -151,7 +151,7 @@ Tone is a full-canvas color grade plus a ground-level haze.
 
 | Value | Clouds | Rain | Lightning |
 | --- | --- | --- | --- |
-| `stormy` | `cloud.svg`, dark tint, dense | Yes, heavy, wind-slanted | Yes |
+| `stormy` | `cloud.svg`, dark tint, dense, hung from the top border with a little over half of each cloud above it, so only the underside shows | Yes, heavy, wind-slanted, each drop leaning and sized slightly differently, with an amount that eases and swells | Yes |
 | `cloudy` | `cloud.svg`, light tint, sparse | No | No |
 | `sunny` | None. Wash the sky blue instead. | No | No |
 
@@ -177,7 +177,7 @@ All weather keys live in `CFG` in `js/core/config.js`, in the
 | `weatherPrecip` | string | `stormy`, `cloudy`, or `sunny` |
 | `weatherClouds` | boolean | Cloud layer on or off |
 | `weatherCloudCount` | number | Clouds per drifting layer |
-| `weatherRainCount` | number | Simultaneous falling drops |
+| `weatherRainCount` | number | Falling drops at the heaviest; the amount eases to 65% of this and back (`WX_RAIN` in `js/rendering/weather.js`) |
 | `weatherRainSpeed` | number | Fall speed in pixels per second |
 | `weatherWind` | number | Horizontal drift as a fraction of fall speed |
 | `weatherLightning` | boolean | Lightning flashes on or off |
@@ -208,3 +208,4 @@ python -m http.server 8000
 | Render | Background | Tone | Precipitation | Result |
 | --- | --- | --- | --- | --- |
 | First | night | hot | stormy | Weather layer added, palette tokens introduced, storm clouds, wind-driven rain, lightning, amber heat grade |
+| Second | night | hot | stormy | Cloud bank raised so only its underside shows below the top border; rain given a slight per-drop lean, size variation and an amount that eases and swells, with splashes following it |

@@ -29,10 +29,27 @@ const WEATHER_SKY_BODY_DEFAULT = { x: 1200, y: 62, r: 24 };
 
 // Cloud layers. Back clouds are darker, slower and larger, which reads as
 // depth without needing a second parallax system.
+//
+// The bank hangs from the top of the level: a little over half of every cloud
+// sits above the top border, so only its underside shows, like a low ceiling
+// of storm cloud. 'above' is the share of a cloud's height above the border,
+// and each cloud adds up to 'spread' more, so the bank's lower edge is ragged
+// rather than ruled.
 const WX_CLOUD_LAYERS = [
-    { scale: 0.62, speed:  9, y:  36, tint: '#0a1018', alpha: 0.72, jitter: 38 },
-    { scale: 0.44, speed: 15, y:  96, tint: '#131c28', alpha: 0.58, jitter: 28 },
+    { scale: 0.62, speed:  9, above: 0.52, spread: 0.08, tint: '#0a1018', alpha: 0.72 },
+    { scale: 0.44, speed: 15, above: 0.54, spread: 0.08, tint: '#131c28', alpha: 0.58 },
 ];
+
+// Rain variation, kept slight so the sheet reads as one storm rather than as
+// noise. Angles are in radians.
+const WX_RAIN = {
+    tilt:      0.06,   // each drop leans up to this much either side of the wind slant
+    gustTilt:  0.03,   // the whole sheet sways this much as gusts come and go
+    width:     0.15,   // each drop's width varies by up to this share either way
+    length:    0.20,   // and its length, separately
+    stretch:   0.14,   // drops lengthen by this share over their fall
+    amountMin: 0.65,   // lightest spell, as a share of CFG.weatherRainCount
+};
 
 // Pre-rendered sprite caches. Recolouring a sprite every frame is wasteful, so
 // each variant is flattened once into an offscreen canvas the first time it is
@@ -179,8 +196,8 @@ function _wxClouds(t) {
             const seed = _wxRand(i + li * 97);
             const drift = t * layer.speed + cam.x * 0.22 * (li + 1);
             const x = ((seed * band - drift) % band + band) % band - w;
-            const y = layer.y + _wxRand(i + li * 53 + 11) * layer.jitter
-                    + Math.sin(t * 0.35 + i) * 3;
+            const above = layer.above + _wxRand(i + li * 53 + 11) * layer.spread;
+            const y = -sprite.height * above + Math.sin(t * 0.35 + i) * 3;
             ctx.drawImage(sprite, x, y);
         }
         ctx.globalAlpha = 1;
@@ -200,10 +217,28 @@ function drawWeatherFront() {
     if (CFG.weatherLightning && CFG.weatherPrecip === 'stormy') _wxLightning(t);
 }
 
-// Wind-driven rain. Every drop shares the same slant, so the canvas is rotated
-// once and the drops are placed in that rotated frame. Screen point (x,y) maps
-// to rotated-frame ( x*cos + y*sin , -x*sin + y*cos ), which is the inverse of
-// the rotation just applied.
+// _wxRainAmount - how much of the rain is falling right now, as a share of
+// CFG.weatherRainCount between WX_RAIN.amountMin and 1. Two slow waves at
+// unrelated periods, so heavier and lighter spells come and go without a
+// rhythm anyone could count. The splashes follow the same amount.
+function _wxRainAmount(t) {
+    const wave = 0.5 + 0.3 * Math.sin(t * 0.23) + 0.2 * Math.sin(t * 0.61 + 1.7);
+    return WX_RAIN.amountMin + (1 - WX_RAIN.amountMin) * wave;
+}
+
+// _wxShare - how visible particle i is at a given amount, 0 to 1. Each particle
+// has a fixed threshold between 0 and 1 and shows while the amount is above it,
+// so the share of drops falling follows the amount. It fades over a short band
+// rather than switching, so drops join and leave the sheet without popping.
+function _wxShare(i, amount) {
+    return Math.max(0, Math.min(1, (amount - _wxRand(i + 503)) / 0.06));
+}
+
+// Wind-driven rain. Drops move along the wind slant, and each one is drawn
+// turned to it, give or take a slight lean of its own (WX_RAIN.tilt) and a
+// sway the whole sheet shares as the rain eases and gusts (gustTilt). Size
+// varies a little per drop, apart from the depth scale, and a drop lengthens
+// slightly as it falls.
 function _wxRain(t) {
     const wind  = CFG.weatherWind;
     const speed = CFG.weatherRainSpeed;
@@ -212,29 +247,33 @@ function _wxRain(t) {
     const drop  = _wxPlain('rain', WEATHER_SPRITES.rain, dropW, dropH);
     if (!drop) return;
 
-    const angle = -Math.atan(wind);
-    const cos = Math.cos(angle);
-    const sin = Math.sin(angle);
-    const span = H + 60;
-    const count = CFG.weatherRainCount;
+    const amount = _wxRainAmount(t);
+    // Heavier spells lean a touch harder, as if the gust is what brings them.
+    const angle  = -Math.atan(wind) - WX_RAIN.gustTilt * (amount - WX_RAIN.amountMin) / (1 - WX_RAIN.amountMin);
+    const span   = H + 60;
+    const count  = CFG.weatherRainCount;
 
-    ctx.save();
-    ctx.rotate(angle);
-    ctx.globalAlpha = 0.62;
     for (let i = 0; i < count; i++) {
+        const share = _wxShare(i, amount);
+        if (share <= 0) continue;
         // Near drops fall faster and are drawn slightly longer, which gives the
         // sheet some depth without a second particle system.
         const near  = 0.65 + _wxRand(i + 401) * 0.7;
         const fall  = (_wxRand(i) * span + t * speed * near) % span - 30;
         const drift = t * speed * wind * near + cam.x;
         const x = ((_wxRand(i + 131) * (W + 240) - drift) % (W + 240) + (W + 240)) % (W + 240) - 120;
-        const y = fall;
-        ctx.drawImage(drop,
-                      x * cos + y * sin,
-                      -x * sin + y * cos,
-                      dropW * near, dropH * near * 1.3);
+        const lean  = (_wxRand(i + 601) - 0.5) * 2 * WX_RAIN.tilt;
+        const w = dropW * near * (1 + (_wxRand(i + 701) - 0.5) * 2 * WX_RAIN.width);
+        const h = dropH * near * 1.3 * (1 + (_wxRand(i + 809) - 0.5) * 2 * WX_RAIN.length)
+                * (1 + WX_RAIN.stretch * ((fall + 30) / span));
+
+        ctx.save();
+        ctx.globalAlpha = 0.62 * share;
+        ctx.translate(x, fall);
+        ctx.rotate(angle + lean);
+        ctx.drawImage(drop, -w / 2, -h / 2, w, h);
+        ctx.restore();
     }
-    ctx.restore();
 
     // Wet sheen across the road. Short bright horizontal streaks that fade in
     // and out along the walkable zone, echoing the dock water shimmer.
@@ -257,15 +296,18 @@ function _wxRain(t) {
 // Impact splashes along the ground zone. Each splash is a short expanding arc
 // on its own loop, so the ground reads as being hit rather than merely wet.
 function _wxSplashes(t) {
+    const amount = _wxRainAmount(t);
     ctx.save();
     ctx.strokeStyle = 'rgba(190,220,245,0.5)';
     ctx.lineWidth = 1;
     for (let i = 0; i < 22; i++) {
+        const share = _wxShare(i + 1000, amount);
+        if (share <= 0) continue;
         const cycle = (t * 1.9 + _wxRand(i + 211)) % 1;
         const life  = 1 - cycle;
         const sx = ((_wxRand(i + 307) * W - cam.x * 0.9) % W + W) % W;
         const sy = CFG.groundMin + 8 + _wxRand(i + 409) * (CFG.groundMax - CFG.groundMin + 70);
-        ctx.globalAlpha = life * 0.5;
+        ctx.globalAlpha = life * 0.5 * share;
         ctx.beginPath();
         ctx.ellipse(sx, sy, 2 + cycle * 7, (2 + cycle * 7) * 0.34, 0, Math.PI, Math.PI * 2);
         ctx.stroke();

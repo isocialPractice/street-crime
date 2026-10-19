@@ -207,6 +207,17 @@ const CFG = {
     weatherLightning:      true,
     weatherToneAlpha:      0.10,    // strength of the temperature colour grade
     weatherSkyLift:           0,    // daylight wash over the authored night sky
+    // ── Level map (js/level/level-map.js) ────────────────────────────────────
+    // How an ANIMATE- piece of level art plays when nothing more specific is
+    // configured: 'loop' or 'yoyo' (out and back), at this many frames a second.
+    levelAnimateMode:     'loop',
+    levelAnimateFPS:          6,
+    // ENTER- hotspots (doors). Reach runs this many px past a hotspot's top and
+    // bottom edges in depth: a door's bottom is where the walkable stoop under
+    // it ends, and the field's border padding stops feet a few px short of it.
+    enterDepthTol:           16,
+    enterHoldTime:         0.25,   // seconds of pushing into a door (Up) that opens it; E is instant
+    enterFadeTime:         0.35,   // seconds to fade out, and again to fade in, going through
     // ── Arena (debug) ────────────────────────────────────────────────────────
     groundMin:             390,
     groundMax:             510,
@@ -216,3 +227,80 @@ const CFG = {
     infiniteEnemyHealth:   false,
     showHitboxes:           true,
 };
+
+// ── Config files ──────────────────────────────────────────────────────────────
+// CFG starts as the values above. At boot (game.js) each file in CFG_FILES is
+// read from config/ and laid over it, later files winning, and debug mode's
+// export buttons write those same files.
+//
+// config/defaults/ holds the three files as the game ships them, and is what
+// debug mode's Reset to Defaults goes back to. Exports never touch it, so it
+// stays a known-good starting point however the live files have been tuned.
+// To make the current tuning the new default, export and copy the file in.
+const CFG_FILES = ['configuration.json', 'enemies.json', 'objects.json'];
+const CFG_DEFAULTS_DIR = 'config/defaults/';
+
+// The values above, before any file is laid over them. Every value is a
+// number, boolean or string, so a shallow copy is a full one.
+const CFG_BUILTIN = Object.freeze({ ...CFG });
+
+// readCfgFile - one config file as an object, or null when it is missing or
+// is not a JSON object. Read synchronously, as the boot needs CFG complete
+// before anything runs, and with the cache told to check back, so a file
+// edited during a session is what a reset reads.
+function readCfgFile(path) {
+    try {
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', path, false);
+        xhr.setRequestHeader('Cache-Control', 'no-cache');
+        xhr.send();
+        // Status 0 with a body is the only "found" there is over file://.
+        const ok = (xhr.status >= 200 && xhr.status < 300) || (xhr.status === 0 && !!xhr.responseText);
+        if (!ok || !xhr.responseText) return null;
+        const parsed = JSON.parse(xhr.responseText);
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+// applyCfgFiles - lay each file in CFG_FILES from one folder over CFG, in
+// order. A file that cannot be read is skipped, leaving the values under it.
+function applyCfgFiles(dir) {
+    for (const file of CFG_FILES) {
+        const values = readCfgFile(dir + file);
+        if (values) Object.assign(CFG, values);
+    }
+}
+
+// cfgDefaults - every key's default, as { values, missing }: the built-in
+// values with the default files laid over them in boot order. missing lists
+// default files that could not be read; their keys keep what the default files
+// before them set, or else the built-in value.
+function cfgDefaults() {
+    const values = { ...CFG_BUILTIN };
+    const missing = [];
+    for (const file of CFG_FILES) {
+        const data = readCfgFile(CFG_DEFAULTS_DIR + file);
+        if (data) Object.assign(values, data);
+        else missing.push(CFG_DEFAULTS_DIR + file);
+    }
+    return { values, missing };
+}
+
+// resetCfgToDefaults - put CFG keys back to their defaults: the keys listed,
+// or every key. Returns { count, missing }, count being how many keys were set.
+function resetCfgToDefaults(keys = null) {
+    const { values, missing } = cfgDefaults();
+    let count = 0;
+    for (const key of keys || Object.keys(values)) {
+        if (!(key in values)) continue;
+        CFG[key] = values[key];
+        count++;
+    }
+    if (missing.length) {
+        console.warn('[config] %s could not be read; its keys fell back to the default files before it '
+                   + 'and the values in js/core/config.js', missing.join(', '));
+    }
+    return { count, missing };
+}

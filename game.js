@@ -4,10 +4,16 @@
 
 // ── Top-level game state ──────────────────────────────────────────────────────
 let score = 0;
-let gameState = 'title'; // 'title' | 'playing' | 'paused' | 'stageclear' | 'gameover' | 'victory'
+let gameState = 'title'; // 'title' | 'playing' | 'paused' | 'stageclear' | 'gameover'
+                         // | 'victory' | 'sequencegap' (config/levels.json names a
+                         // level the game cannot produce; see js/level/sequence.js)
 let currentStageIdx = 0;
 let currentStageData = null;
 let debugMode = false;
+// The debug start that Enter on a game-over overlay goes back to. Each debug
+// mode sets it to its own init, so a run ends where it began instead of always
+// in the arena. Null falls back to the arena.
+let debugRestart = null;
 
 function getCurrentStageData() {
     return currentStageData || STAGES[currentStageIdx] || null;
@@ -20,6 +26,9 @@ function addScore(n) {
 
 // ── Live game object arrays ───────────────────────────────────────────────────
 let player, enemies, effects, breakables, pickups, levelMgr;
+// What the current scene's level map is doing (js/level/level-runtime.js), or
+// null when the scene has no level map.
+let levelRuntime = null;
 let lastTime = 0;
 
 // ── Stage / game init ─────────────────────────────────────────────────────────
@@ -36,6 +45,7 @@ function initStage(idx) {
     breakables = [];
     pickups    = [];
     levelMgr   = new LevelMgr(idx);
+    levelRuntime = null;
 
     hideOverlay();
     _hideBossHUD();
@@ -62,6 +72,7 @@ const TITLE_ITEMS = [
     { id: 'btn-game',        start: () => startGame(false)  },
     { id: 'btn-debug',       start: () => startGame(true)   },
     { id: 'btn-debug-level', start: () => startDebugLevel() },
+    { id: 'btn-sandbox',     start: () => startSandbox()    },
 ];
 let titleIdx = 0;
 
@@ -181,6 +192,7 @@ function update(dt) {
     updateCamera(dt);
     if (levelMgr) levelMgr.update(dt, player, enemies, breakables);
     player.update(dt, enemies, effects, pickups, breakables);
+    if (levelRuntime) levelRuntime.update(dt, player);
     updateSceneCamera(dt);
     enemies.forEach(e => e.update(dt, player, enemies));
     effects.forEach(f => f.update(dt));
@@ -215,7 +227,7 @@ function gameLoop(ts) {
                 if (gameState === 'stageclear' && !debugMode) {
                     advanceStage();
                 } else if (debugMode) {
-                    initDebugArena();
+                    (debugRestart || initDebugArena)();
                 } else {
                     newGame();
                 }
@@ -234,29 +246,10 @@ function gameLoop(ts) {
 // ── Boot ──────────────────────────────────────────────────────────────────────
 // The 'load' event fires after the entire page (HTML, CSS, images) has loaded.
 window.addEventListener('load', async () => {
-    // Merge saved configuration.json values into CFG before anything runs.
-    try {
-        const xhr = new XMLHttpRequest();
-        xhr.open('GET', 'config/configuration.json', false);
-        xhr.send();
-        if (xhr.responseText) Object.assign(CFG, JSON.parse(xhr.responseText));
-    } catch(e) { /* file missing or invalid JSON — use built-in defaults */ }
-
-    // Load enemy-specific config overrides from enemies.json.
-    try {
-        const xhrE = new XMLHttpRequest();
-        xhrE.open('GET', 'config/enemies.json', false);
-        xhrE.send();
-        if (xhrE.responseText) Object.assign(CFG, JSON.parse(xhrE.responseText));
-    } catch(e) { /* file missing — use CFG defaults */ }
-
-    // Load object-specific config overrides from objects.json.
-    try {
-        const xhrO = new XMLHttpRequest();
-        xhrO.open('GET', 'config/objects.json', false);
-        xhrO.send();
-        if (xhrO.responseText) Object.assign(CFG, JSON.parse(xhrO.responseText));
-    } catch(e) { /* file missing — use CFG defaults */ }
+    // Lay the saved configuration.json, enemies.json and objects.json over CFG
+    // before anything runs (see CFG_FILES in js/core/config.js). A file that is
+    // missing or not valid JSON is skipped and the built-in values stand.
+    applyCfgFiles('config/');
 
     // Wait until every SVG sprite has fully decoded. ASSETS_READY is defined in
     // js/sprites/ready.js and collects img.decode() promises from loadSvgFile.

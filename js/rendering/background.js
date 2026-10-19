@@ -162,6 +162,18 @@ function _ambHideout(t, tileX) {
     ctx.restore();
 }
 
+// drawLevelAnimations - the level map's ANIMATE pieces, over the static scene
+// they were cut out of and under everything else. Wall-clock time drives them,
+// as it drives drawBgAmbience, so a sign keeps flickering on the pause screen.
+function drawLevelAnimations(stageData) {
+    const scene = stageData?.scene;
+    const animations = levelSceneAnimations(scene);
+    if (!animations.length) return;
+    const t = performance.now() / 1000;
+    const offsetX = cam.x * (scene.parallax ?? 1);
+    for (const anim of animations) anim.draw(t, levelAnimSettings(stageData, anim), offsetX);
+}
+
 function drawStageBackground(stageData) {
     const scene = stageData?.scene;
     if (scene?.img) {

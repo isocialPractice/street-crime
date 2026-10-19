@@ -8,6 +8,214 @@ anything earlier, see the commit log.
 
 ---
 
+## [2026.10.17]
+
+### Added
+- **`scripts/renameSelectedLayers.jsx`**, moved in unchanged from the
+  git-ignored `userScripts/`. It renames whatever is selected in Illustrator
+  from one pattern: `#` for a padded sequence number, `*` for the current
+  name, and an optional `,N` start number, so `walk_##` gives `walk_01`,
+  `walk_02` and so on. It is interactive, run from File > Scripts, and asks for
+  the pattern; usage is in `scripts/README.md`.
+
+---
+
+## [2026.10.19]
+
+### Added
+- **Reset to Defaults in debug mode, backed by `config/defaults/`.** The
+  folder holds `configuration.json`, `enemies.json` and `objects.json` as the
+  game ships them, copied from the live files as they stood on 2026.10.19.
+  Exports keep writing the live files in `config/` and never touch these, so
+  they stay a known-good starting point however far a session's tuning goes.
+  - **Reset All to Defaults**, under Export All in the right panel, puts every
+    value back: the built-in values from `js/core/config.js` with the three
+    default files laid over them in boot order, so it lands exactly where a
+    fresh start with untouched files would. The debug flags (infinite health
+    and the like) go back too.
+  - Each Debug Focus mode has **Reset Player / Enemy / Object to Defaults**
+    under its export button, for just the sliders that mode shows.
+  - Both take two clicks, since a reset throws away whatever was tuned since
+    the last export: the first turns the button red and asks, and it goes back
+    on its own after three seconds.
+  - Both panels are rebuilt afterwards so every slider and checkbox shows its
+    value, and the line under the button says how many values were reset. A
+    default file that cannot be read is named there in red, and its keys fall
+    back to the other default files and the built-in values.
+  - To make the current tuning the default, export it and copy the file into
+    `config/defaults/`.
+- **`config/levels.json` sets the order a run goes in.** The sequence names
+  each level and where it comes from:
+
+        { "sequence": { "level-1": "svg-scenes", "level-2": "svg-scenes" } }
+
+  The key is the level's place in the run. `"svg-scenes"` means the built-in
+  table, where level N is the Nth entry of `STAGES` in `js/level/data.js` in
+  the order they are written, so adding a stage there adds a level here. Any
+  other value names a folder under `assets/levels/`. The three stages that
+  exist are mapped; `theStreets` is deliberately not wired to a level yet.
+- **A run that asks for a level the game cannot produce now says so.** Writing
+  `"level-4": "svg-scenes"` does not create a fourth stage, and the run used to
+  just stop after the third with nothing said. Beating level 3 with that in the
+  config now shows: *LEVEL 4 IS MISSING. config/levels.json asks for level 4
+  from "svg-scenes", but js/level/data.js defines 3. Add a stage to STAGES, or
+  drop "level-4" from the sequence.*
+  - A level pointed at a folder reports that loading one is not written yet,
+    rather than leaving a configured level quietly doing nothing.
+  - Both use their own `sequencegap` game state rather than `stageclear`,
+    because Enter on `stageclear` calls `advanceStage()` and there is no stage
+    to advance into. From a gap it starts a new game.
+  - A key that is not `level-<number>`, or a value that is not a name, is
+    dropped with a warning. Silently ignoring one would shorten the run by a
+    level and look like a bug somewhere else.
+  - With no sequence configured at all the run falls back to the stages as
+    written, which is what the game did before the file existed.
+
+### Changed
+- **The three config files are read by one helper.** `game.js` used to repeat
+  the same synchronous read for each; `applyCfgFiles()` in
+  `js/core/config.js` now reads `CFG_FILES` in order, which is also what the
+  reset reads its defaults with. Startup behaves as before.
+- **The storm clouds hang from the top of the level.** A little over half of
+  every cloud (52 to 62 percent, varied per cloud) now sits above the top
+  border, so only the underside of the bank shows, like a low ceiling, instead
+  of whole clouds floating in the sky.
+- **The rain is less uniform.** Each drop leans slightly off the wind slant
+  (up to about 3.5 degrees either way), is a little wider or narrower and
+  longer or shorter than its neighbours apart from its depth, and lengthens
+  slightly as it falls. The amount of rain also eases and swells between 65
+  percent and all of `weatherRainCount` over slow, irregular spells, leaning a
+  touch harder in the heavier ones. Drops fade in and out as it changes rather
+  than popping, and the ground splashes follow the same amount. The values
+  are `WX_RAIN` in `js/rendering/weather.js`.
+- **Each level's artwork lives in its own folder.** `assets/levels/enterables/`,
+  `assets/levels/objects/` and `level-theStreets.svg` moved under
+  `assets/levels/theStreets/`, so a level's pieces sit together and a second
+  level does not have to share folders with the first.
+- **The empty `levels/` at the repository root is gone.** Its one file had
+  already moved under `assets/levels/`, and git never tracked the folder, so
+  removing it leaves nothing to stage.
+
+---
+
+## [2026.10.18]
+
+### Added
+- **SANDBOX TEST, a fourth entry on the title menu.** A debug harness for
+  trying one feature at a time, set up in `config/debug/sandbox.json` rather
+  than in code. `"tests"` holds named setups (a level folder and scene, where
+  the player spawns, `CFG` values to override, enemies to spawn and a
+  checklist), and `"active"` picks the one the menu starts.
+  - The left debug panel gains a block on top: a picker for the tests, RESTART
+    (which reads the file again, so a test can be edited and rerun without a
+    reload), a status line, and the checklist, whose rows tick as the features
+    report in.
+  - The first test, `level-mapping`, loads `assets/levels/theStreets/` and
+    waits for four things: the BAD BAR sign animating, the parking gate arm
+    breaking, and the Bad Bar being entered and left.
+  - A missing or broken file, an unknown test, or a scene that cannot be read
+    runs a built-in test of `theStreets` instead, with the reason in red on
+    the status line. A sandbox that will not start tells nobody anything.
+- **Level map: what a level does, from how its layers are named.**
+  `js/level/level-map.js` reads the ids in a level SVG and measures each one
+  where the browser lays it out, so transforms and the viewBox are taken into
+  account. The README's *Level Map Ids* table has the full vocabulary.
+  - `ANIMATE-<asset-name>` is drawn from frames `<asset-name>_0.svg`, `_1`, ...
+    in the level's `objects/` folder, lined up on the layer it replaces and
+    played `loop` or `yoyo` (`CFG.levelAnimateMode`, `levelAnimateFPS`, or the
+    test's `levelMap.animate`). It keeps moving while paused. A missing frame
+    set leaves the layer in the background with a warning, so missing art
+    never vanishes.
+  - `BREAKABLE-<name>` is cut out of the scenery into a `LevelBreakable`: it
+    blocks movement, takes `objBreakHits` blows, jolts on each, and bursts in
+    splinters of its own paint colors. It can be hit from anywhere along the
+    depth it covers, which for the gate arm lying across the lane is most of
+    the street.
+  - `negative-space` is a hole in `#field`. Movement and spawning both treat
+    it as off limits, for the player and enemies alike, with the usual
+    `fieldBorderPadding` clearance.
+  - `ENTER-<type>` inside `ENTERABLE-<name>` is a door. E, or pushing into it
+    with Up for `CFG.enterHoldTime`, fades through to the interior
+    (`enterables/<name>.svg`, or the camelCase name). The scene left behind
+    keeps its enemies, breakables and pickups for the way back. An interior
+    with no `ENTER-exit` is left by walking into its left edge. A door that
+    cannot be used, such as a `vehicle` (recognised, not built yet) or one
+    with no interior, says so instead of doing nothing.
+  - With Show Hitboxes on, every map entry is outlined and labelled with its
+    id, and the sandbox prints them as a table, with warnings for ids that
+    look like typos (`ANIMTE-sign`), a building with no door, or a hole that
+    reaches outside the field.
+  - Features report through one event bus, `LEVEL_MAP_EVENTS`, as
+    `animate:`, `break:`, `enter:`, `exit:` and `interact:` events, which is
+    what the sandbox checklist listens to.
+- **Enemies rushing the player walk around a hole** rather than pressing
+  against it for good: `stageHoleWaypoint()` aims them at a corner of the hole
+  on whichever side is open. Movement already slid along the field's own
+  edges, but a parked car with the player straight across it left an enemy
+  pinned.
+- **LEVEL MAP sliders in the debug panel's Object focus:** door reach, push
+  time, fade time and animation fps, exported with `objects.json`.
+
+### Changed
+- **Border rects are matched by exact name.** Only `border`, `border-2` and
+  so on slice a level into screens and are stripped from its image. The old
+  test matched any id containing the word, which in `theStreets` would have
+  deleted the sidewalk's `tile-borders` cracks along with them.
+- **A level with no `section_<n>` groups takes its screens from its border
+  rects**, ordered left to right rather than by id, since Illustrator numbers
+  a copy after the original. `theStreets` is two screens, 1600 px of world.
+- **Enter after a game over restarts the debug mode you were in.** DEBUG LEVEL
+  used to drop into the DEBUG MODE arena; each debug start now sets
+  `debugRestart` to itself.
+- **SPAWN OBJECT keeps the level's own breakables** and replaces only the last
+  spawned crate, so in the sandbox it no longer deletes the gate arm.
+- Whether a blow reaches a breakable in depth is now the breakable's to answer
+  (`inHitDepth`). Crates keep exactly the old rule.
+- **Assets are filed by what they are.** 413 files moved out of the flat
+  `assets/` into a tree, every one with `git mv` so the rename is staged and
+  the history follows rather than reading as a delete and an add.
+  - `assets/characters/player/` takes the 70 `Player_*` files and
+    `assets/characters/enemy/` the 331 character files, beside the empty
+    `friendly/` and `neutral/` waiting on artwork.
+  - `assets/objects/` takes the nine `Object_*` files, the crates, the health
+    pickup and the hit effects.
+  - `assets/weather/` is now `assets/levels/weather/`, the weather being part
+    of a level's scenery.
+  - Only the two Windows shortcuts to the source artwork stay at the top.
+- **`_enemyAssetPath()` routes by name.** Nearly everything it resolves is
+  enemy artwork, but not quite: the player animations an enemy swaps in through
+  `apply<State>` are the player's own sprites, named by the enemy config and
+  loaded by that module. A base beginning `Player_` resolves against the player
+  folder, everything else against the enemy one, and a base already written as
+  a path is still taken as given, which is what the `files` form relies on.
+- `js/sprites/player.js`, `objects.js` and `weather.js` point at the new
+  folders, and the module documentation in `js/sprites/enemies.js` names them.
+
+### Fixed
+- **The level scene pointed at an empty folder.** `SVG_SCENES.testItWorked`
+  loaded `levels/Test_ItWorked.svg` from the repository root, but the file had
+  already been moved under `assets/levels/` by hand, leaving the root `levels/`
+  empty. It now loads `assets/levels/Test_ItWorked.svg`.
+- **A `.gitkeep` would not have survived a clone.** A global ignore of dotfiles
+  is common enough, and one is in force here, so the markers holding the empty
+  folders open were invisible to git. `.gitignore` now un-ignores them, which
+  keeps the checkout whole without depending on anyone's personal config.
+
+### Notes
+- The BAD BAR sign is set in Myriad Pro, which browsers do not have. The
+  fallback font is wider, so each frame's viewBox is widened to fit what it
+  draws; without that the R was cropped. Outlining the text in Illustrator
+  would make the sign look the same everywhere.
+- `#field` in `level-theStreets.svg` runs to x 13113, far past the 2915-unit
+  drawing. Movement clamps to the world, so it plays, but the debug overlay
+  draws past the end.
+- `enterables/badBar.svg` is still a copy of `Test_ItWorked.svg`, standing in
+  for the bar's interior.
+- The gate arm does not seal the parking lot: there is room to walk past it
+  above (from the warehouse step at x 1065) and below.
+
+---
+
 ## [2026.10.12]
 
 ### Added

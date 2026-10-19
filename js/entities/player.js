@@ -72,6 +72,9 @@ class Player extends Entity {
         // Power attack freeze: while this is running, movement and key presses
         // are ignored and the player blinks. Set by playerFreeze reactions.
         this.freezeT  = 0;
+        // Scripted hold, such as walking through a door: controls are off as
+        // they are in a freeze, but nothing hit the player, so no blink.
+        this.holdT    = 0;
         // Counts down while the guard shudders from a blow it just turned
         // aside. See _absorbBlockedHit and the 'block' case in getImg.
         this.resistT  = 0;
@@ -85,6 +88,10 @@ class Player extends Entity {
     // locked out. Kept separate from busy so an attack animation that happens to
     // be running is not confused with an imposed freeze.
     get frozen() { return this.freezeT > 0; }
+
+    // held is true while a scripted moment (js/level/level-runtime.js) has the
+    // controls. It locks out the same things frozen does.
+    get held() { return this.holdT > 0; }
 
     // defeated is true while the defeat outro is playing: the player is out of
     // health but the life has not been spent yet. Nothing can hit or move them
@@ -144,6 +151,10 @@ class Player extends Entity {
             this.freezeT -= dt;
             // Key presses are disabled outright, so nothing queues up during the
             // freeze and fires in a burst the moment it ends.
+            this.bufPunch = this.bufKick = this.bufJump = 0;
+        }
+        if (this.holdT > 0) {
+            this.holdT -= dt;
             this.bufPunch = this.bufKick = this.bufJump = 0;
         }
         if (this.comboT > 0) {
@@ -206,13 +217,13 @@ class Player extends Entity {
         const blockHeld = CFG.blockForPlayer && Keys['KeyC'];
         if (this.state === 'block') {
             if (!blockHeld || !this.grounded || this.frozen) this.setState('idle');
-        } else if (blockHeld && this.grounded && !this.frozen && !this.busy) {
+        } else if (blockHeld && this.grounded && !this.frozen && !this.held && !this.busy) {
             this.setState('block');
             this.vx = 0; this.vy = 0; this.isRun = false;
         }
 
-        const canMove = !this.frozen && (!this.busy || this.state === 'jump' || this.state === 'jumpkick');
-        const canAct  = !this.frozen && !this.busy;
+        const canMove = !this.frozen && !this.held && (!this.busy || this.state === 'jump' || this.state === 'jumpkick');
+        const canAct  = !this.frozen && !this.held && !this.busy;
         const preX = this.x;
         const preY = this.y;
 
@@ -384,7 +395,9 @@ class Player extends Entity {
         // Break objects. This test runs on every frame of an attack, so the blow
         // is tagged with atkSeq and the crate counts one hit per swing however
         // many frames it spends inside the box. It takes CFG.objBreakHits of
-        // them to burst.
+        // them to burst. Whether the player is level with the object in depth
+        // is the object's to answer (inHitDepth), since a crate stands on one
+        // line of depth and a gate arm lying across the street covers many.
         if (this.busy && !['hurt','knockdown','knockedUp'].includes(this.state)) {
             const bfront = (this.facing === 1) ? this.x + this.w : this.x;
             const bhx1   = (this.facing === 1) ? bfront - CFG.objCollisionOverlap : bfront - CFG.objCollisionRange;
@@ -392,7 +405,7 @@ class Player extends Entity {
             breakables.forEach(obj => {
                 if (!obj.broken
                     && bhx2 > obj.x && bhx1 < obj.x + obj.w
-                    && Math.abs((this.y + this.h) - obj.y) < CFG.objCollisionDepthTol) {
+                    && obj.inHitDepth(this.y + this.h, CFG.objCollisionDepthTol)) {
                     obj.hit(effects, pickups, this.atkSeq, this.x + this.w / 2);
                 }
             });
@@ -570,6 +583,7 @@ class Player extends Entity {
         this.isRun    = false;
         this.bufPunch = this.bufKick = this.bufJump = 0;
         this.freezeT  = 0;
+        this.holdT    = 0;
         this.invT     = 0;
         this.downT    = 0;
         this.comboC   = 0;

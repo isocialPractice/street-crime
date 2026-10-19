@@ -3,11 +3,11 @@
 // EFFECTS — three impact tiers used by HitFX.
 // 'small' for punches, 'medium' for kicks/most attacks, 'hard' for uppercut/specials.
 const EFFECTS = {
-    small:   loadSvgFile('assets/Object_FadingImpact.svg'),
-    medium:  loadSvgFile('assets/Object_FadingImpact_2.svg'),
-    hard:    loadSvgFile('assets/Object_HardImpact.svg'),
-    impact1: loadSvgFile('assets/Object_ImpactEffect.svg'),
-    impact2: loadSvgFile('assets/Object_ImpactEffect_2.svg'),
+    small:   loadSvgFile('assets/objects/Object_FadingImpact.svg'),
+    medium:  loadSvgFile('assets/objects/Object_FadingImpact_2.svg'),
+    hard:    loadSvgFile('assets/objects/Object_HardImpact.svg'),
+    impact1: loadSvgFile('assets/objects/Object_ImpactEffect.svg'),
+    impact2: loadSvgFile('assets/objects/Object_ImpactEffect_2.svg'),
 };
 
 // OBJECTS — sprites for breakable crates and health pickups.
@@ -16,8 +16,8 @@ const EFFECTS = {
 // while it still has hits left in it, and 'broken' once it gives way.
 // BreakableObj.draw() picks between them from the hit count.
 const OBJECTS = {
-    intact:  loadSvgFile('assets/Object_Box.svg'),
-    damaged: loadSvgFile('assets/Object_Box_Damaged.svg'),
-    broken:  loadSvgFile('assets/Object_Box_Broken.svg'),
-    health:  loadSvgFile('assets/Object_Health.svg'),
+    intact:  loadSvgFile('assets/objects/Object_Box.svg'),
+    damaged: loadSvgFile('assets/objects/Object_Box_Damaged.svg'),
+    broken:  loadSvgFile('assets/objects/Object_Box_Broken.svg'),
+    health:  loadSvgFile('assets/objects/Object_Health.svg'),
 };

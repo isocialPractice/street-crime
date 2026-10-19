@@ -5,3 +5,10 @@ updateAnimate.bat
 updateAll.bat
 userScripts/
 support/
+
+# Folders waiting on artwork are kept by a .gitkeep, and git stores files
+# rather than folders, so without this they would not survive a clone. The
+# negation is here because a global ignore of dotfiles is common and a
+# repository should not depend on anyone's personal config to check out whole.
+!.gitkeep
+!**/.gitkeep

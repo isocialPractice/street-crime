@@ -1,0 +1,31 @@
+{
+  "active": "level-mapping",
+  "tests": {
+    "level-mapping": {
+      "label": "Level mapping: The Streets",
+      "level": "assets/levels/theStreets/",
+      "scene": "level-theStreets.svg",
+      "sectionWidth": 800,
+      "worldHeight": 600,
+      "spawn": { "minX": 60, "maxX": 220 },
+      "panels": { "debug": true, "checklist": true },
+      "cfg": { "showHitboxes": true },
+      "levelMap": {
+        "enabled": true,
+        "animate": {
+          "default": { "mode": "loop", "fps": 6 },
+          "sign-badBar": { "mode": "yoyo", "fps": 6 }
+        }
+      },
+      "enterables": {
+        "bad-bar": "enterables/badBar.svg"
+      },
+      "checklist": [
+        { "label": "BAD BAR sign animates", "event": "animate:sign-badBar" },
+        { "label": "Break the parking gate arm", "event": "break:parking-gate-arm" },
+        { "label": "Enter the Bad Bar", "event": "enter:bad-bar" },
+        { "label": "Walk back out", "event": "exit:bad-bar" }
+      ]
+    }
+  }
+}

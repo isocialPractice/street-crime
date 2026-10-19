@@ -726,3 +726,62 @@ body.dbg-resizing {
     margin: 8px 0 2px;
     text-transform: uppercase;
 }
+
+/* Reset to Defaults sits under each export button. Quieter than export, since
+   it is the one that throws work away; once clicked it turns red and asks for
+   a second click (js/ui/debug.js, _wireResetButton). */
+.dbg-reset {
+    display: block;
+    width: 100%;
+    margin-top: 6px;
+    padding: 6px 0;
+    background: transparent;
+    border: 1px solid #555;
+    color: #999;
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    text-transform: uppercase;
+}
+
+.dbg-reset:hover {
+    border-color: var(--wx-accent);
+    color: var(--wx-accent);
+}
+
+.dbg-reset.armed,
+.dbg-reset.armed:hover {
+    border-color: #ff6b6b;
+    background: #ff6b6b;
+    color: #000;
+}
+
+/* ── Sandbox Test panel ─────────────────────────────────────────────────── */
+/* One row per thing the active test expects to see. A row is ticked when the
+   feature reports the matching event (js/ui/sandbox.js, sandboxMark). */
+.dbg-check {
+    position: relative;
+    padding: 2px 0 2px 26px;
+    font-size: 10px;
+    color: #888;
+}
+
+.dbg-check::before {
+    content: '[ ]';
+    position: absolute;
+    left: 0;
+}
+
+.dbg-check.done { color: var(--wx-accent); }
+.dbg-check.done::before { content: '[x]'; }
+
+/* A sandbox that fell back to its built-in test says why, in a color that is
+   not mistaken for an ordinary status. */
+.dbg-status.problem { color: #ff6b6b; }
+
+#sbx-panel {
+    border-bottom: 1px solid #333;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+}

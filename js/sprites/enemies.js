@@ -2,6 +2,7 @@
 // ENEMY_CHARS keys must exactly match the 'img' field in ENEMY_DEFS (in js/entities/enemy.js).
 // Enemy asset states are configured in config/enemy-assets.json using the enemy name
 // as the base for sprite filenames so new frames can be wired in without editing JS.
+// Those filenames resolve under assets/characters/enemy/; see _enemyAssetPath.
 //
 // Assembled animations
 // --------------------
@@ -350,8 +351,26 @@ function _mergeEnemyAssetEntry(defaults = {}, typeDefaults = {}, entry = {}) {
     return merged;
 }
 
+// Where character artwork lives. Enemies and the player sit side by side under
+// assets/characters, so a file base says which of the two it belongs to by its
+// name alone.
+const ENEMY_ASSET_DIR  = 'assets/characters/enemy';
+const PLAYER_ASSET_DIR = 'assets/characters/player';
+
+// _enemyAssetPath - the file one base names.
+//
+// Almost everything resolved here is enemy artwork, but not quite everything:
+// the player animations an enemy swaps in through "apply<State>" are the
+// player's own sprites, named by the enemy config and loaded by this module.
+// Those resolve against the player folder, which is where they actually are.
+// A base already written as a path is taken as given, which is what the
+// "files" form of a state relies on.
 function _enemyAssetPath(fileBase) {
-    const assetPath = fileBase.startsWith('assets/') ? fileBase : `assets/${fileBase}`;
+    let assetPath = fileBase;
+    if (!assetPath.startsWith('assets/')) {
+        const dir = assetPath.startsWith('Player_') ? PLAYER_ASSET_DIR : ENEMY_ASSET_DIR;
+        assetPath = `${dir}/${assetPath}`;
+    }
     return assetPath.endsWith('.svg') ? assetPath : `${assetPath}.svg`;
 }
 
@@ -429,7 +448,7 @@ function _loadEnemyFrame(fileBase) {
 //
 // Each suffix is resolved in this order, so an authored file always wins over
 // anything inferred:
-//   1. the literal "assets/<enemyKey>_<suffix>.svg",
+//   1. the literal "<enemyKey>_<suffix>.svg" in the enemy folder,
 //   2. an assembled animation - the suffix names another state in the same
 //      animations map, is not the state being resolved, is not already on the
 //      resolution path (cycles keep the literal name), and that state itself

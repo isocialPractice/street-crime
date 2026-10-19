@@ -35,6 +35,29 @@ function _svgScenePointList(pointsAttr) {
     return points;
 }
 
+// _svgSceneShapePoints - the outline of a rect, polygon or polyline in its own
+// coordinates, or [] for any other shape. Shared by #field and the level map's
+// negative-space holes, so both read a shape the same way.
+function _svgSceneShapePoints(el) {
+    const tag = el.tagName.toLowerCase();
+    if (tag === 'polygon' || tag === 'polyline') {
+        return _svgScenePointList(el.getAttribute('points'));
+    }
+    if (tag === 'rect') {
+        const x = parseFloat(el.getAttribute('x')) || 0;
+        const y = parseFloat(el.getAttribute('y')) || 0;
+        const width = parseFloat(el.getAttribute('width')) || 0;
+        const height = parseFloat(el.getAttribute('height')) || 0;
+        return [
+            { x, y },
+            { x: x + width, y },
+            { x: x + width, y: y + height },
+            { x, y: y + height },
+        ];
+    }
+    return [];
+}
+
 function _svgSceneFieldShape(svgText, fieldSelector = '#field') {
     const doc = new DOMParser().parseFromString(svgText, 'image/svg+xml');
     const svgEl = doc.documentElement;
@@ -42,23 +65,7 @@ function _svgSceneFieldShape(svgText, fieldSelector = '#field') {
     if (!svgEl || !fieldEl) return null;
 
     const vb = _svgSceneViewBox(svgEl);
-    let sourcePoints = [];
-    const tag = fieldEl.tagName.toLowerCase();
-
-    if (tag === 'polygon' || tag === 'polyline') {
-        sourcePoints = _svgScenePointList(fieldEl.getAttribute('points'));
-    } else if (tag === 'rect') {
-        const x = parseFloat(fieldEl.getAttribute('x')) || 0;
-        const y = parseFloat(fieldEl.getAttribute('y')) || 0;
-        const width = parseFloat(fieldEl.getAttribute('width')) || 0;
-        const height = parseFloat(fieldEl.getAttribute('height')) || 0;
-        sourcePoints = [
-            { x, y },
-            { x: x + width, y },
-            { x: x + width, y: y + height },
-            { x, y: y + height },
-        ];
-    }
+    const sourcePoints = _svgSceneShapePoints(fieldEl);
 
     if (sourcePoints.length < 3 || vb.width <= 0 || vb.height <= 0) return null;
 
@@ -90,14 +97,16 @@ function _svgSceneRectBounds(el) {
     return { x, y, width, height };
 }
 
-function _svgSceneTextIncludes(value, text) {
-    return String(value || '').toLowerCase().indexOf(text) > -1;
-}
+// A screen-slice rect is named "border", or "border-2" and on when Illustrator
+// numbers a duplicate. The match is exact on purpose: art that merely has the
+// word in its name, such as the sidewalk's "tile-borders" in theStreets, is
+// scenery and must survive the pass that strips the slices out of the image.
+const SVG_SCENE_BORDER_RE = /^border(?:[-_]\d+)?$/i;
 
 function _svgSceneIsBorderEl(el) {
     return !!el && (
-        _svgSceneTextIncludes(el.getAttribute('id'), 'border') ||
-        _svgSceneTextIncludes(el.getAttribute('data-name'), 'border')
+        SVG_SCENE_BORDER_RE.test((el.getAttribute('id') || '').trim()) ||
+        SVG_SCENE_BORDER_RE.test((el.getAttribute('data-name') || '').trim())
     );
 }
 
@@ -142,10 +151,15 @@ function _svgSceneSectionBounds(sectionEl) {
     };
 }
 
-function _svgSceneWithoutBorders(svgText) {
+// _svgSceneBackground - the markup the static scene image is drawn from: the
+// level without its border rects, and without the ids in stripIds. Those are
+// the level-map pieces drawn live on top instead (an animated sign, a gate that
+// can be broken), which would otherwise show twice.
+function _svgSceneBackground(svgText, stripIds = []) {
     const doc = new DOMParser().parseFromString(svgText, 'image/svg+xml');
+    const strip = new Set(stripIds);
     Array.from(doc.querySelectorAll('*'))
-        .filter(_svgSceneIsBorderEl)
+        .filter(el => _svgSceneIsBorderEl(el) || strip.has((el.getAttribute('id') || '').trim()))
         .forEach(el => el.remove());
     return new XMLSerializer().serializeToString(doc);
 }
@@ -187,12 +201,39 @@ function _svgSceneSectionSvg(svgText, sectionId, bounds, fieldSelector = '#field
     return new XMLSerializer().serializeToString(sectionDoc);
 }
 
+// _svgSceneBorderSections - screen slices for a level drawn without
+// section_<n> groups, taken from its border rects instead.
+//
+// They are ordered by position rather than by id. Illustrator numbers a copied
+// rect after the one it was copied from, so in theStreets "border-2" is the
+// left screen and "border" the right one. Nothing draws a section's own image
+// (the renderer only counts sections to size the world), so none is built.
+function _svgSceneBorderSections(doc, vb) {
+    return Array.from(doc.querySelectorAll('*'))
+        .filter(_svgSceneIsBorderEl)
+        .map(_svgSceneRectBounds)
+        .filter(Boolean)
+        .sort((a, b) => a.x - b.x)
+        .map((bounds, i) => ({
+            id: `section_${i + 1}`,
+            order: i + 1,
+            bounds,
+            normalizedBounds: _svgSceneNormalizedBounds(bounds, vb),
+            img: null,
+        }))
+        .filter(section => section.normalizedBounds);
+}
+
 function _svgSceneSections(svgText, fieldSelector = '#field') {
     const doc = new DOMParser().parseFromString(svgText, 'image/svg+xml');
     const svgEl = doc.documentElement;
     if (!svgEl) return [];
 
     const vb = _svgSceneViewBox(svgEl);
+    const hasSectionGroups = Array.from(doc.querySelectorAll('g[id]'))
+        .some(el => /^section_\d+$/i.test((el.getAttribute('id') || '').trim()));
+    if (!hasSectionGroups) return _svgSceneBorderSections(doc, vb);
+
     return Array.from(doc.querySelectorAll('g[id]'))
         .map(sectionEl => {
             const id = (sectionEl.getAttribute('id') || '').trim();
@@ -217,24 +258,39 @@ function _svgSceneSections(svgText, fieldSelector = '#field') {
         .sort((a, b) => a.order - b.order);
 }
 
-function createSvgScene({ path, fieldSelector = '#field', worldWidth = 800, worldHeight = 600 }) {
+// createSvgScene - one level SVG as a playable scene. worldWidth is the width
+// of one section; the scene is that times the number of sections.
+//
+// levelMap turns on the id vocabulary in js/level/level-map.js (doors,
+// breakables, animated pieces, holes in the field). It is off for the built-in
+// scenes below, which are built while the scripts are still loading, before
+// level-map.js exists; scenes that use it are built later, at runtime.
+function createSvgScene({ path, fieldSelector = '#field', worldWidth = 800, worldHeight = 600,
+                          levelMap = false, levelDir = '' }) {
     const svgText = loadSvgText(path);
     const sections = _svgSceneSections(svgText, fieldSelector);
-    const sceneSvg = _svgSceneWithoutBorders(svgText);
+    const sceneWidth = sections.length > 0 ? worldWidth * sections.length : worldWidth;
+    const field = _svgSceneFieldShape(svgText, fieldSelector);
+    const map = levelMap
+        ? parseLevelMap(svgText, { worldWidth: sceneWidth, worldHeight, levelDir, field })
+        : null;
+    const sceneSvg = _svgSceneBackground(svgText, map ? map.stripIds : []);
     return {
         path,
         img: loadSvgImg(sceneSvg),
-        worldWidth: sections.length > 0 ? worldWidth * sections.length : worldWidth,
+        worldWidth: sceneWidth,
         worldHeight,
-        field: _svgSceneFieldShape(svgText, fieldSelector),
+        field,
         sectionWorldWidth: worldWidth,
         sections,
+        map,
+        levelDir,
     };
 }
 
 const SVG_SCENES = {
     testItWorked: createSvgScene({
-        path: 'levels/Test_ItWorked.svg',
+        path: 'assets/levels/Test_ItWorked.svg',
         fieldSelector: '#field',
         worldWidth: 800,
         worldHeight: 600,
@@ -257,6 +313,31 @@ function stageFieldPolygon(stageData) {
         x: point.x * scene.worldWidth,
         y: point.y * scene.worldHeight,
     }));
+}
+
+// stageFieldHoles - the level map's negative-space outlines in world pixels:
+// parts of the field nobody can walk into, such as the footprint of a parked
+// car. Empty for a scene without a level map.
+function stageFieldHoles(stageData) {
+    const scene = _stageScene(stageData);
+    const holes = scene?.map?.holes;
+    if (!holes?.length) return [];
+    return holes.map(hole => hole.normalizedPoints.map(point => ({
+        x: point.x * scene.worldWidth,
+        y: point.y * scene.worldHeight,
+    })));
+}
+
+function _pointInStageHole(px, py, holes) {
+    return holes.some(points => _pointInPolygon(px, py, points));
+}
+
+// _stageFieldOutlines - the field followed by its holes, or null when there is
+// no field to move on.
+function _stageFieldOutlines(stageData) {
+    const polygon = stageFieldPolygon(stageData);
+    if (!polygon || polygon.length < 3) return null;
+    return [polygon, ...stageFieldHoles(stageData)];
 }
 
 function stageFieldBounds(stageData) {
@@ -359,17 +440,24 @@ function _sampleOffsets(value) {
     return [value, value - epsilon, value + epsilon];
 }
 
+// The walkable spans along one line through the field. Holes are crossed along
+// with the field's own outline: a hole sits inside the field, so its edges fall
+// between the field's crossings, and pairing every crossing off in order (the
+// even-odd rule) yields spans that stop at the hole and resume past it. The
+// padding then keeps the same clearance from a hole's edge as from the field's.
 function stageFieldVerticalSpans(stageData, x) {
-    const polygon = stageFieldPolygon(stageData);
-    if (!polygon || polygon.length < 3) return [];
-    const ys = _sampleOffsets(x).flatMap(sampleX => _verticalIntersections(polygon, sampleX));
+    const outlines = _stageFieldOutlines(stageData);
+    if (!outlines) return [];
+    const ys = _sampleOffsets(x).flatMap(sampleX =>
+        outlines.flatMap(points => _verticalIntersections(points, sampleX)));
     return _applySpanPadding(_spansFromIntersections(ys, 'minY', 'maxY'), 'minY', 'maxY');
 }
 
 function stageFieldHorizontalSpans(stageData, y) {
-    const polygon = stageFieldPolygon(stageData);
-    if (!polygon || polygon.length < 3) return [];
-    const xs = _sampleOffsets(y).flatMap(sampleY => _horizontalIntersections(polygon, sampleY));
+    const outlines = _stageFieldOutlines(stageData);
+    if (!outlines) return [];
+    const xs = _sampleOffsets(y).flatMap(sampleY =>
+        outlines.flatMap(points => _horizontalIntersections(points, sampleY)));
     return _applySpanPadding(_spansFromIntersections(xs, 'minX', 'maxX'), 'minX', 'maxX');
 }
 
@@ -486,18 +574,100 @@ function sampleStageFieldPoint(stageData, options = {}) {
     const maxY = Math.min(bounds.maxY, options.maxY ?? bounds.maxY);
     if (minX > maxX || minY > maxY) return null;
 
+    // Nothing spawns inside a hole: an enemy or a crate dropped into the
+    // footprint of a parked car would be stuck there.
+    const holes = stageFieldHoles(stageData);
     for (let i = 0; i < 160; i++) {
         const point = {
             x: minX + Math.random() * (maxX - minX),
             y: minY + Math.random() * (maxY - minY),
         };
-        if (_pointInPolygon(point.x, point.y, polygon)) return point;
+        if (_pointInPolygon(point.x, point.y, polygon) && !_pointInStageHole(point.x, point.y, holes)) {
+            return point;
+        }
     }
 
     return _nearestPointOnPolygon({
         x: (minX + maxX) * 0.5,
         y: (minY + maxY) * 0.5,
     }, polygon);
+}
+
+// _segmentBoxEntry - where along a to b (0..1) the segment enters the open box,
+// or null when it misses. Running along an edge does not count as entering, so
+// a path that hugs the box from outside is clear.
+function _segmentBoxEntry(a, b, box) {
+    let t0 = 0;
+    let t1 = 1;
+    const clip = (p, q) => {
+        if (p === 0) return q > 0;
+        const r = q / p;
+        if (p < 0) {
+            if (r > t1) return false;
+            if (r > t0) t0 = r;
+        } else {
+            if (r < t0) return false;
+            if (r < t1) t1 = r;
+        }
+        return true;
+    };
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const hit = clip(-dx, a.x - box.minX) && clip(dx, box.maxX - a.x)
+             && clip(-dy, a.y - box.minY) && clip(dy, box.maxY - a.y);
+    return hit && t1 > t0 ? t0 : null;
+}
+
+function _pointsBox(points, margin) {
+    const xs = points.map(p => p.x);
+    const ys = points.map(p => p.y);
+    return {
+        minX: Math.min(...xs) - margin, maxX: Math.max(...xs) + margin,
+        minY: Math.min(...ys) - margin, maxY: Math.max(...ys) + margin,
+    };
+}
+
+// stageHoleWaypoint - where a character walking from one feet point toward
+// another should aim instead, when the straight line runs into a hole: a corner
+// of the hole on whichever side (above or below) has room to walk past it,
+// first the near corner and then the far one. Null when the way is clear, or
+// when neither side is open and pressing against the hole is all there is.
+//
+// It is steering rather than pathfinding, and it only knows about holes. The
+// field's own edges need nothing like it, since movement already slides along
+// them; a hole is the one obstacle a character can be lined up dead behind
+// with the player straight across, where sliding goes nowhere.
+//
+// Corners are aimed a little wider than the hole is tested, so a character
+// that stops a couple of pixels short of a corner (enemy approach has a
+// deadzone) is already clear of the hole and moves on to the next one.
+function stageHoleWaypoint(stageData, from, to) {
+    const holes = stageFieldHoles(stageData);
+    if (!holes.length) return null;
+    const pad = _fieldBorderPadding();
+    const blocking = holes
+        .map(points => ({ points, box: _pointsBox(points, pad + 1) }))
+        .map(hole => ({ ...hole, t: _segmentBoxEntry(from, to, hole.box) }))
+        .filter(hole => hole.t !== null)
+        .sort((a, b) => a.t - b.t)[0];
+    if (!blocking) return null;
+
+    const aim = _pointsBox(blocking.points, pad + 6);
+    const rightward = to.x >= from.x;
+    const nearX = rightward ? aim.minX : aim.maxX;
+    const farX  = rightward ? aim.maxX : aim.minX;
+    // A side is open when one walkable span at that depth runs the whole way
+    // from the near corner to the far one.
+    const open = y => stageFieldHorizontalSpans(stageData, y).some(span =>
+        span.minX <= Math.min(nearX, farX) && span.maxX >= Math.max(nearX, farX));
+    const side = [aim.minY, aim.maxY]
+        .filter(open)
+        .sort((a, b) => (Math.abs(from.y - a) + Math.abs(to.y - a))
+                      - (Math.abs(from.y - b) + Math.abs(to.y - b)))[0];
+    if (side === undefined) return null;
+
+    const far = { x: farX, y: side };
+    return _segmentBoxEntry(from, far, blocking.box) === null ? far : { x: nearX, y: side };
 }
 
 function sampleStageEntityPosition(stageData, width, height, options = {}) {
