@@ -64,6 +64,7 @@
     "CrimeGuy": {
       "attackType": "bodyAttack",
       "animations": {
+        "attack": {"mode": "hold", "suffixes": ["", "attack"]},
         "idle": { "mode": "loop", "suffixes": ["", "ideal"] },
         "walk": { "mode": "loop", "suffixes": ["", "walk_1", "walk_2", "walk_1"] },
         "damage": { "mode": "sequence", "suffixes": ["damage_0", "damage_1", "damage_0", "damage_2"] },
