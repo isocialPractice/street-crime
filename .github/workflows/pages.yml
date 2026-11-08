@@ -1,0 +1,98 @@
+# Publishes the game and its documentation to GitHub Pages:
+#
+#   https://isocialpractice.github.io/street-crime/        the game (index.html)
+#   https://isocialpractice.github.io/street-crime/docs/   the docs, built by Jekyll
+#
+# The game is copied as it is; only docs/ (plus a few root Markdown pages) goes
+# through Jekyll, so no game file is ever processed by it.
+#
+# Deploying needs the repository's Pages source set to "GitHub Actions"
+# (Settings > Pages > Build and deployment > Source). Until it is, the site is
+# still built on every push, so a broken page is caught, but the deploy job is
+# skipped rather than failing.
+
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      build_type: ${{ steps.source.outputs.build_type }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Read the Pages source
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          build_type=$(gh api "repos/${GITHUB_REPOSITORY}/pages" --jq .build_type 2>/dev/null || echo none)
+          echo "build_type=${build_type}" >> "$GITHUB_OUTPUT"
+          if [ "$build_type" != "workflow" ]; then
+            echo "::notice::Pages source is '${build_type}', not GitHub Actions: building only, not deploying."
+          fi
+
+      # The docs are built from a staged copy, so the root pages can join them and
+      # links that work on GitHub also work on the site, where they share a
+      # folder. A link that points at nothing fails the build here.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      # Windows and macOS forgive a path whose letter case differs from the
+      # file; this server does not, so the site would 404 where the game works.
+      - name: Check asset file name case
+        run: node scripts/checkAssetCase.js
+
+      - name: Stage the docs
+        run: node scripts/stageDocs.js _docs_src
+
+      - name: Configure Pages
+        if: steps.source.outputs.build_type == 'workflow'
+        uses: actions/configure-pages@v6
+
+      - name: Build the docs
+        uses: actions/jekyll-build-pages@v1
+        with:
+          source: ./_docs_src
+          destination: ./_jekyll
+
+      # Assembled fresh: the Jekyll step runs in a container and leaves its
+      # output owned by root.
+      - name: Assemble the site
+        run: |
+          mkdir -p _site/docs
+          cp -r _jekyll/. _site/docs/
+          cp index.html game.js assets.js style.css favicon.svg logo.svg _site/
+          cp -r js assets config _site/
+          touch _site/.nojekyll
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    if: needs.build.outputs.build_type == 'workflow'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v5

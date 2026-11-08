@@ -1,0 +1,16 @@
+<!-- The side menu, from _data/menu.yml. Every group starts open; a reader can
+     fold one away. The current page is marked with aria-current. -->
+{%- for group in site.data.menu %}
+<details class="menu-group" open>
+  <summary>{{ group.group }}</summary>
+  <ul>
+    {%- for item in group.items %}
+    <li{% if item.sub %} class="sub"{% endif %}><a href="{{ item.url | relative_url }}"{% if item.url == page.url %} aria-current="page"{% endif %}>{{ item.title }}</a></li>
+    {%- endfor %}
+  </ul>
+</details>
+{%- endfor %}
+<ul class="menu-out">
+  <li><a href="{{ site.game_url }}">Play the demo</a></li>
+  <li><a href="{{ site.repository_url }}">Source on GitHub</a></li>
+</ul>

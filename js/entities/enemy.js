@@ -249,6 +249,53 @@ class Enemy extends Entity {
         // attackTypeDefaults block in config/enemy-assets.json.
         this.getUps      = ENEMY_CHARS[def.img]?.getUps || 0;
         this.getUpsLeft  = this.getUps;
+        // A move the level plays before the AI takes over, such as walking out
+        // of a door: { vx, vy, t, end }. Set through walkTo(). See _runScript.
+        this.script      = null;
+        // The level design group this enemy was spawned in, if any.
+        this.spawnGroup  = null;
+    }
+
+    // walkTo - walk straight to (x, y), the hit box's top-left, at speed px/s,
+    // then hand over to the AI. The enemy cannot be hit on the way, and is not
+    // held to the walkable field until it arrives: a door's foot can sit just
+    // outside the field, and walking out of it is the point.
+    walkTo(x, y, speed) {
+        const dx = x - this.x;
+        const dy = y - this.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < 1 || !(speed > 0)) {
+            this.x = x;
+            this.y = y;
+            this.clampToStageField();
+            return;
+        }
+        const t = dist / speed;
+        this.script = { vx: dx / t, vy: dy / t, t, end: { x, y } };
+        this.invincible = true;
+    }
+
+    // _runScript - one frame of the current script. Walks the pose, faces the
+    // player, and on the last frame lands exactly on the end point, clamped to
+    // the field, so rounding never leaves an enemy outside it.
+    _runScript(dt, player) {
+        const s = this.script;
+        const step = Math.min(dt, s.t);
+        this.vx = s.vx;
+        this.vy = s.vy;
+        this.x += s.vx * step;
+        this.y += s.vy * step;
+        s.t -= dt;
+        if (player) this.facing = player.x > this.x ? 1 : -1;
+        this._walkOrIdle(dt);
+        if (s.t > 0) return;
+
+        this.x = s.end.x;
+        this.y = s.end.y;
+        this.vx = this.vy = 0;
+        this.script = null;
+        this.invincible = false;
+        this.clampToStageField();
     }
 
     // A body lasts for the whole defeat outro: the animation, the held blink,
@@ -453,6 +500,12 @@ class Enemy extends Entity {
         if (this.atkCD > 0) this.atkCD -= dt;
         if (this.resistT > 0) this.resistT -= dt;
         this._updateStrike(dt, player);
+
+        // ── Scripted move (walking out of a door) ────────────────────────────
+        if (this.script) {
+            this._runScript(dt, player);
+            return;
+        }
 
         // ── Knockdown ────────────────────────────────────────────────────────
         if (this.state === 'knockdown') {

@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "level-design.schema.json",
+  "title": "Level design",
+  "description": "When things happen in a level. The level SVG's layer names say where and what; this file says when. It is a small state machine: each state lists what happens on entering it, and `next` lists the events that move it on. Nothing here is a coordinate: places are named by layer path, such as \"RESTRICTED-import-export-warehouse/ENTER-building\".",
+  "type": "object",
+  "required": ["version", "start", "states"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "description": "Path to this schema, for editor autocomplete and hover help.",
+      "type": "string"
+    },
+    "version": {
+      "description": "Format version. A file without it is read as a draft and migrated in memory, with warnings.",
+      "const": 1
+    },
+    "start": {
+      "description": "The state the level begins in. Must be a key of `states`.",
+      "$ref": "#/$defs/name"
+    },
+    "cases": {
+      "description": "Named true/false flags for the level, with their starting values. States change them with `set`; triggers and locks read them as \"case:<name>\".",
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/name" },
+      "additionalProperties": { "type": "boolean" }
+    },
+    "restricted": {
+      "description": "Unlock conditions for RESTRICTED-<name> layers, keyed by <name>. Overrides a REQUIRE- layer inside it. A RESTRICTED layer with no condition here or in the SVG stays locked.",
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/name" },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["until"],
+        "additionalProperties": false,
+        "properties": {
+          "until": {
+            "description": "Locked until this is true, for example \"case:enemies-defeated\" or \"state:boss-down\". Once unlocked it stays unlocked for the run, and reports \"unlock:<name>\".",
+            "$ref": "#/$defs/trigger"
+          }
+        }
+      }
+    },
+    "states": {
+      "description": "The level's states, keyed by name. Entering one reports \"state:<name>\".",
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "$ref": "#/$defs/name" },
+      "additionalProperties": { "$ref": "#/$defs/state" }
+    }
+  },
+  "$defs": {
+    "name": {
+      "description": "A state, case, group or layer name: letters, digits, - and _.",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+    },
+    "trigger": {
+      "description": "\"<kind>:<key>\" for any level event (break:, enter:, exit:, interact:, animate:, event:, locked:, unlock:, spawn:<group>, defeated:<group>, arrive:<state> once the player has come on for that state), or \"case:<name>\" (that case is true) or \"state:<name>\" (that state was entered).",
+      "type": "string",
+      "pattern": "^(animate|break|enter|exit|interact|event|locked|unlock|spawn|defeated|arrive|state|case):[A-Za-z0-9][A-Za-z0-9_-]*$"
+    },
+    "layerPath": {
+      "description": "A layer named by its map id, optionally under its nearest mapped parent: \"ENTER-building\" or \"RESTRICTED-import-export-warehouse/ENTER-building\". Illustrator's numbered copies (\"ENTER-building-2\") match their base name.",
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]*(/[A-Za-z][A-Za-z0-9_-]*)*$"
+    },
+    "seconds": {
+      "description": "A time in seconds.",
+      "type": "number",
+      "minimum": 0
+    },
+    "state": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "svg": {
+          "description": "What the level art does on entering the state. \"loads\": nothing, the scene as loaded. \"layer-state-change\": a marker that the art changes through the layers themselves, such as a breakable's _broken art. \"fade-out\": fade to black and back, then place the player.",
+          "enum": ["loads", "layer-state-change", "fade-out"]
+        },
+        "set": {
+          "description": "Cases to change on entering the state. Cases not listed keep their value. Each change reports \"case:<name>\" when the case becomes true.",
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/name" },
+          "additionalProperties": { "type": "boolean" }
+        },
+        "player": { "$ref": "#/$defs/player" },
+        "spawn": {
+          "description": "Groups of characters to bring in on entering the state.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/spawnGroup" }
+        },
+        "characters": {
+          "description": "Planned. Friendly and neutral characters are not built yet; a value other than false warns.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "friendly": { "const": false },
+            "neutral": { "const": false }
+          }
+        },
+        "next": {
+          "description": "What moves the level on from this state. Only the current state's triggers are live, and the first to fire wins.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["on", "to"],
+            "additionalProperties": false,
+            "properties": {
+              "on": { "description": "The trigger to wait for.", "$ref": "#/$defs/trigger" },
+              "to": { "description": "The state to move to. Must be a key of `states`.", "$ref": "#/$defs/name" }
+            }
+          }
+        }
+      }
+    },
+    "player": {
+      "description": "What happens to the player on entering the state.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "spawn": {
+          "description": "Where the player is placed: \"left\" or \"right\" edge of the walkable area, or a layer path. Leave out to keep the player where they are.",
+          "anyOf": [
+            { "enum": ["left", "right"] },
+            { "$ref": "#/$defs/layerPath" }
+          ]
+        },
+        "after": {
+          "description": "Seconds before the player appears.",
+          "$ref": "#/$defs/seconds"
+        },
+        "animation": {
+          "description": "How the player arrives. \"walk\" walks in from the spawn side; \"idle\" appears standing.",
+          "enum": ["walk", "idle"]
+        },
+        "inventory": {
+          "description": "\"empty\" clears it, \"inherit\" keeps it, \"store\" saves it for the next level. Planned: there is no inventory system yet, so this only records the choice.",
+          "enum": ["empty", "inherit", "store"]
+        },
+        "health": {
+          "description": "\"full\" refills it, \"inherit\" keeps it, \"store\" saves it for the next level.",
+          "enum": ["full", "inherit", "store"]
+        }
+      }
+    },
+    "spawnGroup": {
+      "type": "object",
+      "required": ["group", "type", "from"],
+      "additionalProperties": false,
+      "properties": {
+        "group": {
+          "description": "The group's name. Reports \"spawn:<group>\" when the first one appears and \"defeated:<group>\" when all of them are done.",
+          "$ref": "#/$defs/name"
+        },
+        "type": {
+          "description": "What to spawn. Only \"enemy\" is built.",
+          "enum": ["enemy"]
+        },
+        "count": {
+          "description": "How many to spawn.",
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        },
+        "pick": {
+          "description": "\"random\": each one is drawn from the pool, without repeats while the pool lasts. \"in-order\": the pool's ids in turn.",
+          "enum": ["random", "in-order"],
+          "default": "random"
+        },
+        "pool": {
+          "description": "Enemy ids to choose from. Leave out for every enemy that is not a sub-boss or boss in any stage.",
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" }
+        },
+        "from": {
+          "description": "The layer they come out of, such as a door: they appear at its foot and walk down into the walkable area.",
+          "$ref": "#/$defs/layerPath"
+        },
+        "animation": {
+          "description": "How they arrive. \"walk\" walks them out of the layer before their AI starts; \"idle\" starts the AI at once.",
+          "enum": ["walk", "idle"],
+          "default": "walk"
+        },
+        "after": {
+          "description": "Seconds after entering the state before the first one appears.",
+          "$ref": "#/$defs/seconds"
+        },
+        "every": {
+          "description": "Seconds between each one after the first.",
+          "$ref": "#/$defs/seconds"
+        }
+      }
+    }
+  }
+}

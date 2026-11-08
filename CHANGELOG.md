@@ -8,6 +8,69 @@ anything earlier, see the commit log.
 
 ---
 
+## [2026.11.08]
+
+### Added
+- **Level design files.** `config/levels/<level>/level-design.json` says when
+  things happen in a level, beside the SVG whose layer names say where and what.
+  It is a small state machine: `cases`, `states` with `set`, `player`, `spawn`
+  and `svg`, and `next` steps that wait on the events the level already reports
+  (`break:parking-gate-arm`) or on conditions (`case:`, `state:`). Run by
+  `LevelDirector` in the new `js/level/level-design.js`, which names no level.
+  `theStreets` has the first one: the gate breaks, three random enemies walk out
+  of the warehouse door, and beating them fades the screen and unlocks the
+  warehouse.
+- **`config/schema/level-design.schema.json`**, so VS Code completes and explains
+  every key in a design file from its `$schema` line. `scripts/checkLevelDesignVocab.js`
+  checks it against the director's own word list.
+- **Drafts and suggestions.** A design with no `"version"` is converted to version
+  1 in memory, with a note for each change, and the sandbox prints the result
+  ready to save. Every warning about a name offers the nearest real one ("did you
+  mean `break:parking-gate-arm`?").
+- **New layer names.** `RESTRICTED-<name>` is an enterable that starts locked
+  (`E: LOCKED`), opened by `REQUIRE-case-` / `REQUIRE-state-` layers or by the
+  design; `EVENT-<name>` is a trigger area. `INVENTORY-`, `MISSING-`, `SWITCH-`,
+  `USABLE-` and `REQUIRE-item-` are recognised and listed as planned. A design
+  names a layer by path, such as `RESTRICTED-import-export-warehouse/ENTER-building`.
+- **Spawn groups and entrances.** Enemies come out of a layer's foot one at a
+  time, into lanes, unhittable until they arrive (`Enemy.walkTo`). The player can
+  be kept off stage and walked in from either edge or out of a door
+  (`Player.walkTo`, `Player.hidden`). New reports: `state:`, `case:`, `spawn:`,
+  `defeated:`, `arrive:`, `unlock:`, `locked:`, `event:`.
+- **Sandbox steps.** `config/debug/sandbox.json` gains `design-1-restricted`
+  through `design-5-drafts` and `level-design`, each adding one part of the level
+  design, with its own design file in `config/debug/designs/`. `level-design` is
+  the active test. A test's new `"design"` key names its design file, and with
+  Show Hitboxes on a box shows the design's state, cases, locks and groups.
+- **Documentation in `docs/`**: level naming, level design, character assets and
+  object assets, each as a full page, a quickstart and a cheatsheet, plus the
+  sandbox, an index, and `QUICKSTART.md` and `CHEATSHEET.md` at the root.
+- **A GitHub Pages site for the docs and the demo.** `.github/workflows/pages.yml`
+  builds the docs with Jekyll at `/street-crime/docs/` and copies the game to
+  `/street-crime/` untouched. It deploys once the Pages source is switched to
+  GitHub Actions, and until then builds and checks only. `DESIGN_LANGUAGE.md`
+  records the site's look, taken from `logo.svg`, with its contrast ratios.
+  `scripts/stageDocs.js` prepares the pages and fails the build on a broken link;
+  `scripts/checkAssetCase.js` fails it on a path whose letter case differs from
+  its file, which works on Windows and 404s on the site.
+- **`ROADMAP.md`**: the order the `TODO.md` work goes in, toward the template repo.
+
+### Changed
+- **`config/levels/theStreets/level-design.json` is version 1**, rewritten from
+  the first draft (which did not parse). The draft is kept, with its stray comma
+  fixed, as `config/debug/designs/5-draft.json`.
+- **A door drawn above the walkable field now reaches down to it.** The warehouse
+  door ends at the sidewalk, with the parked car's hole between it and `#field`;
+  a door's reach, the player coming back out, and anyone spawned from it now
+  extend to the first ground that can be stood on below it.
+- **README**: the Level Map Ids section moved to `docs/level-naming.md`, leaving a
+  short summary, and the README links to the docs site.
+- **`TODO.md`**: the Documentation items and the level map work are done; new
+  sections 10 (Level Design Config) and 11 (Documentation Site), template items in
+  section 9, and the Pages switch and deploy check under Current.
+
+---
+
 ## [2026.10.17]
 
 ### Added

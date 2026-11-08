@@ -8,11 +8,19 @@
 // into code:
 //
 //   ENTERABLE-<name>        something that can be entered (a building, a car)
+//   RESTRICTED-<name>       an ENTERABLE that starts locked
+//     REQUIRE-case-<case>   what unlocks it: a level-design case that is true,
+//     REQUIRE-state-<state> or a state that has been entered. May be an empty
+//                           layer. (REQUIRE-item-<item> is reserved.)
 //     ENTER-<type>          its entry hotspot; <type> picks what entering does
 //   OBJECT-<name>           an area holding something to interact with
 //     ANIMATE-<asset-name>  drawn from frames <asset-name>_0.svg, _1, ...
 //     BREAKABLE-<name>      cut out of the art; takes hits and breaks
+//   EVENT-<name>            a trigger area; the player walking in reports it
 //   negative-space          a hole in #field that nobody can walk into
+//
+// INVENTORY-, MISSING-, SWITCH- and USABLE- are reserved: recognised, listed,
+// and warned about once, so a level can be named for them before they work.
 //
 // The upper-case prefixes are matched case-sensitively, so ordinary art names
 // such as "enter-sign" or "object-shadow" never turn into behavior. The
@@ -26,14 +34,29 @@
 // Tested in order. ENTERABLE comes before ENTER for clarity only: "ENTER-"
 // cannot match "ENTERABLE-", since the character after ENTER must be the
 // separator.
+// RESTRICTED is an enterable that starts locked, so it shares the enterable
+// kind: a door inside it finds it as its enterable, and its interior is looked
+// up the same way.
 const LEVEL_MAP_RULES = [
     { kind: 'enterable', label: 'ENTERABLE',      re: /^ENTERABLE[-_](.+)$/ },
+    { kind: 'enterable', label: 'RESTRICTED',     re: /^RESTRICTED[-_](.+)$/, restricted: true },
+    { kind: 'require',   label: 'REQUIRE',        re: /^REQUIRE[-_](.+)$/ },
     { kind: 'hotspot',   label: 'ENTER',          re: /^ENTER[-_](.+)$/ },
     { kind: 'object',    label: 'OBJECT',         re: /^OBJECT[-_](.+)$/ },
     { kind: 'animate',   label: 'ANIMATE',        re: /^ANIMATE[-_](.+)$/ },
     { kind: 'breakable', label: 'BREAKABLE',      re: /^BREAKABLE[-_](.+)$/ },
+    { kind: 'event',     label: 'EVENT',          re: /^EVENT[-_](.+)$/ },
+    { kind: 'reserved',  label: 'INVENTORY',      re: /^INVENTORY[-_](.+)$/ },
+    { kind: 'reserved',  label: 'MISSING',        re: /^MISSING[-_](.+)$/ },
+    { kind: 'reserved',  label: 'SWITCH',         re: /^SWITCH[-_](.+)$/ },
+    { kind: 'reserved',  label: 'USABLE',         re: /^USABLE[-_](.+)$/ },
     { kind: 'hole',      label: 'negative-space', re: /^negative-space(?:[-_]\d+)?$/ },
 ];
+
+// What a REQUIRE- layer can wait on, as REQUIRE-<type>-<name>. "item" is
+// reserved until there is an inventory.
+const LEVEL_MAP_REQUIRE_TYPES = ['case', 'state', 'item'];
+const LEVEL_MAP_REQUIRE_RE = /^([a-z]+)[-_](.+)$/;
 
 // What an ENTER hotspot can name as its type. Anything else is reported rather
 // than quietly treated as a building.
@@ -65,9 +88,52 @@ function levelMapEmit(kind, key) {
 function levelMapRule(id) {
     for (const rule of LEVEL_MAP_RULES) {
         const match = rule.re.exec(id);
-        if (match) return { kind: rule.kind, label: rule.label, name: match[1] || id };
+        if (match) return { kind: rule.kind, label: rule.label, name: match[1] || id, restricted: !!rule.restricted };
     }
     return null;
+}
+
+// ── Finding a layer by path ───────────────────────────────────────────────────
+// A level design names places by layer path, not coordinates:
+//
+//   "ENTER-building"                                     any door of that name
+//   "RESTRICTED-import-export-warehouse/ENTER-building"  the one whose nearest
+//                                                        mapped parent is that
+//
+// Each part matches an id exactly or with Illustrator's "-<n>" duplicate
+// suffix, so "ENTER-building" also finds "ENTER-building-2". Parents are
+// matched up the chain of mapped ancestors, nearest first.
+
+function _levelMapEscape(text) {
+    return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function _levelMapIdMatches(id, part) {
+    return new RegExp(`^${_levelMapEscape(part)}(?:-\\d+)?$`).test(id);
+}
+
+// levelMapFindAll - every region the path names, in document order.
+function levelMapFindAll(map, path) {
+    const parts = String(path || '').split('/').map(part => part.trim()).filter(Boolean);
+    if (!map || !parts.length) return [];
+    const byId = new Map(map.regions.map(region => [region.id, region]));
+    const target = parts[parts.length - 1];
+    return map.regions.filter(region => {
+        if (!_levelMapIdMatches(region.id, target)) return false;
+        let node = region;
+        for (let i = parts.length - 2; i >= 0; i--) {
+            node = node.parent ? byId.get(node.parent) : null;
+            if (!node || !_levelMapIdMatches(node.id, parts[i])) return false;
+        }
+        return true;
+    });
+}
+
+// levelMapFind - the first region a path names, or null. A region without a
+// place (a REQUIRE- layer) is never returned, since a path is asked for so
+// something can be put there.
+function levelMapFind(map, path) {
+    return levelMapFindAll(map, path).find(region => region.world) || null;
 }
 
 // ── Measuring ─────────────────────────────────────────────────────────────────
@@ -358,21 +424,25 @@ function levelMapFrameMarkup(frameText, viewBox) {
 // have them). field is the scene's #field shape, used to check holes, and
 // levelDir is the level's folder, where ANIMATE frames are looked for.
 //
-//   enterables  { id, name, box, world }
-//   hotspots    { id, type, enterable, box, world, push }
+//   enterables  { id, name, box, world, restricted, requires: [{ id, type, name }] }
+//   hotspots    { id, type, enterable, restricted, box, world, push }
+//   events      { id, name, box, world }
+//   reserved    { id, label, name, box, world }, recognised but not built
 //   objects     { id, name, box, world, children: [ids] }
 //   animations  { id, assetName, object, box, world, frameName, frames, frameViewBox,
 //                 drawBox, drawWorld }
 //   breakables  { id, name, object, box, world, spriteBox, spriteWorld, markup, colors,
 //                 states: { damaged, broken } }
 //   holes       { id, box, world, normalizedPoints }
-//   regions     every entry above in document order, as { id, kind, parent, world }
+//   regions     every entry above in document order, as { id, kind, parent, world },
+//               plus REQUIRE- layers, whose world is null when they are empty
 //   stripIds    ids the background image leaves out because they are drawn live
 //   warnings    what in the file will not work as its names suggest
 function parseLevelMap(svgText, { worldWidth = 800, worldHeight = 600, levelDir = '', field = null } = {}) {
     const map = {
         vb: null, scale: { x: 0, y: 0 }, levelDir,
         enterables: [], hotspots: [], objects: [], animations: [], breakables: [], holes: [],
+        events: [], reserved: [],
         regions: [], stripIds: [], warnings: [],
     };
     const warn = text => map.warnings.push(text);
@@ -401,6 +471,14 @@ function parseLevelMap(svgText, { worldWidth = 800, worldHeight = 600, levelDir 
                 continue;
             }
 
+            // A requirement is a name, not a place, so it is read before the
+            // check below that drops anything with nothing to measure: an
+            // empty REQUIRE- layer is the usual way to write one.
+            if (rule.kind === 'require') {
+                _levelMapRequire(map, el, root, vb, id, rule, worldWidth, worldHeight, warn);
+                continue;
+            }
+
             const box = _levelMapBox(el, vb);
             if (!box) {
                 warn(`${id} has nothing to measure, so it is ignored`);
@@ -423,16 +501,26 @@ function parseLevelMap(svgText, { worldWidth = 800, worldHeight = 600, levelDir 
 
             switch (rule.kind) {
                 case 'enterable':
-                    map.enterables.push({ id, name: rule.name, box, world });
+                    map.enterables.push({ id, name: rule.name, box, world,
+                                          restricted: rule.restricted, requires: [] });
+                    break;
+                case 'event':
+                    map.events.push({ id, name: rule.name, box, world });
+                    break;
+                case 'reserved':
+                    warn(`${id}: ${rule.label}- is recognised, but not built yet`);
+                    map.reserved.push({ id, label: rule.label, name: rule.name, box, world });
                     break;
                 case 'hotspot': {
                     const type = (/^([a-z]+)/i.exec(rule.name)?.[1] || '').toLowerCase();
                     if (!LEVEL_MAP_ENTER_TYPES.includes(type)) {
                         warn(`${id}: ENTER type "${type}" is not one of ${LEVEL_MAP_ENTER_TYPES.join(', ')}`);
                     }
+                    const enterable = _levelMapMappedAncestor(el, root, 'enterable');
                     map.hotspots.push({
                         id, type, box, world,
-                        enterable: _levelMapMappedAncestor(el, root, 'enterable')?.name || null,
+                        enterable: enterable?.name || null,
+                        restricted: !!(enterable && levelMapRule(enterable.id)?.restricted),
                         push: 'up',
                     });
                     break;
@@ -517,6 +605,38 @@ function parseLevelMap(svgText, { worldWidth = 800, worldHeight = 600, levelDir 
         if (!map.hotspots.some(hotspot => hotspot.enterable === enterable.name)) {
             warn(`${enterable.id} has no ENTER- hotspot inside it, so it cannot be entered`);
         }
+        // Not an error: the level design can name the condition under
+        // "restricted". Said here because without one it never opens.
+        if (enterable.restricted && !enterable.requires.length) {
+            warn(`${enterable.id} has no REQUIRE- layer; it stays locked unless the level design `
+               + `names a condition under "restricted": { "${enterable.name}": { "until": ... } }`);
+        }
     }
     return map;
+}
+
+// _levelMapRequire - read one REQUIRE-<type>-<name> layer onto the RESTRICTED
+// it sits in. A requirement anywhere else, or of a type nothing reads, is
+// reported: either way the lock it was meant for would never open.
+function _levelMapRequire(map, el, root, vb, id, rule, worldWidth, worldHeight, warn) {
+    const parsed = LEVEL_MAP_REQUIRE_RE.exec(rule.name);
+    const type = parsed?.[1] || '';
+    const name = (parsed?.[2] || '').replace(/-\d+$/, '');
+    const box = _levelMapBox(el, vb);
+    const world = box ? _levelMapWorld(box, vb, worldWidth, worldHeight) : null;
+    const owner = _levelMapMappedAncestor(el, root, 'enterable');
+    const enterable = owner && map.enterables.find(entry => entry.id === owner.id);
+
+    map.regions.push({ id, kind: rule.label, parent: _levelMapMappedAncestor(el, root)?.id || null, world });
+    if (!LEVEL_MAP_REQUIRE_TYPES.includes(type) || !name) {
+        warn(`${id}: write it as REQUIRE-<type>-<name>, with <type> one of `
+           + `${LEVEL_MAP_REQUIRE_TYPES.join(', ')}`);
+        return;
+    }
+    if (!enterable || !enterable.restricted) {
+        warn(`${id} is not inside a RESTRICTED- layer, so it has nothing to unlock`);
+        return;
+    }
+    if (type === 'item') warn(`${id}: REQUIRE-item- is recognised, but not built yet`);
+    enterable.requires.push({ id, type, name });
 }

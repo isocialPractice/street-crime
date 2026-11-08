@@ -1,0 +1,31 @@
+{
+  "$schema": "../../schema/level-design.schema.json",
+  "version": 1,
+  "start": "initial",
+  "cases": {
+    "has-gate": true,
+    "gate-broken": false
+  },
+  "states": {
+    "initial": {
+      "svg": "loads",
+      "next": [{ "on": "break:parking-gate-arm", "to": "gate-breaks" }]
+    },
+    "gate-breaks": {
+      "svg": "layer-state-change",
+      "set": { "has-gate": false, "gate-broken": true },
+      "spawn": [
+        {
+          "group": "warehouse-crew",
+          "type": "enemy",
+          "count": 3,
+          "pick": "random",
+          "from": "RESTRICTED-import-export-warehouse/ENTER-building",
+          "animation": "walk",
+          "after": 0.5,
+          "every": 0.8
+        }
+      ]
+    }
+  }
+}

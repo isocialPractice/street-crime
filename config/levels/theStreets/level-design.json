@@ -1,0 +1,44 @@
+{
+  "$schema": "../../schema/level-design.schema.json",
+  "version": 1,
+  "start": "initial",
+  "cases": {
+    "start": true,
+    "has-gate": true,
+    "enemies-defeated": false
+  },
+  "restricted": {
+    "import-export-warehouse": { "until": "case:enemies-defeated" }
+  },
+  "states": {
+    "initial": {
+      "svg": "loads",
+      "set": { "start": true, "has-gate": true, "enemies-defeated": false },
+      "player": { "spawn": "left", "after": 2, "animation": "walk", "inventory": "empty", "health": "full" },
+      "next": [{ "on": "break:parking-gate-arm", "to": "gate-breaks" }]
+    },
+    "gate-breaks": {
+      "svg": "layer-state-change",
+      "set": { "start": false, "has-gate": false },
+      "player": { "inventory": "inherit", "health": "inherit" },
+      "spawn": [
+        {
+          "group": "warehouse-crew",
+          "type": "enemy",
+          "count": 3,
+          "pick": "random",
+          "from": "RESTRICTED-import-export-warehouse/ENTER-building",
+          "animation": "walk",
+          "after": 0.5,
+          "every": 0.8
+        }
+      ],
+      "next": [{ "on": "defeated:warehouse-crew", "to": "enemy-defeat" }]
+    },
+    "enemy-defeat": {
+      "svg": "fade-out",
+      "set": { "enemies-defeated": true },
+      "player": { "spawn": "left", "after": 2, "animation": "walk", "inventory": "store", "health": "store" }
+    }
+  }
+}

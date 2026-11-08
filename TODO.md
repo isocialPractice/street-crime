@@ -2,6 +2,7 @@
 
 > Organized task list for the Street Crime beat-em-up project.
 > Items are grouped by category. Check off tasks as they are completed.
+> The order the work goes in, and why, is in [ROADMAP.md](ROADMAP.md).
 
 ---
 
@@ -35,6 +36,61 @@
   - Stage background elements
 - [ ] Sound effects
 
+### Documentation
+
+> In [docs/](docs/README.md), published with the demo on GitHub Pages once
+> [Documentation Site](#documentation-site) is done.
+
+- [x] Documents for creating character assets
+  - Layer naming for correct game mapping
+  - [docs/character-assets.md](docs/character-assets.md)
+- [x] Documents for creating object assets
+  - Layer naming for correct game effects
+  - [docs/object-assets.md](docs/object-assets.md)
+- [x] Documents for creating levels
+  - Layer naming for correct game interactions: [docs/level-naming.md](docs/level-naming.md)
+  - Correct asset naming for level animations: [docs/level-naming.md](docs/level-naming.md#animate-frame-animation), [docs/object-assets.md](docs/object-assets.md#animation-frames)
+  - When things happen: [docs/level-design.md](docs/level-design.md)
+- [x] Each type of documentation have corresponding:
+  - Verbose: Full documentation for feature
+  - Quickstart: A `tldr` version of documentation for someone unfamiliar (`docs/<topic>_quickstart.md`, and the root [QUICKSTART.md](QUICKSTART.md))
+  - Cheatsheet: A `tldr` for someone needing quick reminder, and someone unfamiliar (`docs/<topic>_cheatsheet.md`, and the root [CHEATSHEET.md](CHEATSHEET.md))
+
+### Documentation Site
+
+> The docs and the playable demo on GitHub Pages, built by
+> `.github/workflows/pages.yml` (see [ROADMAP.md](ROADMAP.md)). The workflow
+> builds and checks the site on every push to `main`, and deploys only once the
+> Pages source is GitHub Actions.
+
+- [ ] Switch the GitHub Pages source from the `main` branch to GitHub Actions
+  - **Issue**: Pages publishes in legacy mode, straight from `main` at `/`. That
+    is what serves the demo today, so it was not switched without asking. Until
+    it is, the new workflow builds the site and skips its deploy job, and
+    `/street-crime/docs/` shows the docs unstyled, rendered by the legacy build.
+  - **Goal**: Settings > Pages > Build and deployment > Source set to **GitHub
+    Actions**, then the workflow run again (Actions > Pages > Run workflow, or the
+    next push). The game stays at `/street-crime/`; the styled docs appear at
+    `/street-crime/docs/`. If the run fails, setting the source back to the `main`
+    branch restores the old site.
+  - From: Documentation Site
+- [ ] Verify the GitHub Pages deploy of the docs and the demo
+  - **Issue**: The workflow was written and checked locally, but Jekyll was never
+    run on this machine (no Ruby), so the first real build happens on GitHub.
+  - **Goal**: The Pages workflow run for the commit that carries the site ends in
+    `success`, checked with
+    `gh run list --repo isocialPractice/street-crime --branch main --json name,conclusion,status,headSha`
+    for that commit, not with `pages/builds/latest` (which a site deployed from
+    Actions never produces). Then a look at the live pages: the menu on a phone,
+    both themes, a link into a heading, and the demo still playing.
+    A `200` from `curl` alone does not count: a failed deploy leaves the old site
+    answering `200`.
+    - Workflow: `.github/workflows/pages.yml`
+    - Site commit: `e2ba1c0` added the site; the run to check is the one for
+      whatever `main` points at when it is first pushed with that commit in it
+    - URLs: <https://isocialpractice.github.io/street-crime/> and <https://isocialpractice.github.io/street-crime/docs/>
+  - From: Documentation Site
+
 ### Game
 
 - [ ] **Pause**: Auto map assets
@@ -46,19 +102,25 @@
   - Stage progression
   - Config system to map weapon use
 - [ ] Use side-scrolling image as level background art
-- [ ] Add configuration system to map where enemies spawn for each level
-- [ ] Add interactable object elements
+- [x] Add configuration system to map where enemies spawn for each level
+  - Spawn groups in `config/levels/<level>/level-design.json`, coming out of a
+    layer named by path ([docs/level-design.md](docs/level-design.md#spawn-groups))
+- [x] Add interactable object elements
   - [x] Breakable scenery cut from the level SVG (`BREAKABLE-<name>`)
   - [x] Animated scenery from frame files (`ANIMATE-<asset-name>`)
   - [x] Interact areas that report `interact:<name>` on E (`OBJECT-<name>`)
-  - [ ] Something that listens to `interact:` and does more than report it
+  - [x] Something that listens to `interact:` and does more than report it:
+    the level design director, whose `next` triggers wait on `interact:` and every
+    other level event
 
 ### Level Map
 
-> Doors, breakable and animated scenery, and no-go areas set up by layer name
-> in a level SVG (`js/level/level-map.js`, the README's
-> [Level Map Ids](README.md#level-map-ids)). Tried out in SANDBOX TEST, from
-> `config/debug/sandbox.json`.
+> Doors, locks, breakable and animated scenery, trigger areas and no-go areas set
+> up by layer name in a level SVG (`js/level/level-map.js`,
+> [docs/level-naming.md](docs/level-naming.md)), and what happens when, in
+> `config/levels/<level>/level-design.json` (`js/level/level-design.js`,
+> [docs/level-design.md](docs/level-design.md)). Tried out in SANDBOX TEST, from
+> `config/debug/sandbox.json`, one step at a time.
 
 - [x] Read map ids from a level SVG, with a debug overlay and typo warnings
 - [x] `negative-space` holes in the field; rushing enemies walk around them
@@ -66,8 +128,14 @@
 - [x] `BREAKABLE-` pieces that break like crates, with optional `_damaged` / `_broken` art
 - [x] `ENTER-building` doors with a fade, an interior, and the way back out
 - [x] SANDBOX TEST menu entry and `config/debug/sandbox.json`
+- [x] `RESTRICTED-` locked enterables, unlocked by `REQUIRE-case-` / `REQUIRE-state-` layers or the level design
+- [x] `EVENT-` trigger areas; `INVENTORY-`, `MISSING-`, `SWITCH-`, `USABLE-` recognised as planned
+- [x] Layer paths (`RESTRICTED-import-export-warehouse/ENTER-building`) so a design names places, not coordinates
+- [x] Doors drawn above the field reach down to the ground below them (the warehouse door, past the parked car)
+- [x] Level design files: states, cases, triggers, spawn groups from a layer, player entrances, `fade-out`, drafts converted with notes, "did you mean" warnings
+- [x] Sandbox steps 1 to 6 for the level design, ending on `config/levels/theStreets/level-design.json`
 - [ ] `ENTER-vehicle` handler: a different movement mode while driving (recognised and stubbed today)
-- [ ] Load a level from its folder through `config/levels.json` (still reports "not built yet"), using the level map
+- [ ] Load a level from its folder through `config/levels.json` (still reports "not built yet"), using the level map and its `level-design.json` through `LevelDirector`, the way the sandbox's `level-design` test does; hand `store`d health on to the next level
 - [ ] Draw tall breakables in correct depth order (the gate arm sorts by its bottom edge)
 - [ ] Flanking and holding enemies steer around holes too (only rushing ones do)
 - [ ] Art: trim `#field` in `level-theStreets.svg` to the 2915-unit viewBox (it runs to x 13113)
@@ -75,6 +143,10 @@
 - [ ] Art: replace the placeholder `enterables/badBar.svg` with the bar's interior, with an `ENTER-exit` at its door
 - [ ] Art: if the gate should seal the lot until it breaks, extend the arm or add `negative-space` (there is room past it above and below)
 - [ ] Art (optional): `parking-gate-arm_damaged.svg` and `parking-gate-arm_broken.svg` in `theStreets/objects/`
+- [ ] Art: replace the placeholder `enterables/import-export-warehouse.svg` (a copy of the bar's placeholder) with the warehouse interior, with an `ENTER-exit` at its door
+- [ ] Art: the parked red car's `negative-space` (world x 690 to 967) sits in front of the warehouse door (x 633 to 805)
+  - The player can only use the door from the street below the car, and enemies coming out in the middle and right lanes cross the car's back end
+  - Move the car right of x 805, or give `#field` a notch up to the warehouse door the way the bar has one
 
 ### Asset Scripts
 
@@ -317,5 +389,151 @@ in `scripts/`:
   that renames the game and clears the sample art
 - [ ] Fold in the paused **Auto map assets** item under [Game](#game), which
   this plan would replace
+- [ ] The template ships one sample level that shows the whole level format
+  - **Issue**: A template user learns the format fastest from a level that
+    already works, and the stripped-down template would otherwise keep none.
+  - **Goal**: One small level with named layers (field, an enterable, a locked
+    door, a breakable, an animated sign, a trigger area), its `level-design.json`,
+    and the sandbox step tests that prove each part, the way `theStreets` and
+    `design-1` to `level-design` do here.
+  - From: Template Repo
+- [ ] The template ships the docs site, ready to publish
+  - **Issue**: `docs/`, `.github/workflows/pages.yml`, `DESIGN_LANGUAGE.md`,
+    `scripts/stageDocs.js` and `scripts/checkAssetCase.js` all name this
+    repository (`isocialpractice.github.io/street-crime`, the GitHub URL in
+    `docs/_config.yml` and `stageDocs.js`).
+  - **Goal**: The first-run script rewrites the repository name, owner and URLs
+    in those files, so a new game's docs and demo publish from the first push
+    once its Pages source is GitHub Actions.
+  - From: Template Repo
+- [ ] The first-run script clears the sample level but keeps the formats
+  - **Issue**: Clearing sample art must not take the level design schema, the
+    sandbox test format or the docs with it.
+  - **Goal**: After the script runs, `config/schema/level-design.schema.json`,
+    an empty `config/debug/sandbox.json` with one commented example, and the docs
+    remain; the sample level, its design and its art are gone.
+  - From: Template Repo
+
+---
+
+## 10. Level Design Config
+
+> Make `config/levels/<level>/level-design.json` the level format the template
+> ships: everything a level does, written as data, with the engine knowing no
+> level by name. Builds on the director in `js/level/level-design.js` and the
+> format in [docs/level-design.md](docs/level-design.md).
+
+Intent: a level is art plus one design file, with no code.
+
+- [ ] Rosters: pick enemies by tier, not only by id
+  - **Issue**: A spawn group's default pool is worked out from `ENEMY_DEFS`
+    flags and `STAGES` leaders, and `pool` takes ids only, so a design cannot say
+    "three grunts" without naming them, and a template user cannot add a tier.
+  - **Goal**: Tiers such as `grunt`, `elite`, `subboss` and `boss` in config
+    (`config/rosters.json`, or per level), and `pool` accepting a tier name. The
+    schema, vocabulary table and validator learn the new value together.
+  - From: Level Design Config
+- [ ] Stage waves as design states
+  - **Issue**: The three stages' waves, sub-bosses and bosses are hard-coded in
+    `STAGES` (`js/level/data.js`) and run by `LevelMgr`, beside the director
+    rather than through it.
+  - **Goal**: A stage's waves written as states with spawn groups and
+    `defeated:` steps, so one engine runs both, and `LevelMgr` can retire once the
+    stages load from `config/levels.json`.
+  - From: Level Design Config
+- [ ] Share states between levels with `extends`
+  - **Issue**: Every level would repeat its intro, its clear and its boss
+    states, word for word.
+  - **Goal**: A design names another file under `extends` and overrides only the
+    states and cases it changes; the validator reads the merged result and says
+    which file each warning came from.
+  - From: Level Design Config
+- [ ] Handlers for the planned layer names
+  - **Issue**: `INVENTORY-`, `MISSING-`, `SWITCH-`, `USABLE-` and
+    `REQUIRE-item-` are recognised and warned about, but do nothing. (`ENTER-vehicle`
+    is tracked under [Level Map](#level-map).)
+  - **Goal**: An inventory the player carries between states, items picked up
+    from `INVENTORY-` objects and used on `MISSING-` ones, `SWITCH-` objects that
+    set cases, `USABLE-` objects that can be carried but not stored, and
+    `REQUIRE-item-` locks; each reporting an event a design can wait on, as the
+    draft in `.support/DRAFT_docs-level-naming.md` describes.
+  - From: Level Design Config
+- [ ] Friendly and neutral characters in a design
+  - **Issue**: `characters.friendly` and `characters.neutral` are reserved and
+    must be `false`; `assets/characters/friendly/` and `neutral/` are empty.
+  - **Goal**: Spawned like enemy groups, with what they do (talk, follow, flee)
+    set in the design, and reports a design can wait on.
+  - From: Level Design Config
+- [ ] Doors that open when someone comes out
+  - **Issue**: Enemies and the player walk out of a closed door; the door art
+    never changes.
+  - **Goal**: Optional open-door art (`objects/<door>_open.svg`, drawn over the
+    `ENTER-` layer like breakable state art) shown while anyone walks out of or
+    into it.
+  - From: Level Design Config
+- [ ] `svg` actions that show and hide layers by path
+  - **Issue**: `"svg"` only marks a state (`loads`, `layer-state-change`) or
+    fades; a design cannot change the art itself, such as a light going out.
+  - **Goal**: `"show"` and `"hide"` lists of layer paths in a state, cut out of
+    the background like breakables so they can be toggled.
+  - From: Level Design Config
+- [ ] `scripts/newLevel.pl`: start a level from one command
+  - **Issue**: A new level means creating four folders and two files by hand,
+    named to match each other exactly.
+  - **Goal**: `perl scripts/newLevel.pl <name>` creates `assets/levels/<name>/`
+    with `objects/` and `enterables/`, a starter
+    `config/levels/<name>/level-design.json` with its `$schema` line, and a
+    sandbox test entry, then says what to draw next.
+  - From: Level Design Config
+- [ ] Automated tests for the level design code, run in CI
+  - **Issue**: The validator, draft migration, suggestions and director were
+    checked by hand-run headless browser pages kept in the git-ignored `.tmp/`;
+    only `scripts/checkLevelDesignVocab.js` is in the repository.
+  - **Goal**: `node` tests for `validateLevelDesign`, `migrateLevelDesign` (with
+    `config/debug/designs/5-draft.json`), `levelDesignClosest` and the vocabulary
+    against the schema, plus a headless run of each sandbox step's checklist, all
+    run by a workflow on every push.
+  - From: Level Design Config
+
+---
+
+## 11. Documentation Site
+
+> Keep the docs and the demo published and true to the code. The site's design
+> is in [DESIGN_LANGUAGE.md](DESIGN_LANGUAGE.md); its build is
+> `.github/workflows/pages.yml` with `scripts/stageDocs.js` and
+> `scripts/checkAssetCase.js`. Getting it live is under
+> [Documentation Site](#documentation-site) in Current.
+
+Intent: the docs never describe a game that no longer exists.
+
+- [ ] Keep the docs in step with the code
+  - **Issue**: Every change to a layer name, a design key or an asset rule makes
+    a page wrong until someone notices.
+  - **Goal**: Changes that touch `js/level/`, `config/schema/` or the asset
+    loaders update their page in `docs/` in the same commit, as
+    `.github/instructions/update-docs-on-code-change.instructions.md` asks, and
+    `CHEATSHEET.md` with them.
+  - From: version.control = null
+- [ ] Check heading anchors in the site build
+  - **Issue**: `scripts/stageDocs.js` fails the build on a link to a missing
+    file, but a link to a missing heading (`level-design.md#players`) still
+    publishes.
+  - **Goal**: The staging script also checks every `#anchor` against the
+    headings of the page it points to, using the same id rules as the site's
+    Markdown.
+  - From: version.control = null
+- [ ] A short clip or screenshot of the demo on the docs home page
+  - **Issue**: The docs home page is all text; nothing shows what the game looks
+    like or what a level design does.
+  - **Goal**: One image or short clip, captured from the game itself (the
+    sandbox's `level-design` test: the gate breaking, the crew walking out), on
+    `docs/README.md`, with alt text.
+  - From: version.control = null
+- [ ] Move the Illustrator script docs into `docs/`
+  - **Issue**: `scripts/README.md` is the one guide not on the site.
+  - **Goal**: `docs/asset-scripts.md`, with a quickstart and a cheatsheet, a menu
+    entry, and `scripts/README.md` reduced to a pointer.
+  - From: version.control = null
 
 ---

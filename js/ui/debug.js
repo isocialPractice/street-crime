@@ -536,6 +536,7 @@ function _resetDebugPlayfield(stageData, stageLabel) {
     pickups    = [];
     levelMgr   = null;
     levelRuntime = null;
+    clearLevelDirector();
     hideOverlay();
     _hideBossHUD();
     _updateComboHUD(0);

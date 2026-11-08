@@ -1,0 +1,22 @@
+{
+  "$schema": "../../schema/level-design.schema.json",
+  "version": 1,
+  "start": "initial",
+  "cases": {
+    "has-gate": true,
+    "gate-broken": false
+  },
+  "restricted": {
+    "import-export-warehouse": { "until": "case:gate-broken" }
+  },
+  "states": {
+    "initial": {
+      "svg": "loads",
+      "next": [{ "on": "break:parking-gate-arm", "to": "gate-breaks" }]
+    },
+    "gate-breaks": {
+      "svg": "layer-state-change",
+      "set": { "has-gate": false, "gate-broken": true }
+    }
+  }
+}

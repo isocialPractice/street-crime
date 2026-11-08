@@ -1,0 +1,37 @@
+# The site's side menu, in reading order. url is the page's address under the
+# site's baseurl: a Markdown page "name.md" is published as "/name.html", and
+# README.md is the home page, "/". "sub" indents an entry under the one above.
+
+- group: Start
+  items:
+    - { title: Home, url: / }
+    - { title: Quickstart, url: /QUICKSTART.html }
+    - { title: Cheatsheet, url: /CHEATSHEET.html }
+
+- group: Levels
+  items:
+    - { title: Level naming, url: /level-naming.html }
+    - { title: Quickstart, url: /level-naming_quickstart.html, sub: true }
+    - { title: Cheatsheet, url: /level-naming_cheatsheet.html, sub: true }
+    - { title: Level design, url: /level-design.html }
+    - { title: Quickstart, url: /level-design_quickstart.html, sub: true }
+    - { title: Cheatsheet, url: /level-design_cheatsheet.html, sub: true }
+
+- group: Assets
+  items:
+    - { title: Characters, url: /character-assets.html }
+    - { title: Quickstart, url: /character-assets_quickstart.html, sub: true }
+    - { title: Cheatsheet, url: /character-assets_cheatsheet.html, sub: true }
+    - { title: Objects, url: /object-assets.html }
+    - { title: Quickstart, url: /object-assets_quickstart.html, sub: true }
+    - { title: Cheatsheet, url: /object-assets_cheatsheet.html, sub: true }
+
+- group: Testing
+  items:
+    - { title: Sandbox test, url: /sandbox.html }
+
+- group: Project
+  items:
+    - { title: Roadmap, url: /ROADMAP.html }
+    - { title: Changelog, url: /CHANGELOG.html }
+    - { title: Level design schema, url: /schema/level-design.schema.json }

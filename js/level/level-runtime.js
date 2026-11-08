@@ -18,6 +18,19 @@
 // The scene left behind is kept, with its enemies, breakables and pickups, on
 // a stack, and leaving the interior puts all of it back, the player just below
 // the door they went in by.
+//
+// Locks
+// -----
+// A door inside a RESTRICTED- layer is locked until unlock(name) is called
+// with the RESTRICTED's name; the level design does that when the condition
+// it names comes true. Using a locked door reports "locked:<name>" and shows
+// E: LOCKED instead of going through. Unlocking reports "unlock:<name>" and
+// lasts for the run, in every scene.
+//
+// Trigger areas
+// -------------
+// An EVENT-<name> area reports "event:<name>" the first time the player's
+// feet are in it, once per run.
 
 // Interiors are built the first time a door leads to one and kept for the
 // page, like the sandbox's own scenes. A run's state inside them is not.
@@ -33,6 +46,44 @@ const LEVEL_ENTER_HANDLERS = {
     exit:     '_exitScene',
     vehicle:  '_enterVehicle',
 };
+
+// How far below a hotspot to look for ground to stand on, and how deep that
+// ground must be to count. See levelFieldGapBelow.
+const LEVEL_FIELD_GAP_MAX     = 200;
+const LEVEL_FIELD_STAND_DEPTH = 12;
+
+// _levelStandable - whether feet can stand at (x, y): inside #field and
+// outside every negative-space hole.
+function _levelStandable(x, y, polygon, holes) {
+    return _pointInPolygon(x, y, polygon) && !_pointInStageHole(x, y, holes);
+}
+
+// levelFieldGapBelow - how far below a rect's bottom edge there is ground to
+// stand on, at the rect's centre, in world px: 0 when it already is. A door is
+// drawn on a building's face and often stops at the sidewalk while #field is
+// the street below it, sometimes with a parked car's hole in between; its
+// reach, the player coming back out of it, and anyone spawned from it all
+// bridge that gap. Ground counts once LEVEL_FIELD_STAND_DEPTH px of it run
+// unbroken, so a sliver of field between the edge and a hole is passed over.
+// A rect with no such ground within LEVEL_FIELD_GAP_MAX counts as 0, and stays
+// out of reach: that is a level whose field was not drawn to it.
+function levelFieldGapBelow(stage, rect) {
+    const polygon = typeof stageFieldPolygon === 'function' ? stageFieldPolygon(stage) : null;
+    if (!polygon || !rect) return 0;
+    const holes = stageFieldHoles(stage);
+    const cx = rect.x + rect.w * 0.5;
+    const bottom = rect.y + rect.h;
+    let runStart = null;
+    for (let d = 0; d <= LEVEL_FIELD_GAP_MAX + LEVEL_FIELD_STAND_DEPTH; d += 2) {
+        if (!_levelStandable(cx, bottom + d, polygon, holes)) {
+            runStart = null;
+            continue;
+        }
+        if (runStart === null) runStart = d;
+        if (d - runStart >= LEVEL_FIELD_STAND_DEPTH) return runStart <= LEVEL_FIELD_GAP_MAX ? runStart : 0;
+    }
+    return 0;
+}
 
 // "bad-bar" -> "badBar", the other name an enterable's interior may be saved
 // under. Layer names are kebab-case; asset files in this repo are camelCase.
@@ -53,6 +104,7 @@ class LevelMapRuntime {
         this.sceneStates = new Map();   // scene -> { breakables } for this run
         this.fade        = null;        // { phase: 'out' | 'wait' | 'in', t, swap, ready }
         this.active      = null;        // the hotspot the player can use right now
+        this.unlocked    = new Set();   // RESTRICTED names opened this run
         this._enterScene(stageData);
     }
 
@@ -61,8 +113,78 @@ class LevelMapRuntime {
         for (const piece of this.breakables) {
             if (piece.broken) this._report('break', piece.name);
         }
-        if (this.fade) this._updateFade(dt, player);
-        else if (player) this._updateHotspots(dt, player);
+        if (this.fade) {
+            this._updateFade(dt, player);
+        } else if (player) {
+            this._updateEventAreas(player);
+            this._updateHotspots(dt, player);
+        }
+    }
+
+    // ── Locks ─────────────────────────────────────────────────────────────────
+    isLocked(name) {
+        return !this.unlocked.has(name) && this.restrictedEntries().some(entry => entry.name === name);
+    }
+
+    // unlock - open a RESTRICTED for the rest of the run. Safe to call more
+    // than once, or for a name this scene does not have (it may be in another).
+    unlock(name) {
+        if (this.unlocked.has(name)) return;
+        this.unlocked.add(name);
+        this._report('unlock', name);
+    }
+
+    // restrictedEntries - the level map's RESTRICTED entries in the scenes
+    // this run is in (the current one and the ones it was entered from), one
+    // per name, so a lock still holds after going into another building and
+    // back out. The level design reads their REQUIRE- layers from here.
+    restrictedEntries() {
+        const byName = new Map();
+        const scenes = [this.stage, ...this.stack.map(frame => frame.stage)];
+        for (const stage of scenes) {
+            for (const entry of stage?.scene?.map?.enterables || []) {
+                if (entry.restricted && !byName.has(entry.name)) byName.set(entry.name, entry);
+            }
+        }
+        return [...byName.values()];
+    }
+
+    // report - send a level-map event once per run, for code outside the
+    // runtime (the level design) that reports through the same bus.
+    report(kind, key) {
+        this._report(kind, key);
+    }
+
+    // fadeThrough - fade to black and back in the scene the player is in,
+    // running swap while the screen is black: a level design's "fade-out".
+    // The scene is already on screen, so there is nothing to wait for once it
+    // is black. During a door's fade the swap simply runs at once, since the
+    // screen is already on its way to black for a reason of its own.
+    fadeThrough(player, swap) {
+        if (this.fade || !player) {
+            swap();
+            return;
+        }
+        this._startFade(player, this.stage.scene, swap);
+        this.fade.ready = true;
+    }
+
+    _spotLocked(spot) {
+        return !!spot && spot.kind === 'enter' && spot.restricted && this.isLocked(spot.key);
+    }
+
+    // ── Trigger areas ─────────────────────────────────────────────────────────
+    // Feet in the area, standing or in the air: a trigger is a place on the
+    // ground, and jumping across it still crosses it.
+    _updateEventAreas(player) {
+        const cx   = player.x + player.w * 0.5;
+        const feet = player.y + player.h;
+        for (const area of this.stage?.scene?.map?.events || []) {
+            const r = area.world;
+            if (cx >= r.x && cx <= r.x + r.w && feet >= r.y && feet <= r.y + r.h) {
+                this._report('event', area.name);
+            }
+        }
     }
 
     // _report - send a level-map event once per run. A feature can keep
@@ -100,17 +222,18 @@ class LevelMapRuntime {
         const map = scene?.map;
         const spots = (map?.hotspots || []).map(h => ({
             kind: 'enter', type: h.type, id: h.id, key: h.enterable || h.id,
-            enterable: h.enterable, rect: h.world, push: h.push,
+            enterable: h.enterable, restricted: !!h.restricted, rect: h.world, push: h.push,
+            gap: levelFieldGapBelow(this.stage, h.world),
         }));
         for (const object of map?.objects || []) {
             if (object.children.length) continue;
             spots.push({ kind: 'interact', type: 'interact', id: object.id, key: object.name,
-                         rect: object.world, push: null });
+                         rect: object.world, push: null, gap: levelFieldGapBelow(this.stage, object.world) });
         }
         if (this.stack.length && !spots.some(spot => spot.type === 'exit')) {
             spots.push({
                 kind: 'enter', type: 'exit', id: 'implicit exit', key: this.stack[this.stack.length - 1].key,
-                rect: { x: 0, y: 0, w: LEVEL_IMPLICIT_EXIT_W, h: scene.worldHeight }, push: 'left',
+                rect: { x: 0, y: 0, w: LEVEL_IMPLICIT_EXIT_W, h: scene.worldHeight }, push: 'left', gap: 0,
             });
         }
         // Doors before plain interact areas, when the player stands in both.
@@ -120,14 +243,15 @@ class LevelMapRuntime {
     // ── Hotspots ──────────────────────────────────────────────────────────────
     // In reach: the player's centre is over the hotspot, and their feet are
     // within enterDepthTol of its depth span. A door sits above the field, so
-    // its reach is the strip of walkable ground at its foot.
+    // its reach is the strip of walkable ground at its foot; where the field
+    // starts some way below the door, the reach runs down to it (spot.gap).
     _inReach(spot, player) {
         const cx   = player.x + player.w * 0.5;
         const feet = player.y + player.h;
         const tol  = CFG.enterDepthTol;
         const r    = spot.rect;
         return player.grounded && cx >= r.x && cx <= r.x + r.w
-            && feet >= r.y - tol && feet <= r.y + r.h + tol;
+            && feet >= r.y - tol && feet <= r.y + r.h + (spot.gap || 0) + tol;
     }
 
     _updateHotspots(dt, player) {
@@ -165,6 +289,14 @@ class LevelMapRuntime {
             levelMapEmit('interact', spot.key);
             return;
         }
+        // Reported on every try, like going through a door: each one is the
+        // player doing something, not the level noticing a state.
+        if (this._spotLocked(spot)) {
+            levelMapEmit('locked', spot.key);
+            this.armed.set(spot, false);
+            this.active = null;
+            return;
+        }
         const method = LEVEL_ENTER_HANDLERS[spot.type];
         const went = method ? this[method](spot, player) : false;
         if (!method) this.notify(`${spot.id}: ENTER type "${spot.type}" has no handler`);
@@ -181,7 +313,7 @@ class LevelMapRuntime {
         const outer = this.stage;
         const scene = this._interiorScene(path, outer.scene);
         this._startFade(player, scene, () => {
-            this.stack.push({ stage: outer, key: spot.key, door: spot.rect, camX: cam.x,
+            this.stack.push({ stage: outer, key: spot.key, door: spot.rect, doorGap: spot.gap || 0, camX: cam.x,
                               enemies, breakables, pickups });
             const stage = { name: `${outer.name} > ${spot.key}`, scene, levelMap: outer.levelMap };
             currentStageData = stage;
@@ -217,7 +349,7 @@ class LevelMapRuntime {
             // walk straight back in.
             const door = frame.door;
             player.x = door.x + door.w * 0.5 - player.w * 0.5;
-            player.y = door.y + door.h + CFG.enterDepthTol + 4 - player.h;
+            player.y = door.y + door.h + frame.doorGap + CFG.enterDepthTol + 4 - player.h;
             player.clampToStageField();
             levelMapEmit('exit', frame.key);
         });
@@ -277,7 +409,7 @@ class LevelMapRuntime {
         if (exit) {
             const r = exit.rect;
             player.x = r.x + r.w * 0.5 - player.w * 0.5;
-            player.y = r.y + r.h + CFG.enterDepthTol + 4 - player.h;
+            player.y = r.y + r.h + (exit.gap || 0) + CFG.enterDepthTol + 4 - player.h;
         } else {
             const spawn = sampleStageEntityPosition(this.stage, player.w, player.h, {
                 minX: LEVEL_IMPLICIT_EXIT_W + 24,
@@ -335,8 +467,9 @@ class LevelMapRuntime {
     // ── Drawing (called from draw()) ──────────────────────────────────────────
     drawPrompt(player) {
         if (this.fade || !this.active || !player) return;
-        const label = this.active.kind === 'interact' ? 'E: INTERACT'
-                    : this.active.type === 'exit'     ? 'E: EXIT'
+        const label = this.active.kind === 'interact'  ? 'E: INTERACT'
+                    : this._spotLocked(this.active)    ? 'E: LOCKED'
+                    : this.active.type === 'exit'      ? 'E: EXIT'
                     : 'E: ENTER';
         // Over the head as drawn: the sprite stands on the feet and is taller
         // than the hit box, so the box's top would put the prompt on the chest.

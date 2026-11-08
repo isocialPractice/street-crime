@@ -1,5 +1,5 @@
 {
-  "active": "level-mapping",
+  "active": "level-design",
   "tests": {
     "level-mapping": {
       "label": "Level mapping: The Streets",
@@ -25,6 +25,210 @@
         { "label": "Break the parking gate arm", "event": "break:parking-gate-arm" },
         { "label": "Enter the Bad Bar", "event": "enter:bad-bar" },
         { "label": "Walk back out", "event": "exit:bad-bar" }
+      ]
+    },
+    "design-1-restricted": {
+      "label": "Design step 1: restricted warehouse",
+      "level": "assets/levels/theStreets/",
+      "scene": "level-theStreets.svg",
+      "sectionWidth": 800,
+      "worldHeight": 600,
+      "spawn": { "minX": 60, "maxX": 220 },
+      "panels": { "debug": true, "checklist": true },
+      "cfg": { "showHitboxes": true },
+      "levelMap": {
+        "enabled": true,
+        "animate": {
+          "default": { "mode": "loop", "fps": 6 },
+          "sign-badBar": { "mode": "yoyo", "fps": 6 }
+        }
+      },
+      "enterables": {
+        "bad-bar": "enterables/badBar.svg"
+      },
+      "checklist": [
+        { "label": "Warehouse door says E: LOCKED", "event": "locked:import-export-warehouse" },
+        { "label": "Bad Bar door still opens", "event": "enter:bad-bar" },
+        { "label": "Walk back out of the bar", "event": "exit:bad-bar" }
+      ]
+    },
+    "design-2-states": {
+      "label": "Design step 2: states and cases",
+      "level": "assets/levels/theStreets/",
+      "scene": "level-theStreets.svg",
+      "design": "config/debug/designs/2-states.json",
+      "sectionWidth": 800,
+      "worldHeight": 600,
+      "spawn": { "minX": 60, "maxX": 220 },
+      "panels": { "debug": true, "checklist": true },
+      "cfg": { "showHitboxes": true },
+      "levelMap": {
+        "enabled": true,
+        "animate": {
+          "default": { "mode": "loop", "fps": 6 },
+          "sign-badBar": { "mode": "yoyo", "fps": 6 }
+        }
+      },
+      "enterables": {
+        "bad-bar": "enterables/badBar.svg"
+      },
+      "checklist": [
+        {
+          "label": "Design starts in \"initial\"",
+          "event": "state:initial"
+        },
+        { "label": "Warehouse door says E: LOCKED", "event": "locked:import-export-warehouse" },
+        { "label": "Break the parking gate arm", "event": "break:parking-gate-arm" },
+        {
+          "label": "Design moves to \"gate-breaks\"",
+          "event": "state:gate-breaks"
+        },
+        {
+          "label": "Case \"gate-broken\" turns true",
+          "event": "case:gate-broken"
+        },
+        { "label": "Warehouse unlocks", "event": "unlock:import-export-warehouse" },
+        { "label": "Enter the warehouse", "event": "enter:import-export-warehouse" }
+      ]
+    },
+    "design-3-spawn": {
+      "label": "Design step 3: enemies from the door",
+      "level": "assets/levels/theStreets/",
+      "scene": "level-theStreets.svg",
+      "design": "config/debug/designs/3-spawn.json",
+      "sectionWidth": 800,
+      "worldHeight": 600,
+      "spawn": { "minX": 60, "maxX": 220 },
+      "panels": { "debug": true, "checklist": true },
+      "cfg": { "showHitboxes": true },
+      "levelMap": {
+        "enabled": true,
+        "animate": {
+          "default": { "mode": "loop", "fps": 6 },
+          "sign-badBar": { "mode": "yoyo", "fps": 6 }
+        }
+      },
+      "enterables": {
+        "bad-bar": "enterables/badBar.svg"
+      },
+      "checklist": [
+        {
+          "label": "Design starts in \"initial\"",
+          "event": "state:initial"
+        },
+        { "label": "Break the parking gate arm", "event": "break:parking-gate-arm" },
+        {
+          "label": "Design moves to \"gate-breaks\"",
+          "event": "state:gate-breaks"
+        },
+        { "label": "Enemies come out of the warehouse door", "event": "spawn:warehouse-crew" },
+        { "label": "Defeat all three", "event": "defeated:warehouse-crew" }
+      ]
+    },
+    "design-4-defeat": {
+      "label": "Design step 4: defeat, fade and the way in",
+      "level": "assets/levels/theStreets/",
+      "scene": "level-theStreets.svg",
+      "design": "config/debug/designs/4-defeat.json",
+      "sectionWidth": 800,
+      "worldHeight": 600,
+      "spawn": { "minX": 60, "maxX": 220 },
+      "panels": { "debug": true, "checklist": true },
+      "cfg": { "showHitboxes": true },
+      "levelMap": {
+        "enabled": true,
+        "animate": {
+          "default": { "mode": "loop", "fps": 6 },
+          "sign-badBar": { "mode": "yoyo", "fps": 6 }
+        }
+      },
+      "enterables": {
+        "bad-bar": "enterables/badBar.svg"
+      },
+      "checklist": [
+        { "label": "Player walks in from the left", "event": "arrive:initial" },
+        { "label": "Warehouse door says E: LOCKED", "event": "locked:import-export-warehouse" },
+        { "label": "Break the parking gate arm", "event": "break:parking-gate-arm" },
+        { "label": "Enemies come out of the warehouse door", "event": "spawn:warehouse-crew" },
+        { "label": "Defeat all three", "event": "defeated:warehouse-crew" },
+        {
+          "label": "Screen fades; design moves to \"enemy-defeat\"",
+          "event": "state:enemy-defeat"
+        },
+        { "label": "Player walks back in from the left", "event": "arrive:enemy-defeat" },
+        { "label": "Warehouse unlocks", "event": "unlock:import-export-warehouse" },
+        { "label": "Enter the warehouse", "event": "enter:import-export-warehouse" }
+      ]
+    },
+    "design-5-drafts": {
+      "label": "Design step 5: the original draft, converted",
+      "level": "assets/levels/theStreets/",
+      "scene": "level-theStreets.svg",
+      "design": "config/debug/designs/5-draft.json",
+      "sectionWidth": 800,
+      "worldHeight": 600,
+      "spawn": { "minX": 60, "maxX": 220 },
+      "panels": { "debug": true, "checklist": true },
+      "cfg": { "showHitboxes": true },
+      "levelMap": {
+        "enabled": true,
+        "animate": {
+          "default": { "mode": "loop", "fps": 6 },
+          "sign-badBar": { "mode": "yoyo", "fps": 6 }
+        }
+      },
+      "enterables": {
+        "bad-bar": "enterables/badBar.svg"
+      },
+      "checklist": [
+        { "label": "Player walks in from the left", "event": "arrive:initial" },
+        { "label": "Break the parking gate arm", "event": "break:parking-gate-arm" },
+        {
+          "label": "Design moves to \"gate-breaks\"",
+          "event": "state:gate-breaks"
+        },
+        { "label": "Enemies come out of the warehouse door", "event": "spawn:gate-breaks-enemies" },
+        { "label": "Defeat them", "event": "defeated:gate-breaks-enemies" },
+        {
+          "label": "Screen fades; design moves to \"enemy-defeat\"",
+          "event": "state:enemy-defeat"
+        },
+        { "label": "Player walks back in from the left", "event": "arrive:enemy-defeat" }
+      ]
+    },
+    "level-design": {
+      "label": "Level design: gate breach (config/levels/theStreets)",
+      "level": "assets/levels/theStreets/",
+      "scene": "level-theStreets.svg",
+      "design": "config/levels/theStreets/level-design.json",
+      "sectionWidth": 800,
+      "worldHeight": 600,
+      "spawn": { "minX": 60, "maxX": 220 },
+      "panels": { "debug": true, "checklist": true },
+      "cfg": { "showHitboxes": true },
+      "levelMap": {
+        "enabled": true,
+        "animate": {
+          "default": { "mode": "loop", "fps": 6 },
+          "sign-badBar": { "mode": "yoyo", "fps": 6 }
+        }
+      },
+      "enterables": {
+        "bad-bar": "enterables/badBar.svg"
+      },
+      "checklist": [
+        { "label": "Player walks in from the left", "event": "arrive:initial" },
+        { "label": "Warehouse door says E: LOCKED", "event": "locked:import-export-warehouse" },
+        { "label": "Break the parking gate arm", "event": "break:parking-gate-arm" },
+        { "label": "Enemies come out of the warehouse door", "event": "spawn:warehouse-crew" },
+        { "label": "Defeat all three", "event": "defeated:warehouse-crew" },
+        {
+          "label": "Screen fades; design moves to \"enemy-defeat\"",
+          "event": "state:enemy-defeat"
+        },
+        { "label": "Player walks back in from the left", "event": "arrive:enemy-defeat" },
+        { "label": "Warehouse unlocks", "event": "unlock:import-export-warehouse" },
+        { "label": "Enter the warehouse", "event": "enter:import-export-warehouse" }
       ]
     }
   }

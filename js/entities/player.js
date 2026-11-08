@@ -75,6 +75,11 @@ class Player extends Entity {
         // Scripted hold, such as walking through a door: controls are off as
         // they are in a freeze, but nothing hit the player, so no blink.
         this.holdT    = 0;
+        // A level entrance: hidden is off stage (not drawn, not hit, no
+        // input) until the level brings the player on; script is a walk in
+        // progress, set through walkTo. Both are the level design's to set.
+        this.hidden   = false;
+        this.script   = null;
         // Counts down while the guard shudders from a blow it just turned
         // aside. See _absorbBlockedHit and the 'block' case in getImg.
         this.resistT  = 0;
@@ -160,6 +165,18 @@ class Player extends Entity {
         if (this.comboT > 0) {
             this.comboT -= dt;
             if (this.comboT <= 0) { this.comboC = 0; _updateComboHUD(0); }
+        }
+
+        // ── Level entrance: off stage, or walking in ─────────────────────────
+        // Neither reads input. See walkTo and hidden.
+        if (this.hidden) {
+            this.vx = this.vy = 0;
+            this.bufPunch = this.bufKick = this.bufJump = 0;
+            return;
+        }
+        if (this.script) {
+            this._runScript(dt);
+            return;
         }
 
         // ── Input buffering ──────────────────────────────────────────────────
@@ -519,8 +536,51 @@ class Player extends Entity {
         return frames.filter(img => img && img.naturalWidth > 0);
     }
 
+    // walkTo - walk straight to (x, y), the hit box's top-left, at speed px/s,
+    // with input held, then hand control back. Used by a level design to walk
+    // the player in from off screen or out of a door, so neither the camera's
+    // left edge nor the walkable field holds them until they arrive.
+    walkTo(x, y, speed) {
+        const dx = x - this.x;
+        const dy = y - this.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < 1 || !(speed > 0)) {
+            this.x = x;
+            this.y = y;
+            this.clampToStageField();
+            return;
+        }
+        const t = dist / speed;
+        this.script = { vx: dx / t, vy: dy / t, t, end: { x, y } };
+        this.isRun = false;
+    }
+
+    // _runScript - one frame of walkTo: the walk cycle, facing the way of
+    // travel, and on the last frame exactly the end point, clamped to the field.
+    _runScript(dt) {
+        const s = this.script;
+        const step = Math.min(dt, s.t);
+        this.vx = s.vx;
+        this.vy = s.vy;
+        this.x += s.vx * step;
+        this.y += s.vy * step;
+        s.t -= dt;
+        if (Math.abs(s.vx) > 1) this.facing = s.vx > 0 ? 1 : -1;
+        if (this.state !== 'walk') this.setState('walk');
+        if (s.t > 0) return;
+
+        this.x = s.end.x;
+        this.y = s.end.y;
+        this.vx = this.vy = 0;
+        this.script = null;
+        this.setState('idle');
+        this.clampToStageField();
+    }
+
     takeDamage(amount, dir, launch = 0, effect = null, applied = null) {
         if (this.invT > 0 || this.dead || this.defeated) return;
+        // Not on stage yet, or walking onto it: nothing can land.
+        if (this.hidden || this.script) return;
         if (debugMode && CFG.infiniteHealth) return;
         // A blow the guard turns aside stops here: no reaction animation, no
         // enemy-supplied one either, and none of the power-attack reactions,
@@ -737,6 +797,7 @@ class Player extends Entity {
     }
 
     draw() {
+        if (this.hidden) return;
         if (this.invT > 0 && Math.floor(this.invT * CFG.playerInvFlashRate) % 2 === 0) return;
         // A freeze blinks on its own clock, so the player reads as held even
         // once the brief hurt invincibility behind it has run out.

@@ -30,6 +30,7 @@ const SANDBOX_TEST_DEFAULTS = {
     enterables: {},
     enemies:    [],
     checklist:  [],
+    design:     null,   // path to a level design file, from the site root
 };
 
 // The test run when the file cannot supply one, so a typo in the config still
@@ -92,6 +93,9 @@ function _sandboxWithDefaults(test) {
             out[key] = _sandboxIsObject(value) ? { ...fallback, ...value } : { ...fallback };
         } else if (Array.isArray(fallback)) {
             out[key] = Array.isArray(value) ? value : [];
+        } else if (fallback === null) {
+            // A path, or nothing.
+            out[key] = typeof value === 'string' && value.trim() ? value.trim() : null;
         } else {
             out[key] = Number.isFinite(value) && value > 0 ? value : fallback;
         }
@@ -278,10 +282,10 @@ function _sandboxReportMap(scene) {
     const map = scene.map;
     if (!map) return '';
     console.log('[sandbox] Level map of %s', scene.path);
+    const place = (r, key) => (r.world ? +r.world[key].toFixed(1) : '');
     console.table(map.regions.map(r => ({
         id: r.id, kind: r.kind, parent: r.parent || '',
-        x: +r.world.x.toFixed(1), y: +r.world.y.toFixed(1),
-        w: +r.world.w.toFixed(1), h: +r.world.h.toFixed(1),
+        x: place(r, 'x'), y: place(r, 'y'), w: place(r, 'w'), h: place(r, 'h'),
     })));
     map.warnings.forEach(text => console.warn('[level-map] %s', text));
     const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -339,8 +343,11 @@ async function startSandbox(requestedKey) {
         // get the same color, since both mean something is not as written.
         const summary = _sandboxReportMap(scene);
         const warned = !!scene.map?.warnings.length;
-        _sandboxStatus(run.problem || [`${run.test.label}: ready`, summary].filter(Boolean).join(', '),
-                       !!run.problem || warned);
+        run.status = {
+            text: run.problem || [`${run.test.label}: ready`, summary].filter(Boolean).join(', '),
+            problem: !!run.problem || warned,
+        };
+        _sandboxStatus(run.status.text, run.status.problem);
 
         // The stage carries the test's levelMap settings, which is where the
         // level runtime and the animation pass read things like a sign's fps.
@@ -353,6 +360,43 @@ async function startSandbox(requestedKey) {
     } finally {
         _sandboxStarting = false;
     }
+}
+
+// _sandboxStartDesign - run the test's level design, if it names one. The
+// file is read on every start, so an edit shows up on the next RESTART or the
+// next game-over Enter. What is wrong with it goes to the console in full and
+// to the status line as a count, after the map's summary. A draft (no
+// "version") is converted first, and the console shows it as version 1.
+function _sandboxStartDesign(stage, test) {
+    const status = _sandboxRun.status || { text: '', problem: false };
+    if (!test.design) {
+        _sandboxStatus(status.text, status.problem);
+        return;
+    }
+    const loaded = loadLevelDesign(test.design);
+    const prepared = loaded.design ? prepareLevelDesign(loaded.design, stage.scene.map) : null;
+    const design = prepared?.design || null;
+    const warnings = [...loaded.warnings, ...(prepared?.warnings || [])];
+    warnings.forEach(text => console.warn('[level-design] %s: %s', test.design, text));
+    if (prepared?.migrated) {
+        console.info('[level-design] %s read as a draft. As version 1 it is:\n%s',
+                     test.design, JSON.stringify(design, null, 2));
+    }
+
+    if (design) {
+        levelDirector = new LevelDirector(design, levelRuntime, stage, {
+            spawn: test.spawn,
+            notify: text => {
+                console.warn('[level-design] %s', text);
+                _sandboxStatus(text, true);
+            },
+        });
+    }
+    const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+    const summary = !design ? `no design: ${warnings[0]}`
+                  : `design${prepared.migrated ? ' (draft, converted)' : ''}: ${plural(warnings.length, 'warning')}`;
+    _sandboxStatus([status.text, summary].filter(Boolean).join(', '),
+                   status.problem || !!warnings.length);
 }
 
 // initSandbox - put the current test back to its starting state. Also what
@@ -373,6 +417,7 @@ function initSandbox() {
         });
         breakables = levelRuntime.breakables;
     }
+    _sandboxStartDesign(stage, test);
     // RESTART can be clicked while paused, and nothing else would clear this.
     pauseOverlay.classList.add('hidden');
 

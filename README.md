@@ -4,6 +4,8 @@
 
   **[▶ Play now on GitHub Pages](https://isocialpractice.github.io/street-crime/)**
 
+  `Ctrl + click` to view [street-crime documentation](https://isocialpractice.github.io/street-crime/docs/index.html)
+
 </div>
 
 ---
@@ -57,7 +59,7 @@ Tuning lives in three files, `config/configuration.json`, `config/enemies.json` 
 
 The title screen now includes a `DEBUG LEVEL` entry that loads `assets/levels/Test_ItWorked.svg`. The scene image is drawn from ordered `section_[0-9]+` groups, starting on `section_1`, so the player can scroll through the SVG one screen at a time. If a section contains a `border` rect, that rect defines the screen slice; otherwise the slice is derived from the section's child geometry. A level with no `section_*` groups takes its screens from its `border` rects instead, ordered left to right. Any SVG shape with `id="field"` remains the authoritative gameplay area for movement, and the same field geometry is used for debug object and enemy spawn sampling.
 
-The `SANDBOX TEST` entry runs a test from `config/debug/sandbox.json`. Each entry under `"tests"` names a level folder and scene, where the player spawns, any `CFG` values to override, enemies to spawn, and a checklist of events to wait for; `"active"` picks the one the menu starts, and the panel can restart into any other. Adding a test for a new feature means adding an entry there, not changing code. If the file cannot be read, the sandbox runs a built-in test of `assets/levels/theStreets/` and says why on its status line.
+The `SANDBOX TEST` entry runs a test from `config/debug/sandbox.json`. Each entry under `"tests"` names a level folder and scene, where the player spawns, any `CFG` values to override, enemies to spawn, and a checklist of events to wait for; `"active"` picks the one the menu starts, and the panel can restart into any other. Adding a test for a new feature means adding an entry there, not changing code. If the file cannot be read, the sandbox runs a built-in test of `assets/levels/theStreets/` and says why on its status line. See [docs/sandbox.md](docs/sandbox.md).
 
 ```
 assets.js   — SVG sprite loader, all image assets
@@ -66,23 +68,18 @@ style.css   — layout and UI styling
 index.html  — canvas and DOM shell
 ```
 
-## Level Map Ids
+## [Level Map Ids](docs/level-naming.md)
 
-A level SVG can describe more than its look. The id a layer exports with tells the engine what that part of the level does, so a door, a breakable gate or an animated sign is added in Illustrator by naming the layer:
+A level SVG can describe more than its look. The id a layer exports with tells the engine what that part of the level does, so a door, a locked warehouse, a breakable gate or an animated sign is added in Illustrator by naming the layer:
 
-| id | What it does | In `theStreets` |
-|---|---|---|
-| `OBJECT-<name>` | An area with something to interact with. Its box is the interaction area; what is inside it adds behavior. On its own, pressing E in it reports `interact:<name>` | `OBJECT-sign-bad-bar`, `OBJECT-parking-gate-box` |
-| `ANIMATE-<asset-name>` | Drawn from frames `<asset-name>_0.svg`, `_1`, ... in the level's `objects/` folder (or `assets/objects/`), placed where the layer was | `ANIMATE-sign-badBar` plays `objects/sign-badBar_0..2.svg` |
-| `BREAKABLE-<name>` | Cut out of the scenery: blocks movement, takes hits and breaks like a crate, in splinters of its own colors. Optional `<name>_damaged.svg` and `<name>_broken.svg` in `objects/` | `BREAKABLE-parking-gate-arm` |
-| `negative-space` | A hole in `#field` that neither the player nor enemies can walk into | the parked red car |
-| `ENTERABLE-<name>` | Something that can be entered. Its interior is `enterables/<name>.svg` (or the camelCase name) | `ENTERABLE-bad-bar` opens `enterables/badBar.svg` |
-| `ENTER-<type>` | The way in, usually inside an ENTERABLE: E, or pushing into it, goes through. `building` swaps to the interior, `exit` goes back out, `vehicle` is recognised but not built yet | `ENTER-building` |
+| id | What it does |
+|---|---|
+| `ENTERABLE-<name>`, `RESTRICTED-<name>` | Something that can be entered, or entered once unlocked, through an `ENTER-<type>` door inside it |
+| `OBJECT-<name>` | An area to interact with, holding `ANIMATE-<asset-name>` or `BREAKABLE-<name>` scenery |
+| `EVENT-<name>` | A trigger area the player walks into |
+| `negative-space` | A hole in `#field` that nobody can walk into |
 
-- Upper-case prefixes are matched exactly as written, so ordinary layer names such as `enter-sign` never turn into behavior. The prefix may be followed by `-` or `_`.
-- Illustrator numbers duplicated layers (`ENTER-building-2`, `ANIMATE-sign-badBar-2`); a numbered copy keeps its type, and a copied sign shares the original's frames.
-- An interior with no `ENTER-exit` of its own is left by walking into its left edge.
-- With Show Hitboxes on, the debug overlay outlines every one of these with its id, and the sandbox prints them as a table in the console, with warnings for ids that look like a typo (`ANIMTE-sign`), a building with no door, or a hole that reaches outside the field.
+When things happen (the gate breaks, enemies come out of a door) is written in `config/levels/<level>/level-design.json`: see [docs/level-design.md](docs/level-design.md). The full layer rules are in [docs/level-naming.md](docs/level-naming.md), also as a [quickstart](docs/level-naming_quickstart.md) and a [cheatsheet](docs/level-naming_cheatsheet.md).
 
 ## Asset Sources and Scripts
 

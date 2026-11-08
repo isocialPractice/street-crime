@@ -1,0 +1,297 @@
+/* docs/assets/site.css - the documentation site's look.
+ *
+ * Every color, size and radius here is listed in DESIGN_LANGUAGE.md, where each
+ * is traced to logo.svg and its contrast is recorded. Change the two together.
+ *
+ * Themes: [data-theme="auto"] follows the system setting; "light" and "dark"
+ * are set by the theme button (assets/site.js) and remembered.
+ */
+
+/* ── Tokens ──────────────────────────────────────────────────────────────── */
+:root {
+    --bg:        #f5f8f9;
+    --surface:   #e8eff0;
+    --raised:    #dde7e9;
+    --text:      #0a1020;
+    --muted:     #2a3a5a;
+    --link:      #1d2f56;
+    --accent:    #9a4a12;
+    --decor:     #e07b30;
+    --border:    #b0c5c8;
+    --shadow:    rgba(4, 9, 26, 0.18);
+
+    --font-body:    system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-display: Impact, "Arial Black", sans-serif;
+    --font-code:    "Courier New", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+    --s1: 4px;  --s2: 8px;  --s3: 12px; --s4: 16px;
+    --s5: 24px; --s6: 32px; --s7: 48px;
+    --r-small: 2px;
+    --r-button: 4px;
+
+    --menu-w: 264px;
+    --bar-h: 52px;
+    --text-w: 820px;
+
+    color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+    --bg:      #0a1020;
+    --surface: #111d34;
+    --raised:  #1d2f56;
+    --text:    #f0f2f3;
+    --muted:   #b0c5c8;
+    --link:    #cfe0e2;
+    --accent:  #ffd966;
+    --decor:   #e07b30;
+    --border:  #2a3a5a;
+    --shadow:  rgba(4, 9, 26, 0.6);
+    color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root[data-theme="auto"] {
+        --bg:      #0a1020;
+        --surface: #111d34;
+        --raised:  #1d2f56;
+        --text:    #f0f2f3;
+        --muted:   #b0c5c8;
+        --link:    #cfe0e2;
+        --accent:  #ffd966;
+        --decor:   #e07b30;
+        --border:  #2a3a5a;
+        --shadow:  rgba(4, 9, 26, 0.6);
+        color-scheme: dark;
+    }
+}
+
+/* ── Base ────────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-padding-top: calc(var(--bar-h) + var(--s4)); }
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.6 var(--font-body);
+    -webkit-text-size-adjust: 100%;
+}
+
+a { color: var(--link); text-decoration: underline; text-underline-offset: 2px; }
+a:hover { text-decoration-color: var(--decor); text-decoration-thickness: 2px; }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.skip {
+    position: absolute; left: var(--s2); top: -100px; z-index: 30;
+    padding: var(--s2) var(--s3);
+    background: var(--surface); color: var(--text);
+    border-radius: var(--r-button);
+}
+.skip:focus { top: var(--s2); }
+
+/* ── Top bar ─────────────────────────────────────────────────────────────── */
+.topbar {
+    position: fixed; inset: 0 0 auto 0; z-index: 20;
+    display: flex; align-items: center; gap: var(--s3);
+    height: var(--bar-h);
+    padding: 0 var(--s4);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 1px 6px var(--shadow);
+}
+
+.brand {
+    display: flex; align-items: center; gap: var(--s2);
+    color: var(--text); text-decoration: none;
+    font: 25px/1 var(--font-display);
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+.brand img { display: block; border-radius: var(--r-button); }
+.brand-sub { font: 600 15px/1 var(--font-body); color: var(--muted); }
+
+.topbar-gap { flex: 1; }
+
+.play { font-weight: 600; }
+
+button {
+    font: 600 14px/1 var(--font-body);
+    color: var(--text);
+    background: transparent;
+    border: 1px solid var(--muted);
+    border-radius: var(--r-button);
+    padding: var(--s2) var(--s3);
+    cursor: pointer;
+    white-space: nowrap;
+}
+button:hover { border-color: var(--decor); }
+
+.menu-toggle { display: none; }
+
+/* ── Menu ────────────────────────────────────────────────────────────────── */
+.menu {
+    position: fixed; z-index: 10;
+    top: var(--bar-h); bottom: 0; left: 0;
+    width: var(--menu-w);
+    overflow-y: auto;
+    padding: var(--s4) var(--s3) var(--s6);
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    font-size: 15px;
+}
+
+.menu ul { list-style: none; margin: 0; padding: 0; }
+
+.menu-group { margin-bottom: var(--s3); }
+.menu-group summary {
+    cursor: pointer;
+    padding: var(--s1) var(--s2);
+    color: var(--muted);
+    font-size: 13px; font-weight: 700;
+    letter-spacing: 1px; text-transform: uppercase;
+}
+
+.menu li a {
+    display: block;
+    padding: var(--s1) var(--s2) var(--s1) var(--s3);
+    border-left: 3px solid transparent;
+    border-radius: 0 var(--r-small) var(--r-small) 0;
+    color: var(--text); text-decoration: none;
+}
+.menu li.sub a { padding-left: var(--s6); font-size: 14px; color: var(--muted); }
+.menu li a:hover { background: var(--raised); }
+.menu li a[aria-current="page"] {
+    border-left-color: var(--accent);
+    background: var(--raised);
+    color: var(--text);
+    font-weight: 600;
+}
+
+.menu .menu-out {
+    margin-top: var(--s4);
+    padding-top: var(--s3);
+    border-top: 1px solid var(--border);
+}
+.menu-out a { display: block; padding: var(--s1) var(--s2); }
+
+.scrim { display: none; }
+
+/* ── Content ─────────────────────────────────────────────────────────────── */
+.content {
+    max-width: calc(var(--text-w) + 2 * var(--s6));
+    margin-left: var(--menu-w);
+    padding: calc(var(--bar-h) + var(--s6)) var(--s6) var(--s7);
+}
+
+.content h1, .content h2 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    letter-spacing: 0.5px;
+    line-height: 1.15;
+}
+.content h1 {
+    font-size: 39px;
+    margin: 0 0 var(--s5);
+    padding-bottom: var(--s3);
+    border-bottom: 3px solid var(--accent);
+}
+.content h2 { font-size: 31px; margin: var(--s7) 0 var(--s4); }
+.content h3 { font-size: 20px; margin: var(--s6) 0 var(--s3); }
+.content h4 { font-size: 16px; margin: var(--s5) 0 var(--s2); }
+
+.content p, .content ul, .content ol { margin: 0 0 var(--s4); }
+.content li + li { margin-top: var(--s1); }
+
+code, pre { font-family: var(--font-code); font-size: 14px; }
+
+:not(pre) > code {
+    padding: 1px var(--s1);
+    background: var(--raised);
+    border-radius: var(--r-small);
+    overflow-wrap: anywhere;
+}
+
+pre {
+    margin: 0 0 var(--s4);
+    padding: var(--s3) var(--s4);
+    overflow-x: auto;
+    background: var(--raised);
+    border: 1px solid var(--border);
+    border-radius: var(--r-small);
+    line-height: 1.45;
+}
+
+table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    margin: 0 0 var(--s4);
+    border-collapse: collapse;
+    font-size: 15px;
+}
+th, td {
+    padding: var(--s2) var(--s3);
+    border: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+}
+th { background: var(--raised); font-weight: 700; }
+
+blockquote {
+    margin: 0 0 var(--s4);
+    padding: var(--s2) var(--s4);
+    border-left: 3px solid var(--decor);
+    color: var(--muted);
+}
+
+hr { border: 0; border-top: 1px solid var(--border); margin: var(--s6) 0; }
+
+.page-foot {
+    margin-top: var(--s7);
+    padding-top: var(--s4);
+    border-top: 1px solid var(--border);
+    font-size: 14px;
+}
+
+/* ── Phones and narrow windows ───────────────────────────────────────────── */
+@media (max-width: 860px) {
+    .menu-toggle { display: inline-block; }
+    .brand { font-size: 20px; }
+    .brand-sub { display: none; }
+
+    .menu {
+        width: min(86vw, var(--menu-w));
+        transform: translateX(-100%);
+        transition: transform 0.2s ease-out;
+        box-shadow: 4px 0 12px var(--shadow);
+    }
+    .menu-open .menu { transform: none; }
+
+    .scrim {
+        position: fixed; inset: var(--bar-h) 0 0 0; z-index: 5;
+        background: var(--shadow);
+    }
+    .menu-open .scrim { display: block; }
+
+    .content {
+        margin-left: 0;
+        padding: calc(var(--bar-h) + var(--s5)) var(--s4) var(--s6);
+    }
+    .content h1 { font-size: 31px; }
+    .content h2 { font-size: 25px; }
+}
+
+@media (max-width: 480px) {
+    .play { display: none; }
+}
+
+@media (max-width: 374px) {
+    .brand-name { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .menu { transition: none; }
+}

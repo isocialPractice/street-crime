@@ -1,0 +1,75 @@
+{
+ "states": ["initial", "gate-breaks", "enemy-defeat"],
+ "case": ["start", "has-gate", "enemies-defeated"],
+ "initial": {
+  "svg": "loads",
+  "set-case": {
+   "start": true,
+   "has-gate": true,
+   "enemies-defeated": false
+  },
+  "characters": {
+   "player": {
+    "spawned": false,
+    "spawns-after": "2 seconds",
+    "spawn-animation": "walk",
+    "spaw-position": "left",
+    "inventory": "empty",
+    "health": "full"
+   },
+   "enemy": false,
+   "friendly": false,
+   "neutral": false
+  },
+  "events": false
+ },
+ "gate-breaks": {
+  "svg": "layer-state-change",
+  "set-case": {
+   "start": false,
+   "has-gate": false,
+   "enemies-defeated": false
+  },
+  "characters": {
+   "player": {
+    "spawned": true,
+    "inventory": "inherit",
+    "health": "inherit"
+   },
+   "enemy": {
+    "spawned": false,
+    "spawn-after": "event-spawnEnemy('gate-breaks')",
+    "spawn-animation": "walk",
+    "spawn-position": "RESTRICTED-building-warehouse, ENTER-building",
+    "count": 2,
+    "assets": "random"
+   },
+   "friendly": false,
+   "neutral": false
+  },
+  "events": {
+   "breakable-parking-gate-arm": "break:met"
+  }
+ },
+ "enemy-defeat": {
+  "svg": "fade-out",
+  "set-case": {
+   "start": false,
+   "has-gate": false,
+   "enemies-defeated": true
+  },
+  "characters": {
+   "player": {
+    "spawned": true,
+    "spawns-after": "2 seconds",
+    "spawn-animation": "walk",
+    "spaw-position": "left",
+    "inventory": "store",
+    "health": "store"
+   },
+   "enemy": false,
+   "friendly": false,
+   "neutral": false
+  }
+ }
+}

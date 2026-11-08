@@ -108,6 +108,7 @@ function drawDebug() {
     }
 
     drawLevelMapDebug(stageData);
+    drawLevelDesignDebug(levelDirector);
 
     // ── Player hitbox ──────────────────────────────────────────────────────
     ctx.strokeStyle = 'rgba(80,160,255,0.85)';
@@ -223,7 +224,57 @@ const LEVEL_MAP_DEBUG_STYLE = {
     'ANIMATE':        { stroke: 'rgba(255,80,255,0.95)' },
     'BREAKABLE':      { stroke: 'rgba(255,230,0,0.95)',   fill: 'rgba(255,230,0,0.12)' },
     'negative-space': { stroke: 'rgba(255,60,60,0.95)',   fill: 'rgba(255,60,60,0.28)' },
+    'RESTRICTED':     { stroke: 'rgba(255,120,120,0.6)',  dash: [2, 4], above: true },
+    'REQUIRE':        { stroke: 'rgba(255,120,120,0.95)', dash: [1, 3] },
+    'EVENT':          { stroke: 'rgba(80,200,255,0.95)',  fill: 'rgba(80,200,255,0.12)', dash: [4, 3] },
 };
+// INVENTORY-, MISSING-, SWITCH- and USABLE- are drawn alike until they do
+// something: grey, so a reserved name reads as present but inert.
+const LEVEL_MAP_DEBUG_RESERVED = { stroke: 'rgba(200,200,200,0.8)', dash: [3, 3] };
+
+// drawLevelDesignDebug - where the level design is, in the bottom-left
+// corner: the current state, every case (true in full, false dimmed), the
+// RESTRICTED layers still locked, and each spawn group's count. Enough to see
+// why a transition has not fired.
+function drawLevelDesignDebug(director) {
+    if (!director) return;
+    const snap = director.snapshot();
+    const lines = [
+        { text: `DESIGN  state: ${snap.state || '(not started)'}`, color: 'rgba(255,215,0,0.95)' },
+        ...Object.entries(snap.cases).map(([name, value]) => ({
+            text: `  ${value ? 'T' : 'F'} ${name}`,
+            color: value ? 'rgba(140,255,160,0.95)' : 'rgba(200,200,200,0.6)',
+        })),
+    ];
+    if (snap.locked.length) {
+        lines.push({ text: `  locked: ${snap.locked.join(', ')}`, color: 'rgba(255,120,120,0.95)' });
+    }
+    for (const group of snap.groups) {
+        lines.push({
+            text: `  ${group.name}: ${group.spawned}/${group.total} out, ${group.down} down`,
+            color: 'rgba(120,200,255,0.95)',
+        });
+    }
+    if (snap.entrance) lines.push({ text: `  player ${snap.entrance}`, color: 'rgba(255,215,0,0.8)' });
+    if (snap.carry) {
+        lines.push({ text: `  stored: health ${snap.carry.health ?? '-'}/${snap.carry.maxHealth}`,
+                     color: 'rgba(200,200,200,0.8)' });
+    }
+    ctx.save();
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'left';
+    const lineH = 12;
+    const w = Math.max(...lines.map(line => ctx.measureText(line.text).width)) + 12;
+    const h = lines.length * lineH + 8;
+    const y0 = H - h - 8;
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(8, y0, w, h);
+    lines.forEach((line, i) => {
+        ctx.fillStyle = line.color;
+        ctx.fillText(line.text, 14, y0 + 14 + i * lineH);
+    });
+    ctx.restore();
+}
 
 // drawLevelMapDebug - outline every entry of the scene's level map, labelled
 // with its id, so a layer named in Illustrator can be checked against where the
@@ -239,7 +290,9 @@ function drawLevelMapDebug(stageData) {
     ctx.font = '9px monospace';
     ctx.textAlign = 'left';
     for (const region of map.regions) {
-        const style = LEVEL_MAP_DEBUG_STYLE[region.kind];
+        // An empty REQUIRE- layer has a name but no place to draw.
+        if (!region.world) continue;
+        const style = LEVEL_MAP_DEBUG_STYLE[region.kind] || LEVEL_MAP_DEBUG_RESERVED;
         const { x, y, w, h } = region.world;
         const sx = x - cam.x;
         if (sx > W || sx + w < 0) continue;

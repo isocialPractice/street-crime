@@ -29,7 +29,17 @@ let player, enemies, effects, breakables, pickups, levelMgr;
 // What the current scene's level map is doing (js/level/level-runtime.js), or
 // null when the scene has no level map.
 let levelRuntime = null;
+// What the current level's design is doing (js/level/level-design.js), or null
+// when it has none. Runs alongside levelRuntime and reports through it.
+let levelDirector = null;
 let lastTime = 0;
+
+// clearLevelDirector - stop the current level design listening, before the
+// level it ran on is replaced.
+function clearLevelDirector() {
+    if (levelDirector) levelDirector.dispose();
+    levelDirector = null;
+}
 
 // ── Stage / game init ─────────────────────────────────────────────────────────
 // initStage resets all per-stage state. Arrays are replaced (not cleared in-place)
@@ -46,6 +56,7 @@ function initStage(idx) {
     pickups    = [];
     levelMgr   = new LevelMgr(idx);
     levelRuntime = null;
+    clearLevelDirector();
 
     hideOverlay();
     _hideBossHUD();
@@ -193,6 +204,7 @@ function update(dt) {
     if (levelMgr) levelMgr.update(dt, player, enemies, breakables);
     player.update(dt, enemies, effects, pickups, breakables);
     if (levelRuntime) levelRuntime.update(dt, player);
+    if (levelDirector) levelDirector.update(dt, player);
     updateSceneCamera(dt);
     enemies.forEach(e => e.update(dt, player, enemies));
     effects.forEach(f => f.update(dt));
