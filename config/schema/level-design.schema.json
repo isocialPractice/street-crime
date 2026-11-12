@@ -90,6 +90,11 @@
           "type": "array",
           "items": { "$ref": "#/$defs/spawnGroup" }
         },
+        "animate-layers": {
+          "description": "Layers of the level art to slide on entering the state, such as a door's glass. Each is cut out of the background and keeps its place in the stacking order, so art drawn over it in Illustrator stays over it. Reports \"animate:<layer>\" when it gets where it was sent.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/animateLayer" }
+        },
         "characters": {
           "description": "Planned. Friendly and neutral characters are not built yet; a value other than false warns.",
           "type": "object",
@@ -169,10 +174,15 @@
           "default": "random"
         },
         "pool": {
-          "description": "Enemy ids to choose from. Leave out for every enemy that is not a sub-boss or boss in any stage.",
+          "description": "The enemies to choose from: an enemy's id or art name (\"jumpingjunkie\" or \"JumpingJunkie\"), or { \"enemy\", \"render\" } for one drawn with some parts recolored. Leave out for every enemy that is not a sub-boss or boss in any stage.",
           "type": "array",
           "minItems": 1,
-          "items": { "type": "string" }
+          "items": {
+            "anyOf": [
+              { "type": "string", "description": "An enemy's id or art name, in any case." },
+              { "$ref": "#/$defs/poolEnemy" }
+            ]
+          }
         },
         "from": {
           "description": "The layer they come out of, such as a door: they appear at its foot and walk down into the walkable area.",
@@ -189,6 +199,55 @@
         },
         "every": {
           "description": "Seconds between each one after the first.",
+          "$ref": "#/$defs/seconds"
+        }
+      }
+    },
+    "poolEnemy": {
+      "description": "An enemy drawn with some of its parts recolored, with the enemy's own stats.",
+      "type": "object",
+      "required": ["enemy"],
+      "additionalProperties": false,
+      "properties": {
+        "enemy": {
+          "description": "The enemy: its id or art name, in any case.",
+          "type": "string"
+        },
+        "render": {
+          "description": "Part name (a layer name in the enemy's art, such as \"left-vest\") to palette name (in config/palettes.json, such as \"gray\"). Every shape in the part takes the palette's color for its tone, read from its layer name (\"vest-mid\" is mid). A frame without a sided part (\"left-vest\") uses the bare one (\"vest\").",
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "animateLayer": {
+      "type": "object",
+      "required": ["layer"],
+      "additionalProperties": false,
+      "properties": {
+        "layer": {
+          "description": "The layer to move, by its name in the art (any layer, not only a map id), optionally under layers it sits in: \"door-glass-left\" or \"ENTER-building/door-glass-left\". Illustrator's numbered copies (\"door-glass-left-2\") match their base name.",
+          "$ref": "#/$defs/layerPath"
+        },
+        "position-x": {
+          "description": "Where it goes across, measured from where the art draws it, in the level SVG's units (Illustrator's). Negative is left. Leave out to keep it where it is across; 0 puts it back.",
+          "type": "number"
+        },
+        "position-y": {
+          "description": "Where it goes up or down, measured from where the art draws it, in the level SVG's units. Negative is up. Leave out to keep it where it is; 0 puts it back.",
+          "type": "number"
+        },
+        "type": {
+          "description": "How it travels: \"linear\" at one speed, \"ease-in\" starting slow, \"ease-out\" ending slow, \"ease-in-out\" both.",
+          "enum": ["linear", "ease-in", "ease-out", "ease-in-out"],
+          "default": "linear"
+        },
+        "duration": {
+          "description": "Seconds it takes to get there. 0 or left out: at once.",
+          "$ref": "#/$defs/seconds"
+        },
+        "after": {
+          "description": "Seconds after entering the state before it starts.",
           "$ref": "#/$defs/seconds"
         }
       }

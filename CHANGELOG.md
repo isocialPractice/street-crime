@@ -8,6 +8,45 @@ anything earlier, see the commit log.
 
 ---
 
+## [2026.11.11]
+
+### Added
+- **Moving layers.** A state's `"animate-layers"` slides any layer of the level
+  art, such as a door's glass, to a position measured from where the art draws it,
+  in the level SVG's units, with `type` (`linear`, `ease-in`, `ease-out`,
+  `ease-in-out`), `duration` and `after`. A moving layer keeps its stacking order:
+  the area it moves through is redrawn in slices (the art under it, the layer, the
+  art over it), so a door frame stays over its glass. Reports `animate:<layer>`
+  when it arrives. In `theStreets`, breaking the gate now slides the warehouse
+  door's glass and handles open as the crew comes out.
+- `LevelMapRuntime.moveLayer`, `levelDesignLayerMoves`, and a `layers` option on
+  `createSvgScene` and `parseLevelMap`. The schema, the validator ("did you
+  mean" for layer names), draft migration and the debug overlay (`MOVES`
+  outline) know the new key.
+- **Recolored enemies.** A spawn group's `pool` takes
+  `{ "enemy": "JumpingJunkie", "render": { "left-vest": "gray", "right-vest": "gray" } }`:
+  that enemy, with its own stats, its named parts recolored from a palette as its
+  frames load. Each shape takes the palette's color for its tone, read from its
+  layer name (`vest-mid` takes `mid`); outlines stay. New `config/palettes.json`
+  (and its schema) with a five-level `gray`, and `js/sprites/variants.js`.
+  `theStreets`' warehouse crew is now a CrimeGuy, a JumpingJunkie and a gray-vested
+  JumpingJunkie. Sandbox step `design-7-render` shows a gold and a gray one.
+- `enemyDefId` and `enemyVariant` (`js/entities/enemy.js`), `buildEnemyVariantChar`
+  (`js/sprites/enemies.js`), `levelDesignEnemyVariants`; the sandbox decodes a
+  design's variants before play.
+
+### Changed
+- A `pool` entry can be an enemy's art name in any case (`"CrimeGuy"`), as well as
+  its id. The validator checks a render's palettes and parts ("did you mean
+  `right-vest`?"), says how to write the `Name:render([part.background(palette)])`
+  shorthand and a `pick` that lists enemies, and drafts convert both.
+
+### Fixed
+- `config/levels/theStreets/level-design.json` parses again (a trailing comma
+  after the spawn group).
+
+---
+
 ## [2026.11.08]
 
 ### Added

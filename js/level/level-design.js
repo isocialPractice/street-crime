@@ -41,9 +41,12 @@ const LEVEL_DESIGN_VOCAB = _levelDesignFreeze({
     keys: {
         top:        ['$schema', 'version', 'start', 'cases', 'restricted', 'states'],
         restricted: ['until'],
-        state:      ['svg', 'set', 'player', 'spawn', 'characters', 'next'],
+        state:      ['svg', 'set', 'player', 'spawn', 'animate-layers', 'characters', 'next'],
         player:     ['spawn', 'after', 'animation', 'inventory', 'health'],
         spawn:      ['group', 'type', 'count', 'pick', 'pool', 'from', 'animation', 'after', 'every'],
+        animateLayer: ['layer', 'position-x', 'position-y', 'type', 'duration', 'after'],
+        // A pool entry written as an object: an enemy drawn with a render.
+        poolEntry:  ['enemy', 'render'],
         characters: ['friendly', 'neutral'],
         next:       ['on', 'to'],
     },
@@ -57,6 +60,9 @@ const LEVEL_DESIGN_VOCAB = _levelDesignFreeze({
         health:      ['full', 'inherit', 'store'],
         spawnType:   ['enemy'],
         pick:        ['random', 'in-order'],
+        // How a moving layer travels: LEVEL_LAYER_EASES in
+        // js/entities/level-objects.js has one of each.
+        ease:        ['linear', 'ease-in', 'ease-out', 'ease-in-out'],
     },
 
     // What "on" and "until" can name, as "<kind>:<key>".
@@ -79,6 +85,24 @@ const LEVEL_DESIGN_VOCAB = _levelDesignFreeze({
 
 const LEVEL_DESIGN_TRIGGER_RE = /^([a-z]+):([A-Za-z0-9][A-Za-z0-9_-]*)$/;
 const LEVEL_DESIGN_NAME_RE    = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
+
+// The shorthand a pool entry gets written in before the format is known:
+// "JumpingJunkie:render([left-vest.background(gray), right-vest.background(gray)])",
+// closing brackets optional, "fill(...)" as well as "background(...)".
+// Parts are read from everything after "render(", so a missing bracket at the
+// end never takes a part's own closing parenthesis with it.
+const LEVEL_DESIGN_SHORTHAND_RE      = /^\s*([A-Za-z][\w-]*)\s*:\s*render\s*\(([\s\S]*)$/;
+const LEVEL_DESIGN_SHORTHAND_PART_RE = /([A-Za-z][\w-]*)\s*\.\s*(?:background|fill)\s*\(\s*([A-Za-z0-9][\w-]*)\s*\)/g;
+
+// levelDesignShorthandEnemy - a shorthand pool entry as the object version 1
+// writes, { enemy, render }, or null when the text is not one.
+function levelDesignShorthandEnemy(text) {
+    const match = LEVEL_DESIGN_SHORTHAND_RE.exec(String(text ?? ''));
+    if (!match) return null;
+    const render = {};
+    for (const [, part, palette] of match[2].matchAll(LEVEL_DESIGN_SHORTHAND_PART_RE)) render[part] = palette;
+    return Object.keys(render).length ? { enemy: match[1], render } : null;
+}
 
 // How many times the level may move from state to state in one frame. States
 // that move on from each other's cases at once would otherwise loop for ever.
@@ -244,7 +268,9 @@ function _levelDesignMapNames(map) {
     const loose = map.hotspots.filter(spot => !spot.enterable).map(spot => spot.id);
     const restricted = map.enterables.filter(entry => entry.restricted).map(entry => entry.name);
     return {
-        animate:  new Set(map.animations.map(entry => entry.assetName)),
+        // A moving layer reports animate:<name> too, once it is where it was sent.
+        animate:  new Set([...map.animations.map(entry => entry.assetName),
+                           ...(map.layers || []).map(entry => entry.name)]),
         break:    new Set(map.breakables.map(entry => entry.name)),
         enter:    new Set([...enterables, ...loose]),
         exit:     new Set(enterables),
@@ -297,6 +323,82 @@ function validateLevelDesign(design, map = null) {
             const close = levelDesignSuggestPath(map, path);
             warn(`${where} names "${path}", which is not a layer in the level SVG`
                + (close ? `; did you mean "${close}"?` : ''));
+        }
+    };
+    // A pool entry: an enemy's id or art name, or { "enemy", "render" }. The
+    // render's palettes are checked against config/palettes.json and its parts
+    // against the enemy's base frame, the way a render will look for them.
+    // Without the game's tables (a check run outside the browser) only the
+    // shape is checked.
+    const enemyNames = typeof ENEMY_DEFS === 'undefined' ? null : Object.keys(ENEMY_DEFS)
+        .filter(id => !ENEMY_DEFS[id].variantOf)
+        .flatMap(id => [id, ENEMY_DEFS[id].img]);
+    const enemyName = (name, where) => {
+        if (!enemyNames || typeof enemyDefId !== 'function') return null;
+        const id = enemyDefId(name);
+        if (!id) warn(`${where} names "${name}", which is not an enemy${_levelDesignDidYouMean(name, enemyNames)}`);
+        return id;
+    };
+    const poolEntry = (entry, where) => {
+        if (typeof entry === 'string') {
+            const read = levelDesignShorthandEnemy(entry);
+            if (read) warn(`${where} is "${entry}"; write it as ${JSON.stringify(read)}`);
+            else enemyName(entry, where);
+            return;
+        }
+        if (!_levelDesignIsObject(entry)) {
+            warn(`${where} should be an enemy's name, or { "enemy": ..., "render": { ... } }`);
+            return;
+        }
+        unknownKeys(entry, V.keys.poolEntry, where);
+        if (typeof entry.enemy !== 'string' || !entry.enemy.trim()) {
+            warn(`${where} needs "enemy", the enemy to draw`);
+            return;
+        }
+        const id = enemyName(entry.enemy, `${where} "enemy"`);
+        if (entry.render === undefined) return;
+        if (!_levelDesignIsObject(entry.render)) {
+            warn(`${where} "render" should be an object of part names and palettes, such as { "left-vest": "gray" }`);
+            return;
+        }
+        const palettes = typeof VARIANT_PALETTES !== 'undefined' ? VARIANT_PALETTES.palettes : null;
+        const baseImg = id ? ENEMY_DEFS[ENEMY_DEFS[id].variantOf || id].img : null;
+        const art = baseImg && typeof enemyArtFile === 'function' ? enemyArtFile(baseImg) : null;
+        const parts = art && typeof variantArtParts === 'function' ? variantArtParts(art.path, art.text) : null;
+        for (const [part, value] of Object.entries(entry.render)) {
+            const at = `${where} "render" "${part}"`;
+            if (typeof value !== 'string') {
+                warn(`${at} is ${JSON.stringify(value)}; only a palette name, such as "gray", is built`);
+            } else if (palettes && !palettes[value]) {
+                warn(`${at} names palette "${value}", which is not in config/palettes.json`
+                   + _levelDesignDidYouMean(value, Object.keys(palettes)));
+            }
+            if (parts && !parts.find(part)) {
+                warn(`${at}: ${art.path.split('/').pop()} has no layer named "${part}"`
+                   + _levelDesignDidYouMean(part, parts.names));
+            }
+        }
+    };
+    // A moving layer is any layer of the art, found when the scene was built
+    // with it (levelDesignLayerMoves), so the map says what happened to it.
+    const movingLayer = (path, where) => {
+        if (!map || typeof levelMapLayerPath !== 'function') return;
+        const wanted = levelMapLayerPath(path);
+        const last = wanted.split('/').pop();
+        const asked = (map.layerRequests || []).find(request => request.path === wanted);
+        const ids = map.ids || [];
+        const inArt = !ids.length || ids.includes(last) || ids.includes(last.replace(/-\d+$/, ''));
+        if (asked?.problem === 'missing' || !inArt) {
+            warn(`${where} names "${path}", which is not a layer in the level SVG`
+               + _levelDesignDidYouMean(last, ids));
+        } else if (!asked) {
+            warn(`${where}: the scene was built without "${path}", so it cannot move; `
+               + 'RESTART builds the scene again with it');
+        } else if (asked.problem) {
+            warn(`${where} names "${path}", which cannot move: ${asked.problem}`);
+        } else if (asked.matches > 1) {
+            warn(`${where}: ${asked.matches} layers are named "${path}" and only the first moves; `
+               + `name a layer it is inside as well, as "<parent>/${last}"`);
         }
     };
 
@@ -447,14 +549,17 @@ function validateLevelDesign(design, map = null) {
             if (group.count !== undefined && !(Number.isInteger(group.count) && group.count >= 1)) {
                 warn(`${at} "count" should be a whole number, 1 or more`);
             }
-            oneOf(group.pick, V.values.pick, `${at} "pick"`);
+            if (Array.isArray(group.pick)) {
+                warn(`${at} "pick" lists enemies; list them in "pool", and write "pick": "random" or "in-order"`);
+                if (group.pool === undefined) group.pick.forEach((entry, n) => poolEntry(entry, `${at} "pick" #${n + 1}`));
+            } else {
+                oneOf(group.pick, V.values.pick, `${at} "pick"`);
+            }
             if (group.pool !== undefined) {
                 if (!Array.isArray(group.pool) || !group.pool.length) {
-                    warn(`${at} "pool" should be a list of enemy ids`);
-                } else if (typeof ENEMY_DEFS !== 'undefined') {
-                    for (const id of group.pool.filter(id => !(id in ENEMY_DEFS))) {
-                        warn(`${at} "pool" names "${id}", which is not an enemy${_levelDesignDidYouMean(id, Object.keys(ENEMY_DEFS))}`);
-                    }
+                    warn(`${at} "pool" should be a list of enemies`);
+                } else {
+                    group.pool.forEach((entry, n) => poolEntry(entry, `${at} "pool" #${n + 1}`));
                 }
             }
             if (typeof group.from !== 'string') warn(`${at} needs "from", the layer they come out of`);
@@ -462,6 +567,32 @@ function validateLevelDesign(design, map = null) {
             oneOf(group.animation, V.values.animation, `${at} "animation"`);
             seconds(group.after, `${at} "after"`);
             seconds(group.every, `${at} "every"`);
+        }
+
+        const moves = state['animate-layers'];
+        if (moves !== undefined && !Array.isArray(moves)) {
+            warn(`${where} "animate-layers" should be a list of layers to move`);
+        }
+        for (const [i, move] of (Array.isArray(moves) ? moves : []).entries()) {
+            const at = `${where} animate-layers ${typeof move?.layer === 'string' ? `"${move.layer}"` : `#${i + 1}`}`;
+            if (!_levelDesignIsObject(move)) {
+                warn(`${at} should be an object`);
+                continue;
+            }
+            unknownKeys(move, V.keys.animateLayer, at);
+            if (typeof move.layer !== 'string' || !move.layer.trim()) warn(`${at} needs "layer", the layer to move`);
+            else movingLayer(move.layer, `${at} "layer"`);
+            for (const axis of ['position-x', 'position-y']) {
+                if (move[axis] !== undefined && !Number.isFinite(move[axis])) {
+                    warn(`${at} "${axis}" should be a number, in the level SVG's units`);
+                }
+            }
+            if (move['position-x'] === undefined && move['position-y'] === undefined) {
+                warn(`${at} has no "position-x" or "position-y", so it does not move`);
+            }
+            oneOf(move.type, V.values.ease, `${at} "type"`);
+            seconds(move.duration, `${at} "duration"`);
+            seconds(move.after, `${at} "after"`);
         }
 
         if (state.characters !== undefined) {
@@ -715,6 +846,23 @@ function migrateLevelDesign(draft, map = null) {
         if (Object.keys(others).length) state.characters = others;
         if (Array.isArray(src.next)) state.next = [...src.next];
         if (Array.isArray(src.spawn)) state.spawn = src.spawn;
+        if (Array.isArray(state.spawn)) {
+            state.spawn = state.spawn.map((group, i) => _levelDesignDraftPool(group,
+                `${where} spawn ${typeof group?.group === 'string' ? `"${group.group}"` : `#${i + 1}`}`, note));
+        }
+        if (Array.isArray(src['animate-layers'])) {
+            state['animate-layers'] = src['animate-layers'].map(move => {
+                if (!_levelDesignIsObject(move)) return move;
+                const out = { ...move };
+                for (const key of ['duration', 'after']) {
+                    const value = typeof out[key] === 'string' ? levelDesignSeconds(out[key]) : null;
+                    if (value === null) continue;
+                    noteOnce(`seconds:${out[key]}`, `${where} animate-layers "${key}": "${out[key]}" is written ${value}`);
+                    out[key] = value;
+                }
+                return out;
+            });
+        }
 
         // "events" on a state says what leads into it: a "next" on the one before.
         if (_levelDesignIsObject(src.events) && index > 0) {
@@ -752,6 +900,28 @@ function migrateLevelDesign(draft, map = null) {
     return { design, warnings };
 }
 
+// _levelDesignDraftPool - a draft spawn group's enemies as version 1 lists
+// them: a "pick" that lists enemies becomes the "pool" (when there is none)
+// with "pick": "random", and each shorthand entry,
+// "Name:render([part.background(palette), ...])", becomes { enemy, render }.
+function _levelDesignDraftPool(group, where, note) {
+    if (!_levelDesignIsObject(group)) return group;
+    const out = { ...group };
+    if (Array.isArray(out.pick)) {
+        if (!Array.isArray(out.pool)) out.pool = out.pick;
+        note(`${where}: "pick" lists enemies; version 1 lists them in "pool", with "pick": "random"`);
+        out.pick = 'random';
+    }
+    if (Array.isArray(out.pool)) {
+        out.pool = out.pool.map(entry => {
+            const read = typeof entry === 'string' ? levelDesignShorthandEnemy(entry) : null;
+            if (read) note(`${where} "pool": "${entry}" is written ${JSON.stringify(read)}`);
+            return read || entry;
+        });
+    }
+    return out;
+}
+
 // _levelDesignDraftTrigger - a draft "events" entry as a trigger: the key may
 // already be one ("break:crate"), or "<layer prefix>-<name>" with the kind
 // from the prefix ("breakable-crate") or from the value ("break:met").
@@ -784,6 +954,56 @@ function prepareLevelDesign(raw, map = null) {
     return { design, warnings, migrated };
 }
 
+// levelDesignEnemyVariants - every enemy a version 1 design's spawn pools ask
+// to have drawn differently, as [{ enemy, render }], one per enemy and render:
+// the pool entries written { "enemy": ..., "render": { ... } }. What the level
+// registers (enemyVariant) and waits on before it starts, so a variant's first
+// frame is never blank. Entries that are not that shape are left to the checks.
+function levelDesignEnemyVariants(design) {
+    const found = new Map();
+    const states = _levelDesignIsObject(design?.states) ? Object.values(design.states) : [];
+    for (const state of states) {
+        const groups = _levelDesignIsObject(state) && Array.isArray(state.spawn) ? state.spawn : [];
+        for (const group of groups) {
+            for (const entry of _levelDesignIsObject(group) && Array.isArray(group.pool) ? group.pool : []) {
+                if (!_levelDesignIsObject(entry) || typeof entry.enemy !== 'string' || !_levelDesignIsObject(entry.render)) continue;
+                const key = `${entry.enemy.trim().toLowerCase()}|${typeof variantRenderKey === 'function'
+                    ? variantRenderKey(entry.render) : JSON.stringify(entry.render)}`;
+                if (!found.has(key)) found.set(key, { enemy: entry.enemy.trim(), render: { ...entry.render } });
+            }
+        }
+    }
+    return [...found.values()];
+}
+
+// levelDesignLayerMoves - every layer a version 1 design moves, and how far,
+// as [{ path, reach: { minX, maxX, minY, maxY } }] in the level SVG's units.
+// It is what the level's scene is built with (createSvgScene's layers), since
+// a moving layer is cut out of the background and its area sliced to fit the
+// furthest it goes. Sorted by path, so one design always asks for one scene.
+function levelDesignLayerMoves(design) {
+    const byPath = new Map();
+    const states = _levelDesignIsObject(design?.states) ? Object.values(design.states) : [];
+    for (const state of states) {
+        const moves = _levelDesignIsObject(state) && Array.isArray(state['animate-layers']) ? state['animate-layers'] : [];
+        for (const move of moves) {
+            if (!_levelDesignIsObject(move) || typeof move.layer !== 'string' || !move.layer.trim()) continue;
+            const path = typeof levelMapLayerPath === 'function' ? levelMapLayerPath(move.layer) : move.layer.trim();
+            const reach = byPath.get(path) || { minX: 0, maxX: 0, minY: 0, maxY: 0 };
+            const x = Number.isFinite(move['position-x']) ? move['position-x'] : 0;
+            const y = Number.isFinite(move['position-y']) ? move['position-y'] : 0;
+            reach.minX = Math.min(reach.minX, x);
+            reach.maxX = Math.max(reach.maxX, x);
+            reach.minY = Math.min(reach.minY, y);
+            reach.maxY = Math.max(reach.maxY, y);
+            byPath.set(path, reach);
+        }
+    }
+    return [...byPath.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([path, reach]) => ({ path, reach }));
+}
+
 // ── Spawning ──────────────────────────────────────────────────────────────────
 // Where a group's members stand once out of their layer: this far into the
 // field below it, past the depth a door reaches, so nobody lands back in the
@@ -804,9 +1024,24 @@ function _levelDesignDrawable(id) {
     return !!_enemyPickFrame(def.img, 'idle', 0);
 }
 
+// levelDesignEnemyId - the ENEMY_DEFS id a pool entry means: an enemy's id or
+// art name (enemyDefId), or { "enemy", "render" }, registered as a variant
+// (enemyVariant) the first time it is asked for. Null when it means none,
+// the shorthand string included: the checks say how to write that.
+function levelDesignEnemyId(entry) {
+    if (typeof ENEMY_DEFS === 'undefined' || typeof enemyDefId !== 'function') return null;
+    if (typeof entry === 'string') return enemyDefId(entry);
+    if (!_levelDesignIsObject(entry) || typeof entry.enemy !== 'string') return null;
+    const render = _levelDesignIsObject(entry.render) ? entry.render : {};
+    return Object.keys(render).length && typeof enemyVariant === 'function'
+        ? enemyVariant(entry.enemy, render)
+        : enemyDefId(entry.enemy);
+}
+
 // levelDesignDefaultPool - the enemies a spawn group picks from when it names
 // no pool: every enemy that is not a sub-boss or boss, by its own flags or by
-// leading a stage, and that has art.
+// leading a stage, and that has art. Variants are left out: one exists only
+// because some design asked for it, and is not every design's to pick.
 function levelDesignDefaultPool() {
     if (typeof ENEMY_DEFS === 'undefined') return [];
     const leaders = new Set();
@@ -815,7 +1050,7 @@ function levelDesignDefaultPool() {
         if (stage.boss) leaders.add(stage.boss);
     }
     const grunts = Object.keys(ENEMY_DEFS)
-        .filter(id => !leaders.has(id) && !ENEMY_DEFS[id].boss && !ENEMY_DEFS[id].mini);
+        .filter(id => !leaders.has(id) && !ENEMY_DEFS[id].boss && !ENEMY_DEFS[id].mini && !ENEMY_DEFS[id].variantOf);
     const drawable = grunts.filter(_levelDesignDrawable);
     return drawable.length ? drawable : grunts;
 }
@@ -890,6 +1125,11 @@ function _levelDesignFieldPoint(stage, feet) {
 // spawns while the player is in the scene its layer is in; inside a building,
 // its timer waits. "spawn:<group>" is reported when the first one appears,
 // "defeated:<group>" once all of them have appeared and are gone.
+//
+// A state's "animate-layers" are sent when the state is entered, each once
+// its "after" is up, and the runtime slides them (LevelMapRuntime.moveLayer).
+// "position-x" and "position-y" are where the layer goes, measured from where
+// the art draws it, in the level SVG's units; a layer sent to 0, 0 is back.
 class LevelDirector {
     // runtime  the LevelMapRuntime of the same run. Reports go through it, so
     //          each is sent once per run, and locks are opened on it.
@@ -919,6 +1159,7 @@ class LevelDirector {
         this.heard    = new Set();      // "<kind>:<key>" heard this run
         this.queue    = [];             // heard, not yet handled
         this.groups   = new Map();      // spawn group name -> its progress
+        this.layerMoves = [];           // "animate-layers" still waiting on their "after"
         this.time     = 0;              // seconds of play since the design started
         this.started  = false;
         this.disposed = false;
@@ -935,6 +1176,7 @@ class LevelDirector {
         if (this.disposed) return;
         this.disposed = true;
         this.queue.length = 0;
+        this.layerMoves.length = 0;
         LEVEL_MAP_EVENTS.removeEventListener('levelmap', this._onEvent);
         // Never leave the player off stage or mid-walk for whatever runs next.
         const p = this._player();
@@ -974,6 +1216,7 @@ class LevelDirector {
         while (this._follow(step => this._isCondition(step.on) && this._holds(step.on))) { /* keep moving */ }
         this._updateEntrance();
         this._updateGroups();
+        this._updateLayerMoves();
         this._openLocks();
     }
 
@@ -1024,6 +1267,7 @@ class LevelDirector {
         this._report('state', name);
         this._applySet(state.set);
         this._startGroups(state.spawn);
+        this._startLayerMoves(state['animate-layers'], name);
         this._applyPlayerStats(state.player, name);
 
         const rules = _levelDesignIsObject(state.player) ? state.player : null;
@@ -1166,7 +1410,7 @@ class LevelDirector {
                 continue;
             }
             const pool = Array.isArray(spec.pool)
-                ? spec.pool.filter(id => typeof ENEMY_DEFS !== 'undefined' && id in ENEMY_DEFS)
+                ? spec.pool.map(entry => levelDesignEnemyId(entry)).filter(Boolean)
                 : levelDesignDefaultPool();
             if (!pool.length) {
                 this.notify(`spawn "${spec.group}": its pool has no enemies, so nobody comes`);
@@ -1259,6 +1503,42 @@ class LevelDirector {
         group.enemies.push(enemy);
         group.spawned++;
         if (group.spawned === 1) this._report('spawn', group.name);
+    }
+
+    // ── Moving layers ─────────────────────────────────────────────────────────
+    // _startLayerMoves - queue a state's "animate-layers", each to be sent once
+    // its "after" is up. One still waiting when the state is left is sent all
+    // the same, as a spawn group carries on: entering the state asked for it.
+    _startLayerMoves(list, stateName) {
+        const seconds = value => (typeof value === 'number' && value >= 0 ? value : 0);
+        const axis = value => (Number.isFinite(value) ? value : null);
+        for (const spec of Array.isArray(list) ? list : []) {
+            if (!_levelDesignIsObject(spec) || typeof spec.layer !== 'string') continue;
+            this.layerMoves.push({
+                state: stateName,
+                path:  spec.layer,
+                at:    this.time + seconds(spec.after),
+                to:    { x: axis(spec['position-x']), y: axis(spec['position-y']),
+                         ease: spec.type, duration: seconds(spec.duration) },
+            });
+        }
+        this._updateLayerMoves();
+    }
+
+    // _updateLayerMoves - send the moves whose time has come. A layer that
+    // cannot move says why once, when it would have; the validator has
+    // usually said so already, before play.
+    _updateLayerMoves() {
+        if (!this.layerMoves.length) return;
+        const due = this.layerMoves.filter(move => this.time >= move.at);
+        this.layerMoves = this.layerMoves.filter(move => this.time < move.at);
+        for (const move of due) {
+            if (!this.runtime) {
+                this.notify(`state "${move.state}": "animate-layers" needs the level map, so "${move.path}" stays put`);
+            } else if (!this.runtime.moveLayer(move.path, move.to)) {
+                this.notify(`state "${move.state}": "${move.path}" is not a layer this scene can move, so it stays put`);
+            }
+        }
     }
 
     // ── Conditions ────────────────────────────────────────────────────────────

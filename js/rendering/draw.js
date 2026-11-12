@@ -12,6 +12,7 @@ function draw() {
 
     const stageData = (typeof getCurrentStageData === 'function') ? getCurrentStageData() : null;
     drawStageBackground(stageData);
+    drawLevelLayers(stageData);
     drawLevelAnimations(stageData);
     // Sky-side weather (moon, storm clouds, sky tone) sits between the stage
     // art and the characters. The matching front pass runs after the entities.
@@ -322,5 +323,21 @@ function drawLevelMapDebug(stageData) {
         const labelY = style.above && y > 12 ? y - 3 : y + 10;
         ctx.fillText(region.id, sx + 3, labelY);
     }
+
+    // The areas a level design's moving layers are redrawn in, labelled with
+    // the layers, along the bottom edge so they clear the door's own label.
+    for (const slab of map.slabs || []) {
+        const { x, y, w, h } = slab.world;
+        const sx = x - cam.x;
+        if (sx > W || sx + w < 0) continue;
+        ctx.strokeStyle = LEVEL_MAP_DEBUG_LAYERS;
+        ctx.setLineDash([5, 3]);
+        ctx.strokeRect(sx, y, w, h);
+        ctx.setLineDash([]);
+        ctx.fillStyle = LEVEL_MAP_DEBUG_LAYERS;
+        ctx.fillText(`MOVES ${slab.layers.join(', ')}`, sx + 3, y + h - 3);
+    }
     ctx.restore();
 }
+
+const LEVEL_MAP_DEBUG_LAYERS = 'rgba(120,255,255,0.9)';

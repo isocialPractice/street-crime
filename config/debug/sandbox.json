@@ -196,6 +196,32 @@
         { "label": "Player walks back in from the left", "event": "arrive:enemy-defeat" }
       ]
     },
+    "design-7-render": {
+      "label": "Design step 7: a gold and a gray JumpingJunkie",
+      "level": "assets/levels/theStreets/",
+      "scene": "level-theStreets.svg",
+      "design": "config/debug/designs/7-render.json",
+      "sectionWidth": 800,
+      "worldHeight": 600,
+      "spawn": { "minX": 60, "maxX": 220 },
+      "panels": { "debug": true, "checklist": true },
+      "cfg": { "showHitboxes": true },
+      "levelMap": {
+        "enabled": true,
+        "animate": {
+          "default": { "mode": "loop", "fps": 6 },
+          "sign-badBar": { "mode": "yoyo", "fps": 6 }
+        }
+      },
+      "enterables": {
+        "bad-bar": "enterables/badBar.svg"
+      },
+      "checklist": [
+        { "label": "Design starts in \"initial\"", "event": "state:initial" },
+        { "label": "A gold, then a gray-vested JumpingJunkie come out", "event": "spawn:gold-and-gray" },
+        { "label": "Defeat both", "event": "defeated:gold-and-gray" }
+      ]
+    },
     "level-design": {
       "label": "Level design: gate breach (config/levels/theStreets)",
       "level": "assets/levels/theStreets/",
@@ -220,6 +246,8 @@
         { "label": "Player walks in from the left", "event": "arrive:initial" },
         { "label": "Warehouse door says E: LOCKED", "event": "locked:import-export-warehouse" },
         { "label": "Break the parking gate arm", "event": "break:parking-gate-arm" },
+        { "label": "Warehouse door's left glass slides open", "event": "animate:door-glass-left" },
+        { "label": "Warehouse door's right glass slides open", "event": "animate:door-glass-right" },
         { "label": "Enemies come out of the warehouse door", "event": "spawn:warehouse-crew" },
         { "label": "Defeat all three", "event": "defeated:warehouse-crew" },
         {

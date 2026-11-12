@@ -10,7 +10,7 @@
 { "$schema": "../../schema/level-design.schema.json", "version": 1, "start": "a",
   "cases": { "x": false },
   "restricted": { "<RESTRICTED name>": { "until": "<trigger>" } },
-  "states": { "a": { "svg", "set", "player", "spawn", "characters", "next" } } }
+  "states": { "a": { "svg", "set", "player", "spawn", "animate-layers", "characters", "next" } } }
 ```
 
 ## State keys
@@ -21,6 +21,7 @@
 | `set` | `{ "<case>": true or false }` |
 | `player` | `spawn`, `after`, `animation`, `inventory`, `health` |
 | `spawn` | `[ { group, type, count, pick, pool, from, animation, after, every } ]` |
+| `animate-layers` | `[ { layer, position-x, position-y, type, duration, after } ]` |
 | `characters` | `friendly`, `neutral`: **planned**, `false` only |
 | `next` | `[ { "on": "<trigger>", "to": "<state>" } ]`, first to fire wins |
 
@@ -43,9 +44,24 @@
 | `from` | layer path | required |
 | `count` | 1 or more | 1 |
 | `pick` | `random`, `in-order` | `random` |
-| `pool` | enemy ids | non-boss enemies with art |
+| `pool` | enemy ids or art names, any case; or `{ "enemy", "render": { "<part>": "<palette>" } }` | non-boss enemies with art |
 | `animation` | `walk`, `idle` | `walk` |
 | `after`, `every` | seconds | 0 |
+
+A render recolors a part's shapes by tone (`vest-mid` takes the palette's `mid`);
+palettes are `config/palettes.json`. Its enemy's id is `<id>~<part>=<palette>,...`.
+
+## Moving layer
+
+| Key | Values | Default |
+| --- | --- | --- |
+| `layer` | any layer's name, or `parent/name` | required |
+| `position-x`, `position-y` | level SVG units from where the art draws it; `0` is back | stays put |
+| `type` | `linear`, `ease-in`, `ease-out`, `ease-in-out` | `linear` |
+| `duration`, `after` | seconds | 0 |
+
+Keeps its stacking order. Reports `animate:<layer>` on arrival. Not an `ANIMATE-` or
+`BREAKABLE-` piece, nor inside or around another moving layer.
 
 ## Triggers
 
@@ -61,15 +77,16 @@
 ## Reports
 
 `state:<name>` · `case:<name>` (becomes true) · `spawn:<group>` (first out) ·
-`defeated:<group>` (all gone) · `arrive:<state>` (player in place) · `unlock:<name>`.
-Once per run each.
+`defeated:<group>` (all gone) · `arrive:<state>` (player in place) · `unlock:<name>` ·
+`animate:<layer>` (a moving layer arrived). Once per run each.
 
 ## Drafts
 
 No `version`: converted in memory, changes noted, v1 printed to the console.
 `set-case` → `set`, `characters.player` → `player`, `characters.enemy` → spawn group
 `<state>-enemies`, `"2 seconds"` → `2`, `"a, b"` → `"a/b"`, `events` → `next` on the
-state before.
+state before, a `pick` list → `pool`, `"Name:render([part.background(palette)])"` →
+`{ "enemy", "render" }`.
 
 ## Check it
 

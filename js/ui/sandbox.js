@@ -153,11 +153,13 @@ function _loadSandboxTest(requestedKey) {
 
 // _sandboxScene - the scene a test draws, built the first time it is asked
 // for and reused after that. Building parses the whole level SVG, which is
-// worth doing once per page rather than on every restart.
-function _sandboxScene(test) {
+// worth doing once per page rather than on every restart. layers are the
+// layers the test's design moves, which the scene is built without, so a
+// design that moves other layers gets a scene of its own.
+function _sandboxScene(test, layers = []) {
     const path = test.level + test.scene;
     const levelMap = !!test.levelMap.enabled;
-    const cacheKey = [path, test.sectionWidth, test.worldHeight, levelMap].join('|');
+    const cacheKey = [path, test.sectionWidth, test.worldHeight, levelMap, JSON.stringify(layers)].join('|');
     if (!_sandboxScenes.has(cacheKey)) {
         _sandboxScenes.set(cacheKey, createSvgScene({
             path,
@@ -165,20 +167,44 @@ function _sandboxScene(test) {
             worldHeight: test.worldHeight,
             levelMap,
             levelDir:    test.level,
+            layers,
         }));
     }
     return _sandboxScenes.get(cacheKey);
 }
 
-// Every image a scene draws, animation frames and breakables included, so a
-// start can wait for them to decode and the first frame is the level rather
-// than a blank canvas.
+// _sandboxDesign - the test's design, read before the scene is built, for what
+// has to be ready before play: the layers it moves, which the scene is built
+// without, and the enemy variants its pools draw. Read on every start, so an
+// edit shows up on the next RESTART. A design that cannot be read asks for
+// nothing; what is wrong with it is reported when it starts
+// (_sandboxStartDesign).
+function _sandboxDesign(test) {
+    if (!test.design) return null;
+    const loaded = loadLevelDesign(test.design);
+    return loaded.design ? prepareLevelDesign(loaded.design).design : null;
+}
+
+// _sandboxVariantImages - register the design's enemy variants (enemyVariant)
+// and list their frames, to decode with the scene. One that cannot be made is
+// left to the design's checks to report.
+function _sandboxVariantImages(design) {
+    return levelDesignEnemyVariants(design)
+        .map(({ enemy, render }) => enemyVariant(enemy, render))
+        .filter(Boolean)
+        .flatMap(id => enemyCharImages(ENEMY_DEFS[id].img));
+}
+
+// Every image a scene draws, animation frames, breakables and moving layers
+// included, so a start can wait for them to decode and the first frame is the
+// level rather than a blank canvas.
 function _sandboxSceneImages(scene) {
     return [
         scene.img,
         ...(scene.sections || []).map(section => section.img),
         ...levelSceneAnimations(scene).flatMap(anim => anim.frames),
         ...Object.values(levelSceneBreakableSprites(scene)).flatMap(Object.values),
+        ...levelSceneLayerImages(scene),
     ].filter(Boolean);
 }
 
@@ -287,6 +313,13 @@ function _sandboxReportMap(scene) {
         id: r.id, kind: r.kind, parent: r.parent || '',
         x: place(r, 'x'), y: place(r, 'y'), w: place(r, 'w'), h: place(r, 'h'),
     })));
+    if (map.layers.length) {
+        console.log('[sandbox] Layers the design moves, and how far (level SVG units)');
+        console.table(map.layers.map(layer => ({
+            id: layer.id, paths: layer.paths.join(', '),
+            x: `${layer.reach.minX} to ${layer.reach.maxX}`, y: `${layer.reach.minY} to ${layer.reach.maxY}`,
+        })));
+    }
     map.warnings.forEach(text => console.warn('[level-map] %s', text));
     const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
     return `${plural(map.regions.length, 'region')}, ${plural(map.warnings.length, 'warning')}`;
@@ -327,14 +360,15 @@ async function startSandbox(requestedKey) {
         Object.assign(CFG, run.test.cfg);
         _buildSandboxPanels(run);
 
-        const scene = _sandboxScene(run.test);
+        const design = _sandboxDesign(run.test);
+        const scene = _sandboxScene(run.test, run.test.levelMap.enabled ? levelDesignLayerMoves(design) : []);
         // A first start decodes the whole level image, which takes a second or
         // so; the loading screen says so rather than leaving a blank canvas.
         // It only comes up if the wait runs long, so a restart from cache (a
         // few ms) does not flash it.
         const loading = document.getElementById('loading-screen');
         const showLoading = setTimeout(() => { loading.style.display = ''; }, 150);
-        await Promise.all(_sandboxSceneImages(scene)
+        await Promise.all([..._sandboxSceneImages(scene), ..._sandboxVariantImages(design)]
             .map(img => (img.decode ? img.decode().catch(() => {}) : null)));
         clearTimeout(showLoading);
         loading.style.display = 'none';

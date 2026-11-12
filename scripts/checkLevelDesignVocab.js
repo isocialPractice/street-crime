@@ -23,6 +23,8 @@ same('restricted keys', V.keys.restricted, Object.keys(S.properties.restricted.a
 same('state keys', V.keys.state, Object.keys(d.state.properties));
 same('player keys', V.keys.player, Object.keys(d.player.properties));
 same('spawn keys', V.keys.spawn, Object.keys(d.spawnGroup.properties));
+same('animate-layers keys', V.keys.animateLayer, Object.keys(d.animateLayer.properties));
+same('pool entry keys', V.keys.poolEntry, Object.keys(d.poolEnemy.properties));
 same('characters keys', V.keys.characters, Object.keys(d.state.properties.characters.properties));
 same('next keys', V.keys.next, Object.keys(d.state.properties.next.items.properties));
 same('svg', V.values.svg, d.state.properties.svg.enum);
@@ -33,6 +35,7 @@ same('inventory', V.values.inventory, d.player.properties.inventory.enum);
 same('health', V.values.health, d.player.properties.health.enum);
 same('spawn type', V.values.spawnType, d.spawnGroup.properties.type.enum);
 same('pick', V.values.pick, d.spawnGroup.properties.pick.enum);
+same('ease', V.values.ease, d.animateLayer.properties.type.enum);
 const kinds = /^\^\(([^)]+)\):/.exec(d.trigger.pattern)[1].split('|');
 same('trigger kinds', [...V.triggers.map, ...V.triggers.director, ...V.triggers.condition], kinds);
 if (V.version !== S.properties.version.const) diffs.push(`version: vocab ${V.version} vs schema ${S.properties.version.const}`);

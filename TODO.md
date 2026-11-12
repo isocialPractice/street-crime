@@ -207,15 +207,30 @@ in `scripts/`:
 
 #### Game side
 
-- [ ] Variant loader: transform the SVG text in `_applySvgText` (`js/sprites/loader.js`) before it becomes an image
-  - Parse with `DOMParser`, apply the variant, serialize, then Blob as now.
-    Cache by path plus variant
+- [x] Variant loader: transform the SVG text before it becomes an image
+  - Built as `js/sprites/variants.js`, applied per frame through
+    `_loadEnemyFrame`'s transform rather than in `_applySvgText`, and cached by
+    file plus render
   - Exported fills come from `.cls-N` classes in `<style>`, so a recolor sets
     an inline `fill`, which wins over the class, instead of editing the class
-  - Find parts by ancestor path and base name with the export's `-N` suffix
-    stripped (`strokes-12` is `front-glove > strokes`)
-- [ ] Variant config, such as `config/variants.json`: per character, a palette of `part-tone` colors and the outfit pieces to show or hide
+  - Parts by base name with the export's `-N` suffix stripped, falling back from
+    `left-vest` to `vest`; tones from the nearest `-<tone>` layer name
+- [x] Palettes: `config/palettes.json` (tones, lightest first, and a color per
+  tone), used by a level design's pool entry `{ "enemy", "render": { "<part>": "<palette>" } }`
+- [ ] Named variants, such as `config/variants.json`
+  - **Issue**: A render is written inline in each design's pool, and has its
+    base enemy's stats; outfit pieces cannot be shown or hidden.
+  - **Goal**: A named variant (`"jumpingjunkie-gray"`) with a render, its own
+    stats (`hp`, `spd`, `dmg`, `pts`) and outfit pieces to show or hide (the
+    planned `{ "hide": true }` render value), usable from any design's pool.
+  - From: Asset Scripts
 - [ ] Use it for the enemy palette-swap elites listed under [Character Elements](#3-character-elements)
+- [ ] Art: check the `vest-dark` group in `JumpingJunkie_defeat.svg`
+  - **Issue**: It holds brown shapes beside the head as well as the vest, so the
+    gray render turns them gray too.
+  - **Goal**: If they are hair or collar, move them out of `vest` (a layer map
+    in `scripts/data/`); if they are vest, nothing to do.
+  - From: Asset Scripts
 - [ ] Player outfit and color select, tied to the character select screen under [Major](#1-major)
 
 ## 1. Major
@@ -465,11 +480,18 @@ Intent: a level is art plus one design file, with no code.
     set in the design, and reports a design can wait on.
   - From: Level Design Config
 - [ ] Doors that open when someone comes out
-  - **Issue**: Enemies and the player walk out of a closed door; the door art
-    never changes.
+  - **Issue**: A design can now slide a door open with `"animate-layers"` (the
+    warehouse door does), but only when a state says so; a door with nothing
+    written for it stays shut while enemies and the player walk through it.
   - **Goal**: Optional open-door art (`objects/<door>_open.svg`, drawn over the
-    `ENTER-` layer like breakable state art) shown while anyone walks out of or
-    into it.
+    `ENTER-` layer like breakable state art), or the door's own layers moved,
+    shown while anyone walks out of or into it.
+  - From: Level Design Config
+- [ ] Art: split the warehouse door's `door-frame-inner` into a half per pane
+  - **Issue**: The glass and handles slide apart when the gate breaks, but the
+    centre bar is one shape over both panes, so it stays in the open doorway.
+  - **Goal**: `door-frame-inner-left` and `-right` (or the bar drawn into each
+    pane's group), moved with their pane in `level-design.json`.
   - From: Level Design Config
 - [ ] `svg` actions that show and hide layers by path
   - **Issue**: `"svg"` only marks a state (`loads`, `layer-state-change`) or

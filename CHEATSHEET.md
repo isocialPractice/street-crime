@@ -35,7 +35,8 @@ Paths: `PARENT/CHILD`, such as `RESTRICTED-storage-room/ENTER-building`.
 | `svg` | `loads`, `layer-state-change`, `fade-out` |
 | `set` | `{ "<case>": true or false }` |
 | `player` | `spawn` (`left`, `right`, path), `after`, `animation` (`walk`, `idle`), `health`, `inventory` (`full`/`empty`, `inherit`, `store`) |
-| `spawn` | `[{ group, type: "enemy", from, count, pick (random, in-order), pool, animation, after, every }]` |
+| `spawn` | `[{ group, type: "enemy", from, count, pick (random, in-order), pool, animation, after, every }]`; a pool entry is a name or `{ "enemy", "render": { "<part>": "<palette>" } }` |
+| `animate-layers` | `[{ layer, position-x, position-y (SVG units from the art's place), type (linear, ease-in, ease-out, ease-in-out), duration, after }]` |
 | `next` | `[{ "on": "<trigger>", "to": "<state>" }]` |
 
 | Trigger | Is |
@@ -44,7 +45,8 @@ Paths: `PARENT/CHILD`, such as `RESTRICTED-storage-room/ENTER-building`.
 | `spawn:<group>` `defeated:<group>` `arrive:<state>` | design events |
 | `case:<name>`, `state:<name>` | conditions |
 
-Reports: `state:`, `case:` (turns true), `spawn:`, `defeated:`, `arrive:`, `unlock:`.
+Reports: `state:`, `case:` (turns true), `spawn:`, `defeated:`, `arrive:`, `unlock:`,
+and `animate:<layer>` when a moving layer arrives.
 No `version`: a draft, converted with notes.
 
 ## Characters ([character-assets](docs/character-assets.md))
@@ -58,6 +60,8 @@ Enemies in `config/enemy-assets.json`: `"<animation>": { "mode", "suffixes" }`.
 
 Suffix lookup: literal file, then another animation's frames, then `_0`, `_1`, ...
 New enemy: art, config entry, `ENEMY_DEFS` line in `js/entities/enemy.js`.
+Recolor: a design's pool entry `{ "enemy", "render": { "<part>": "<palette>" } }`, palettes in
+`config/palettes.json`; each shape takes its tone (`vest-mid` → `mid`), outlines stay.
 
 ## Objects ([object-assets](docs/object-assets.md))
 

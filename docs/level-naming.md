@@ -246,6 +246,7 @@ wait on:
 | Event | When |
 | --- | --- |
 | `animate:<asset-name>` | an `ANIMATE` piece has shown a full cycle |
+| `animate:<layer>` | a layer the level design moves has got where it was sent ([level-design.md](level-design.md#moving-layers)) |
 | `break:<name>` | a `BREAKABLE` piece breaks |
 | `enter:<name>` | the player goes in through a door of that `ENTERABLE` or `RESTRICTED` |
 | `exit:<name>` | the player comes back out of it |

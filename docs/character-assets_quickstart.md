@@ -51,5 +51,8 @@ fight. The browser console warns if a named file cannot be found.
   all of its frames.
 - **A brand new enemy:** the art and config work the same way, plus one line of
   stats in `js/entities/enemy.js`; see [character-assets.md](character-assets.md#adding-a-new-enemy).
+- **Recolor a part:** name the part's tone layers (`jacket-light`, `jacket-mid`,
+  `jacket-dark`), then spawn `{ "enemy": "CrimeGuy", "render": { "jacket": "gray" } }`
+  from a level design's pool; see [character-assets.md](character-assets.md#recoloring-parts).
 
 The full tables are in [character-assets_cheatsheet.md](character-assets_cheatsheet.md).

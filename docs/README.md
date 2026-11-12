@@ -39,3 +39,4 @@ it, and how characters and objects are named so the game can find them.
 | --- | --- |
 | `scripts/README.md` | The Illustrator scripts: running them from a terminal, and renaming layers from a layer map |
 | `config/schema/level-design.schema.json` | The level design format, for editors |
+| `config/palettes.json`, `config/schema/palettes.schema.json` | The palettes a level design can recolor a character's parts with |

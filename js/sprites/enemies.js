@@ -433,14 +433,17 @@ function _warnMissingEnemyAsset(fileBase) {
 // the text the existence probe already pulled down. loadSvgImg records the
 // authored viewBox size on the way through, which is what _enemyDrawSize scales
 // against instead of the shape-dependent natural size the browser infers.
-function _loadEnemyFrame(fileBase) {
+//
+// transform, when given, is (path, text) => text, applied before the text
+// becomes an image: how a variant's frames are recolored (enemyVariant).
+function _loadEnemyFrame(fileBase, transform = null) {
     const path = _enemyAssetPath(fileBase);
     const src = _enemyAssetSource(path);
     if (!src.ok) {
         _warnMissingEnemyAsset(fileBase);
         return loadSvgImg('<svg xmlns="http://www.w3.org/2000/svg"/>');
     }
-    return loadSvgImg(src.text);
+    return loadSvgImg(typeof transform === 'function' ? transform(path, src.text) : src.text);
 }
 
 // _enemyAnimFileBases - resolve one animation state to the list of sprite file
@@ -486,7 +489,7 @@ function _enemyAnimFileBases(enemyKey, stateKey, animations, seen) {
 }
 
 function _loadEnemyAnimFrames(enemyKey, stateKey, animations) {
-    return _enemyAnimFileBases(enemyKey, stateKey, animations).map(_loadEnemyFrame);
+    return _enemyAnimFileBases(enemyKey, stateKey, animations).map(fileBase => _loadEnemyFrame(fileBase));
 }
 
 // _weaveEnemyPreDefeat - make sure a character's collapse is part of its death.
@@ -620,7 +623,10 @@ function _anchorEnemyWeaponStates(charDef, bases) {
     }
 }
 
-function _buildEnemyChar(enemyKey, defaults, typeDefaults, entry) {
+// _buildEnemyChar - one character's animations, from the files its config
+// names. transform, when given, changes each frame's text first (see
+// _loadEnemyFrame); the files and their order are the same either way.
+function _buildEnemyChar(enemyKey, defaults, typeDefaults, entry, transform = null) {
     const merged = _mergeEnemyAssetEntry(defaults, typeDefaults, entry);
     if (merged.canGetUp) _deriveEnemyPowerAttack(enemyKey, merged);
     const charDef = {
@@ -647,7 +653,7 @@ function _buildEnemyChar(enemyKey, defaults, typeDefaults, entry) {
         charDef.animations[stateKey] = {
             mode: animDef.mode,
             fallbackState: animDef.fallbackState,
-            frames: (bases[stateKey] || []).map(_loadEnemyFrame),
+            frames: (bases[stateKey] || []).map(fileBase => _loadEnemyFrame(fileBase, transform)),
         };
     }
     if (merged.anchorWeapon) _anchorEnemyWeaponStates(charDef, bases);
@@ -771,17 +777,54 @@ async function _warmEnemyAssets() {
     }
 }
 
-function _buildEnemyChars() {
-    const built = {};
+// _buildEnemyCharFromConfig - one character from its config entry, with every
+// layer of defaults applied, or null when the config has no such character.
+function _buildEnemyCharFromConfig(enemyKey, transform = null) {
+    const entry = _enemyConfigEntries()[enemyKey];
+    if (!entry) return null;
     const defaults = ENEMY_ASSET_CONFIG.defaults || {};
     const attackTypeDefaults = ENEMY_ASSET_CONFIG.attackTypeDefaults || {};
-    for (const [enemyKey, entry] of Object.entries(_enemyConfigEntries())) {
-        const types = _enemyAttackTypes(entry.attackType || defaults.attackType);
-        built[enemyKey] = _buildEnemyChar(
-            enemyKey, defaults, _mergeAttackTypeDefaults(attackTypeDefaults, types), entry
-        );
+    const types = _enemyAttackTypes(entry.attackType || defaults.attackType);
+    return _buildEnemyChar(enemyKey, defaults, _mergeAttackTypeDefaults(attackTypeDefaults, types), entry, transform);
+}
+
+function _buildEnemyChars() {
+    const built = {};
+    for (const enemyKey of Object.keys(_enemyConfigEntries())) {
+        built[enemyKey] = _buildEnemyCharFromConfig(enemyKey);
     }
     return built;
+}
+
+// ── Variants ──────────────────────────────────────────────────────────────────
+// buildEnemyVariantChar - ENEMY_CHARS[variantKey]: the character baseKey with
+// a render applied to every frame (js/sprites/variants.js), built the first
+// time it is asked for. It reads the same files as the base, from the cache
+// the startup build filled, so it fetches nothing. Its frames still have to
+// decode before they draw (enemyCharImages lists them to wait on). Null when
+// the base is not a character in the config.
+function buildEnemyVariantChar(baseKey, variantKey, render) {
+    if (!ENEMY_CHARS[variantKey]) {
+        const built = _buildEnemyCharFromConfig(baseKey, (path, text) => variantFrameText(path, text, render));
+        if (!built) return null;
+        ENEMY_CHARS[variantKey] = built;
+    }
+    return ENEMY_CHARS[variantKey];
+}
+
+// enemyArtFile - a character's base frame, <charKey>.svg, as { path, text },
+// from the cache the startup build filled, or null when it has none. Where a
+// level design's checks look for the parts a render names.
+function enemyArtFile(charKey) {
+    const path = _enemyAssetPath(charKey);
+    const src = _enemyAssetSource(path);
+    return src.ok ? { path, text: src.text } : null;
+}
+
+// enemyCharImages - every frame a character draws, once each.
+function enemyCharImages(charKey) {
+    const animations = ENEMY_CHARS[charKey]?.animations || {};
+    return [...new Set(Object.values(animations).flatMap(anim => anim.frames || []))].filter(Boolean);
 }
 
 // ENEMY_CHARS is filled in rather than assigned, so the reference every other

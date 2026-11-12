@@ -174,6 +174,18 @@ function drawLevelAnimations(stageData) {
     for (const anim of animations) anim.draw(t, levelAnimSettings(stageData, anim), offsetX);
 }
 
+// drawLevelLayers - the layers a level design moves, slab by slab, straight
+// over the background they were cut out of: where the run has moved them, or
+// where the art draws them when nothing has.
+function drawLevelLayers(stageData) {
+    const scene = stageData?.scene;
+    const slabs = levelSceneLayerSlabs(scene);
+    if (!slabs.length) return;
+    const offsets = typeof levelRuntime !== 'undefined' && levelRuntime ? levelRuntime.layerOffsets(scene) : null;
+    const offsetX = cam.x * (scene.parallax ?? 1);
+    for (const slab of slabs) slab.draw(offsets, offsetX);
+}
+
 function drawStageBackground(stageData) {
     const scene = stageData?.scene;
     if (scene?.img) {

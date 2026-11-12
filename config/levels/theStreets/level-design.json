@@ -27,11 +27,22 @@
           "type": "enemy",
           "count": 3,
           "pick": "random",
+          "pool": [
+            "CrimeGuy",
+            "JumpingJunkie",
+            { "enemy": "JumpingJunkie", "render": { "left-vest": "gray", "right-vest": "gray" } }
+          ],
           "from": "RESTRICTED-import-export-warehouse/ENTER-building",
           "animation": "walk",
           "after": 0.5,
           "every": 0.8
         }
+      ],
+      "animate-layers": [
+        { "layer": "door-glass-right", "position-x": 130, "position-y": 0, "type": "ease-out", "duration": 0.5 },
+        { "layer": "door-glass-left", "position-x": -130, "position-y": 0, "type": "ease-out", "duration": 0.5 },
+        { "layer": "door-handle-right", "position-x": 130, "position-y": 0, "type": "ease-out", "duration": 0.5 },
+        { "layer": "door-handle-left", "position-x": -130, "position-y": 0, "type": "ease-out", "duration": 0.5 }
       ],
       "next": [{ "on": "defeated:warehouse-crew", "to": "enemy-defeat" }]
     },

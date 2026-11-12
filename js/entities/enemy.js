@@ -36,6 +36,45 @@ const ENEMY_DEFS = {
     kingbrute:   { img:'KingBruteBreaker',    hp:550,  spd: 85,  dmg:30,  pts:2000,w:92, h:148, boss:true },
 };
 
+// enemyDefId - the ENEMY_DEFS id a name means: the id itself, or, in any case,
+// an id or the art name (img) of an enemy that is not a variant, so a level
+// design can write "JumpingJunkie" for jumpingjunkie. Null when it means none.
+function enemyDefId(name) {
+    const text = String(name ?? '').trim();
+    if (Object.hasOwn(ENEMY_DEFS, text)) return text;
+    const lower = text.toLowerCase();
+    return Object.keys(ENEMY_DEFS).find(id => !ENEMY_DEFS[id].variantOf
+        && (id.toLowerCase() === lower || String(ENEMY_DEFS[id].img).toLowerCase() === lower)) || null;
+}
+
+// enemyVariant - the ENEMY_DEFS id of an enemy drawn with a render, such as
+// { "left-vest": "gray", "right-vest": "gray" } (js/sprites/variants.js),
+// registered the first time it is asked for: the base enemy's stats under the
+// id "<base id>~<render key>", with sprites of its own (buildEnemyVariantChar).
+// One render is one id, whatever order its parts were written in. A variant of
+// a variant is the base with both renders, the later winning a shared part. An
+// empty render is the enemy itself. Null when the enemy does not exist or has
+// no sprites to recolor.
+function enemyVariant(enemy, render) {
+    let baseId = enemyDefId(enemy);
+    if (!baseId) return null;
+    let parts = render && typeof render === 'object' ? { ...render } : {};
+    if (ENEMY_DEFS[baseId].variantOf) {
+        parts = { ...ENEMY_DEFS[baseId].render, ...parts };
+        baseId = ENEMY_DEFS[baseId].variantOf;
+    }
+    const key = variantRenderKey(parts);
+    if (!key) return baseId;
+    const id = `${baseId}~${key}`;
+    if (!ENEMY_DEFS[id]) {
+        const base = ENEMY_DEFS[baseId];
+        const img = `${base.img}~${key}`;
+        if (!buildEnemyVariantChar(base.img, img, parts)) return null;
+        ENEMY_DEFS[id] = { ...base, img, variantOf: baseId, render: parts };
+    }
+    return id;
+}
+
 // How long an enemy holds its walk cycle after it stops moving before settling
 // into its idle pose. _approach() returns exactly 0 inside its deadzone and the
 // AI re-decides between walking and standing every frame, so an enemy parked on

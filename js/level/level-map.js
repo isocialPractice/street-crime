@@ -417,12 +417,310 @@ function levelMapFrameMarkup(frameText, viewBox) {
     return new XMLSerializer().serializeToString(doc);
 }
 
+// ── Moving layers ─────────────────────────────────────────────────────────────
+// A level design can slide any piece of the art, such as a door's two panes of
+// glass, by naming its layer under a state's "animate-layers". Those layers
+// are asked for when the scene is built (parseLevelMap's layers option),
+// because the background image has to be made without them.
+//
+// A layer cut out and drawn on top would lose its place in the stacking order:
+// the door frame Illustrator draws over the glass would end up under it. So
+// the area a layer can move through, its box widened by the furthest the
+// design sends it, is drawn again in slices instead. Layers whose areas
+// overlap share one area, a slab, and its slices are the art under the first
+// layer, then each layer followed by the art above it, all cropped to the slab:
+//
+//   background, with the layers cut out
+//   slab:  under | layer 1 | between | layer 2 | over
+//
+// The under slice paints the same art over the background there, so a slab
+// at rest is the level as drawn. Live pieces (ANIMATE, BREAKABLE) are left out
+// of every slice, since they are drawn on their own.
+//
+// A slice is its own image, so an element above a layer that uses
+// mix-blend-mode blends with nothing inside its slice rather than with the art
+// below it. For the black drop shadows Illustrator exports, that looks the same.
+
+// Elements that draw nothing themselves but that drawn ones refer to. Every
+// slice keeps them as they are.
+const LEVEL_MAP_NON_RENDER = new Set([
+    'defs', 'style', 'title', 'desc', 'metadata', 'clippath', 'mask',
+    'lineargradient', 'radialgradient', 'pattern', 'symbol', 'filter', 'marker',
+]);
+
+// levelMapLayerPath - a layer path written the one way it is compared:
+// "ENTER-building / door-glass-left" is "ENTER-building/door-glass-left".
+function levelMapLayerPath(path) {
+    return String(path ?? '').split('/').map(part => part.trim()).filter(Boolean).join('/');
+}
+
+// levelMapFindLayer - the moving layer a level design names by path, as the
+// map's layers entry, or null when the scene was not built to move it.
+function levelMapFindLayer(map, path) {
+    const wanted = levelMapLayerPath(path);
+    return map?.layers?.find(layer => layer.paths.includes(wanted)) || null;
+}
+
+// _levelMapNames - an element's id and its data-name, which is the name the
+// layer had in Illustrator before a copy of it was numbered.
+function _levelMapNames(el) {
+    return [el.getAttribute('id'), el.getAttribute('data-name')]
+        .map(name => (name || '').trim())
+        .filter(Boolean);
+}
+
+// _levelMapArtMatches - every element a layer path names, in document order.
+// Unlike a map path, it can name any layer of the art. The last part is the
+// layer's id or data-name, either with or without Illustrator's "-<n>" copy
+// suffix. Each part before it is an ancestor further up, in order, with any
+// number of groups in between, so "ENTER-building/door-glass-left" finds the
+// glass inside that door's "doors" group.
+function _levelMapArtMatches(root, path) {
+    const parts = levelMapLayerPath(path).split('/').filter(Boolean);
+    if (!parts.length) return [];
+    const named = (el, part) => _levelMapNames(el).some(name => _levelMapIdMatches(name, part));
+    return Array.from(root.querySelectorAll('[id]')).filter(el => {
+        if (el.closest('defs') || !named(el, parts[parts.length - 1])) return false;
+        let node = el.parentElement;
+        for (let i = parts.length - 2; i >= 0; i--) {
+            while (node && node !== root && !named(node, parts[i])) node = node.parentElement;
+            if (!node || node === root) return false;
+            node = node.parentElement;
+        }
+        return true;
+    });
+}
+
+function _levelMapOverlaps(a, b) {
+    return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+}
+
+function _levelMapUnion(a, b) {
+    const x = Math.min(a.x, b.x);
+    const y = Math.min(a.y, b.y);
+    return {
+        x, y,
+        width:  Math.max(a.x + a.width, b.x + b.width) - x,
+        height: Math.max(a.y + a.height, b.y + b.height) - y,
+    };
+}
+
+// _levelMapSnapBox - a viewBox box grown out to whole world pixels, so a slab
+// starts and ends on the same pixel edges as the background under it.
+function _levelMapSnapBox(box, vb, worldWidth, worldHeight) {
+    const sx = worldWidth / vb.width;
+    const sy = worldHeight / vb.height;
+    const left   = Math.floor((box.x - vb.x) * sx);
+    const top    = Math.floor((box.y - vb.y) * sy);
+    const right  = Math.ceil((box.x + box.width - vb.x) * sx);
+    const bottom = Math.ceil((box.y + box.height - vb.y) * sy);
+    return { x: vb.x + left / sx, y: vb.y + top / sy, width: (right - left) / sx, height: (bottom - top) / sy };
+}
+
+// _levelMapSweep - the area a layer can be drawn in: its box, widened by the
+// furthest the design moves it each way, plus stroke room.
+function _levelMapSweep(entry) {
+    const { box, reach } = entry;
+    const pad = LEVEL_MAP_SPRITE_PAD;
+    return {
+        x: box.x + reach.minX - pad,
+        y: box.y + reach.minY - pad,
+        width:  box.width + reach.maxX - reach.minX + pad * 2,
+        height: box.height + reach.maxY - reach.minY + pad * 2,
+    };
+}
+
+// _levelMapSliceMarkup - the level, keeping only what keep() picks out, the
+// groups those sit in, and what every slice keeps, cropped to box. The groups
+// come along whole, attributes and all, so a transform, class or opacity set
+// on one still applies.
+function _levelMapSliceMarkup(text, keep, box) {
+    const doc = new DOMParser().parseFromString(text, 'image/svg+xml');
+    const svg = doc.documentElement;
+    const prune = parent => {
+        for (const el of Array.from(parent.children)) {
+            if (LEVEL_MAP_NON_RENDER.has(el.tagName.toLowerCase()) || keep(el)) continue;
+            if (el.hasAttribute('data-level-hold')) prune(el);
+            else el.remove();
+        }
+    };
+    prune(svg);
+    svg.querySelectorAll('[data-level-skip]').forEach(el => el.remove());
+    svg.setAttribute('viewBox', `${box.x} ${box.y} ${box.width} ${box.height}`);
+    svg.setAttribute('width', String(box.width));
+    svg.setAttribute('height', String(box.height));
+    return new XMLSerializer().serializeToString(doc);
+}
+
+// _levelMapSlab - the slices of one slab, as { slices, sprites }: slices[0] is
+// the art under the first layer and slices[i + 1] the art after layer i, null
+// when there is none; sprites[i] is layer i on its own. All are cropped to
+// region, so each draws into the slab's one world rect.
+//
+// Art is sorted into slices by document order, which is paint order: walking
+// the file, each element goes in the slice of the layers passed so far. The
+// groups a layer sits in are walked into rather than sorted whole, since they
+// hold art on both sides of it. Only art that reaches into the region is kept.
+function _levelMapSlab(root, vb, layerEls, region, skip) {
+    const holders = new Set();
+    for (const el of layerEls) {
+        for (let node = el.parentElement; node && node !== root; node = node.parentElement) holders.add(node);
+    }
+    const bands = [[], ...layerEls.map(() => [])];
+    let passed = 0;
+    const visit = parent => {
+        for (const el of Array.from(parent.children)) {
+            if (LEVEL_MAP_NON_RENDER.has(el.tagName.toLowerCase())) continue;
+            const index = layerEls.indexOf(el);
+            if (index >= 0) {
+                passed = index + 1;
+                continue;
+            }
+            if (holders.has(el)) {
+                visit(el);
+                continue;
+            }
+            if (skip.has(el)) continue;
+            const box = _levelMapBox(el, vb);
+            if (box && _levelMapOverlaps(_levelMapPad(box, LEVEL_MAP_SPRITE_PAD), region)) bands[passed].push(el);
+        }
+    };
+    visit(root);
+
+    // Marked, serialized once, and unmarked: each slice is cut from that one
+    // copy by its marks.
+    const marked = [];
+    const mark = (el, name, value = '') => {
+        el.setAttribute(name, value);
+        marked.push([el, name]);
+    };
+    bands.forEach((list, k) => list.forEach(el => mark(el, 'data-level-slice', String(k))));
+    layerEls.forEach((el, i) => mark(el, 'data-level-layer', String(i)));
+    holders.forEach(el => mark(el, 'data-level-hold'));
+    skip.forEach(el => mark(el, 'data-level-skip'));
+    const text = new XMLSerializer().serializeToString(root);
+    marked.forEach(([el, name]) => el.removeAttribute(name));
+
+    return {
+        slices: bands.map((list, k) => (list.length
+            ? _levelMapSliceMarkup(text, el => el.getAttribute('data-level-slice') === String(k), region)
+            : null)),
+        sprites: layerEls.map((_, i) =>
+            _levelMapSliceMarkup(text, el => el.getAttribute('data-level-layer') === String(i), region)),
+    };
+}
+
+// _levelMapMovingLayers - find, measure and slice the layers a level design
+// moves. requests is [{ path, reach: { minX, maxX, minY, maxY } }], reach in
+// viewBox units: how far left, right, up and down the design sends the layer.
+// Each request is recorded under map.layerRequests with what went wrong, if
+// anything, for the level design's checks to report against the design.
+function _levelMapMovingLayers(map, root, vb, requests, worldWidth, worldHeight) {
+    const all = Array.from(root.querySelectorAll('[id]')).filter(el => !el.closest('defs'));
+    const strip = new Set(map.stripIds);
+    const live = all.filter(el => strip.has(el.getAttribute('id').trim()));
+    const found = [];   // { el, entry }, one per element
+
+    for (const request of requests) {
+        const path = levelMapLayerPath(request?.path);
+        if (!path || map.layerRequests.some(r => r.path === path)) continue;
+        const record = { path, problem: null, matches: 0 };
+        map.layerRequests.push(record);
+        const matches = _levelMapArtMatches(root, path);
+        record.matches = matches.length;
+        const el = matches[0];
+        const reach = { minX: 0, maxX: 0, minY: 0, maxY: 0, ...request.reach };
+        if (!el) {
+            record.problem = 'missing';
+            continue;
+        }
+        const piece = live.find(other => other === el || other.contains(el) || el.contains(other));
+        if (piece) {
+            record.problem = `it ${el.contains(piece) && piece !== el ? 'holds' : 'is part of'} `
+                           + `${piece.getAttribute('id')}, which is drawn on its own`;
+            continue;
+        }
+        const same = found.find(item => item.el === el);
+        if (same) {
+            // Two paths to one layer: one layer, moved as far as either sends it.
+            same.entry.paths.push(path);
+            const r = same.entry.reach;
+            same.entry.reach = {
+                minX: Math.min(r.minX, reach.minX), maxX: Math.max(r.maxX, reach.maxX),
+                minY: Math.min(r.minY, reach.minY), maxY: Math.max(r.maxY, reach.maxY),
+            };
+            continue;
+        }
+        const nested = found.find(item => item.el.contains(el) || el.contains(item.el));
+        if (nested) {
+            record.problem = `it ${nested.el.contains(el) ? 'is inside' : 'holds'} ${nested.entry.id}, which is moved too`;
+            continue;
+        }
+        const box = _levelMapBox(el, vb);
+        if (!box) {
+            record.problem = 'it has nothing to measure';
+            continue;
+        }
+        const id = el.getAttribute('id').trim();
+        found.push({
+            el,
+            entry: {
+                id,
+                // What "animate:<name>" reports: the layer's name before
+                // Illustrator numbered it.
+                name: (el.getAttribute('data-name') || id.replace(/-\d+$/, '')).trim(),
+                paths: [path], box, world: _levelMapWorld(box, vb, worldWidth, worldHeight), reach,
+            },
+        });
+    }
+    if (!found.length) return;
+
+    // Paint order, then slabs: layers whose sweeps overlap, directly or
+    // through another layer, are drawn as one.
+    found.sort((a, b) => (a.el.compareDocumentPosition(b.el) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
+    const groups = [];
+    for (const item of found) {
+        let group = { region: _levelMapSweep(item.entry), members: [item] };
+        for (let merged = true; merged;) {
+            merged = false;
+            for (let i = groups.length - 1; i >= 0; i--) {
+                if (!_levelMapOverlaps(groups[i].region, group.region)) continue;
+                group = { region: _levelMapUnion(groups[i].region, group.region),
+                          members: [...groups[i].members, ...group.members] };
+                groups.splice(i, 1);
+                merged = true;
+            }
+        }
+        groups.push(group);
+    }
+
+    const borders = Array.from(root.querySelectorAll('*')).filter(_svgSceneIsBorderEl);
+    for (const group of groups) {
+        group.members.sort((a, b) => found.indexOf(a) - found.indexOf(b));
+        const layerEls = group.members.map(item => item.el);
+        const region = _levelMapSnapBox(group.region, vb, worldWidth, worldHeight);
+        const others = found.filter(item => !layerEls.includes(item.el)).map(item => item.el);
+        const { slices, sprites } = _levelMapSlab(root, vb, layerEls, region, new Set([...live, ...borders, ...others]));
+        map.slabs.push({
+            box: region,
+            world: _levelMapWorld(region, vb, worldWidth, worldHeight),
+            layers: group.members.map(item => item.entry.id),
+            slices, sprites,
+        });
+    }
+    for (const item of found) {
+        map.layers.push(item.entry);
+        map.stripIds.push(item.entry.id);
+    }
+}
+
 // ── Parse ─────────────────────────────────────────────────────────────────────
 // parseLevelMap - every map id in a level SVG, measured and placed in the
 // world. Boxes are in viewBox units ({ x, y, width, height }, as elsewhere in
 // svg-scenes.js); world boxes are in world pixels ({ x, y, w, h }, as entities
 // have them). field is the scene's #field shape, used to check holes, and
-// levelDir is the level's folder, where ANIMATE frames are looked for.
+// levelDir is the level's folder, where ANIMATE frames are looked for. layers
+// are the layers a level design moves, as levelDesignLayerMoves lists them.
 //
 //   enterables  { id, name, box, world, restricted, requires: [{ id, type, name }] }
 //   hotspots    { id, type, enterable, restricted, box, world, push }
@@ -434,15 +732,20 @@ function levelMapFrameMarkup(frameText, viewBox) {
 //   breakables  { id, name, object, box, world, spriteBox, spriteWorld, markup, colors,
 //                 states: { damaged, broken } }
 //   holes       { id, box, world, normalizedPoints }
+//   layers      { id, name, paths, box, world, reach }, the layers a design moves
+//   slabs       { box, world, layers: [ids], slices: [markup], sprites: [markup] }
+//   layerRequests { path, problem, matches }, one per layer asked for
+//   ids         every layer name in the art (data-name, else id), for suggestions
 //   regions     every entry above in document order, as { id, kind, parent, world },
 //               plus REQUIRE- layers, whose world is null when they are empty
 //   stripIds    ids the background image leaves out because they are drawn live
 //   warnings    what in the file will not work as its names suggest
-function parseLevelMap(svgText, { worldWidth = 800, worldHeight = 600, levelDir = '', field = null } = {}) {
+function parseLevelMap(svgText, { worldWidth = 800, worldHeight = 600, levelDir = '', field = null,
+                                  layers = [] } = {}) {
     const map = {
         vb: null, scale: { x: 0, y: 0 }, levelDir,
         enterables: [], hotspots: [], objects: [], animations: [], breakables: [], holes: [],
-        events: [], reserved: [],
+        events: [], reserved: [], layers: [], slabs: [], layerRequests: [], ids: [],
         regions: [], stripIds: [], warnings: [],
     };
     const warn = text => map.warnings.push(text);
@@ -592,6 +895,11 @@ function parseLevelMap(svgText, { worldWidth = 800, worldHeight = 600, levelDir 
             }
             map.regions.push({ id, kind: rule.label, parent, world });
         }
+        map.ids = [...new Set(Array.from(root.querySelectorAll('[id]'))
+            .filter(el => !el.closest('defs'))
+            .map(el => _levelMapNames(el).pop()))];
+        // After the map's own live pieces, which a moving layer must not be.
+        if (layers.length) _levelMapMovingLayers(map, root, vb, layers, worldWidth, worldHeight);
     } finally {
         mount.unmount();
     }

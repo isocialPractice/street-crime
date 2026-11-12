@@ -31,6 +31,13 @@
 // -------------
 // An EVENT-<name> area reports "event:<name>" the first time the player's
 // feet are in it, once per run.
+//
+// Moving layers
+// -------------
+// A layer the level design moves ("animate-layers") slides when moveLayer is
+// called, and reports "animate:<layer>" the first time it gets where it was
+// sent. Where each one is lives here, per scene, so RESTART puts every door
+// back the way the art draws it.
 
 // Interiors are built the first time a door leads to one and kept for the
 // page, like the sandbox's own scenes. A run's state inside them is not.
@@ -101,7 +108,7 @@ class LevelMapRuntime {
         this.notify      = options.notify || (text => console.warn('[level-map] %s', text));
         this.reported    = new Set();   // "<kind>:<key>" already sent this run
         this.stack       = [];          // scenes the player went in from, innermost last
-        this.sceneStates = new Map();   // scene -> { breakables } for this run
+        this.sceneStates = new Map();   // scene -> { breakables, layers } for this run
         this.fade        = null;        // { phase: 'out' | 'wait' | 'in', t, swap, ready }
         this.active      = null;        // the hotspot the player can use right now
         this.unlocked    = new Set();   // RESTRICTED names opened this run
@@ -110,6 +117,7 @@ class LevelMapRuntime {
 
     update(dt, player) {
         this._updateAnimations();
+        this._updateLayers(dt);
         for (const piece of this.breakables) {
             if (piece.broken) this._report('break', piece.name);
         }
@@ -206,7 +214,8 @@ class LevelMapRuntime {
         this.sceneStartedAt = performance.now() / 1000;
         const scene = stage?.scene;
         if (!this.sceneStates.has(scene)) {
-            this.sceneStates.set(scene, { breakables: levelMapBreakables(scene) });
+            // layers: layer id -> { x, y, move }, offsets in world px
+            this.sceneStates.set(scene, { breakables: levelMapBreakables(scene), layers: new Map() });
         }
         this.breakables = this.sceneStates.get(scene).breakables;
         this.hotspots   = this._sceneHotspots(scene);
@@ -433,6 +442,7 @@ class LevelMapRuntime {
             scene.img,
             ...levelSceneAnimations(scene).flatMap(anim => anim.frames),
             ...Object.values(levelSceneBreakableSprites(scene)).flatMap(Object.values),
+            ...levelSceneLayerImages(scene),
         ].filter(Boolean) : [];
         const fade = { phase: 'out', t: 0, swap, ready: false };
         Promise.all(images.map(img => (img.decode ? img.decode().catch(() => {}) : null)))
@@ -495,6 +505,63 @@ class LevelMapRuntime {
         const a = phase === 'out' ? t / time : phase === 'in' ? 1 - t / time : 1;
         ctx.fillStyle = `rgba(0,0,0,${Math.max(0, Math.min(1, a)).toFixed(3)})`;
         ctx.fillRect(-10, -10, W + 20, H + 20);
+    }
+
+    // ── Moving layers ─────────────────────────────────────────────────────────
+    // moveLayer - slide a layer the level design moves to x, y from where the
+    // art draws it, in the level SVG's own units, over duration seconds with
+    // the named ease. It sets off from wherever it is now, so a later move to
+    // 0, 0 puts it back; an axis given as null stays where it is. The layer is
+    // looked for in the scene the player is in, then the ones they went in
+    // from. False when none of them was built to move it.
+    moveLayer(path, { x = null, y = null, ease = 'linear', duration = 0 } = {}) {
+        const stages = [this.stage, ...[...this.stack].reverse().map(frame => frame.stage)];
+        for (const stage of stages) {
+            const scene = stage?.scene;
+            const layer = levelMapFindLayer(scene?.map, path);
+            const layers = this.sceneStates.get(scene)?.layers;
+            if (!layer || !layers) continue;
+            const now = layers.get(layer.id) || { x: 0, y: 0, move: null };
+            const { scale } = scene.map;
+            now.move = {
+                name: layer.name, ease, t: 0, duration: duration > 0 ? duration : 0,
+                fromX: now.x, toX: Number.isFinite(x) ? x * scale.x : now.x,
+                fromY: now.y, toY: Number.isFinite(y) ? y * scale.y : now.y,
+            };
+            layers.set(layer.id, now);
+            this._stepLayer(now, 0);
+            return true;
+        }
+        return false;
+    }
+
+    // layerOffsets - where a scene's moved layers are this run, as layer id ->
+    // { x, y } in world px from where the art draws them, or null.
+    layerOffsets(scene) {
+        return this.sceneStates.get(scene)?.layers || null;
+    }
+
+    // Every scene's, not only the current one's: a door sent open stays on its
+    // way while the player is inside somewhere else.
+    _updateLayers(dt) {
+        for (const { layers } of this.sceneStates.values()) {
+            for (const layer of layers.values()) {
+                if (layer.move) this._stepLayer(layer, dt);
+            }
+        }
+    }
+
+    _stepLayer(layer, dt) {
+        const move = layer.move;
+        move.t += dt;
+        const p = move.duration > 0 ? move.t / move.duration : 1;
+        const k = levelLayerEase(move.ease, p);
+        layer.x = move.fromX + (move.toX - move.fromX) * k;
+        layer.y = move.fromY + (move.toY - move.fromY) * k;
+        if (p >= 1) {
+            layer.move = null;
+            this._report('animate', move.name);
+        }
     }
 
     // ── Animations ────────────────────────────────────────────────────────────

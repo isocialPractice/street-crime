@@ -171,3 +171,65 @@ function levelSceneAnimations(scene) {
     }
     return scene.animations;
 }
+
+// ── Moving level art (a level design's "animate-layers") ─────────────────────
+// How a layer travels from where it is to where it was sent, by the names
+// LEVEL_DESIGN_VOCAB.values.ease allows. p and the result run 0 to 1.
+const LEVEL_LAYER_EASES = {
+    'linear':      p => p,
+    'ease-in':     p => p * p * p,
+    'ease-out':    p => 1 - (1 - p) ** 3,
+    'ease-in-out': p => (p < 0.5 ? 4 * p * p * p : 1 - (-2 * p + 2) ** 3 / 2),
+};
+
+function levelLayerEase(type, p) {
+    return (LEVEL_LAYER_EASES[type] || LEVEL_LAYER_EASES.linear)(Math.max(0, Math.min(1, p)));
+}
+
+// LevelLayerSlab - one slab of moving layers (see "Moving layers" in
+// js/level/level-map.js): the art under them, each layer, and the art above
+// each, every image drawn into the slab's one world rect.
+class LevelLayerSlab {
+    constructor(slab) {
+        this.rect    = slab.world;
+        this.layers  = slab.layers;
+        this.slices  = slab.slices.map(markup => (markup ? loadSvgImg(markup) : null));
+        this.sprites = slab.sprites.map(markup => loadSvgImg(markup));
+    }
+
+    images() {
+        return [...this.slices, ...this.sprites].filter(Boolean);
+    }
+
+    // draw - over the background, in paint order. offsets maps a layer id to
+    // { x, y }, how far it is from where the art draws it, in world px. A layer
+    // never leaves the rect, since the rect was sized to the furthest it goes.
+    draw(offsets, offsetX) {
+        const { x, y, w, h } = this.rect;
+        const sx = x - offsetX;
+        if (sx > W || sx + w < 0) return;
+        const put = (img, dx = 0, dy = 0) => {
+            if (img && img.naturalWidth) ctx.drawImage(img, sx + dx, y + dy, w, h);
+        };
+        put(this.slices[0]);
+        this.layers.forEach((id, i) => {
+            const offset = offsets?.get(id);
+            put(this.sprites[i], offset?.x || 0, offset?.y || 0);
+            put(this.slices[i + 1]);
+        });
+    }
+}
+
+// levelSceneLayerSlabs - a scene's slabs, turned into images the first time
+// they are asked for and kept on the scene, as breakable sprites are.
+function levelSceneLayerSlabs(scene) {
+    if (!scene?.map?.slabs?.length) return [];
+    if (!scene.layerSlabs) scene.layerSlabs = scene.map.slabs.map(slab => new LevelLayerSlab(slab));
+    return scene.layerSlabs;
+}
+
+// levelSceneLayerImages - every image a scene's slabs draw, to wait on before
+// the scene is first shown.
+function levelSceneLayerImages(scene) {
+    return levelSceneLayerSlabs(scene).flatMap(slab => slab.images());
+}

@@ -1,0 +1,7 @@
+{
+  "$schema": "schema/palettes.schema.json",
+  "tones": ["highlight", "light", "mid", "dark", "shadow"],
+  "palettes": {
+    "gray": { "highlight": "#e3e3e3", "light": "#c7c7c7", "mid": "#848484", "dark": "#545454", "shadow": "#050505" }
+  }
+}

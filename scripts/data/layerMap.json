@@ -1,20 +1,23 @@
 {
   "current": {
-    "GreenJetter": {
-      "head-assembly": {
-        "hair": {
-         "layers": [ "outline" ]
+    "JumpingJunkie": {
+        "left-vest": {
+         "layers": [  "<Path>","<Path>","<Path>","<Path>" ]
+        },
+        "right-vest": {
+         "layers": [ "<Path>","<Path>","<Path>","<Path>", "<Path>","<Path>" ]
         }
-      }
+      
     }
   },
   "change": {
-    "GreenJetter": {
-      "head-assembly": {
-        "hair": {
-         "layers": [ "thumb" ]
+    "JumpingJunkie": {
+        "left-vest": {
+         "layers": [ "vest-mid", "vest-light", "vest-mid", "vest-dark" ]
+        },
+        "right-vest": {
+         "layers": [ "vest-light", "vest-mid", "vest-mid", "vest-mid", "vest-shadow","vest-dark" ]
         }
-      }
     }
   }
 }

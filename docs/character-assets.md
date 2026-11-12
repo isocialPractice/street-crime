@@ -138,13 +138,14 @@ frames need a line there. What exists today:
 ## Layer names inside a character
 
 Illustrator writes every layer, group and path name as the `id` of its SVG
-element. Named parts are what will let the game recolor a glove or swap a jacket:
+element. Named parts are what let the game recolor a vest (see
+[Recoloring parts](#recoloring-parts)) and, later, swap a jacket:
 
 | Level | Names | Example |
 | --- | --- | --- |
 | frame group | the artboard's action and frame | `walk_0` |
-| part | the body part | `front-glove`, `back-shoe`, `Head`, `hair` |
-| tone | `<part>-light`, `<part>-mid`, `<part>-dark`, `outline` | `arm-light`, `arm-mid`, `arm-dark` in `Player_Block_0.svg` |
+| part | the body part | `front-glove`, `back-shoe`, `Head`, `hair`, `left-vest` |
+| tone | `<part>-highlight`, `-light`, `-mid`, `-dark`, `-shadow`, and `outline` (or a `strokes` group) | `vest-light`, `vest-mid`, `vest-dark`, `vest-shadow` in `JumpingJunkie.svg`; `arm-light`, `arm-mid`, `arm-dark` in `Player_Block_0.svg` |
 | outfit piece | one group per swappable piece | `jacket-a`, `hat` |
 
 Unnamed items export with no id. A name used twice in one file gets a number on
@@ -155,9 +156,57 @@ parent and its base name.
 `scripts/mapSelectLayers.jsx` selects what a map points at so it can be checked in
 Illustrator first. See `scripts/README.md`.
 
-The naming scheme for parts, tones and outfit pieces is **planned** (it is being
-agreed), and so is the game side that reads it: palette swaps for elite enemies,
-and player outfit and color select.
+The part and tone names above are the ones recoloring reads. The rest of the
+scheme is **planned** (it is being agreed): outfit pieces, elite enemies with
+their own stats, and player outfit and color select.
+
+## Recoloring parts
+
+A level design can spawn an enemy with some parts of its art in other colors,
+without new art: JumpingJunkie with his gold vest in gray. The design names the
+parts and a palette for each ([level-design.md](level-design.md#pool-entries)):
+
+```json
+{ "enemy": "JumpingJunkie", "render": { "left-vest": "gray", "right-vest": "gray" } }
+```
+
+Palettes are in `config/palettes.json` (described by
+`config/schema/palettes.schema.json`): the tone names, lightest first, and a color
+for each tone in each palette.
+
+```json
+{
+  "tones": ["highlight", "light", "mid", "dark", "shadow"],
+  "palettes": {
+    "gray": { "highlight": "#e3e3e3", "light": "#c7c7c7", "mid": "#848484", "dark": "#545454", "shadow": "#050505" }
+  }
+}
+```
+
+The gray ramp matches how light the gold it replaces looks, so the vest keeps its
+contrast with the shirt and the outline. A palette missing a tone uses the
+nearest tone it has.
+
+Every frame of the enemy is recolored as it loads; the files are never changed.
+In each frame:
+
+| Step | Rule |
+| --- | --- |
+| part | every layer named the part, or a numbered copy of it (`left-vest-2`) |
+| side fallback | a frame with no `left-vest` but with a `vest` uses `vest`: `left-`, `right-`, `front-` and `back-` are dropped. JumpingJunkie's defeat pose draws its vest as one group, and turns gray this way |
+| shapes | every path, rect, polygon, polyline, circle and ellipse in the part, except inside an `outline` or `strokes` group, and except shapes with no fill |
+| tone | the nearest layer at or above the shape, inside the part, named `<tone>` or `<anything>-<tone>`, by its name before Illustrator numbered it (`vest-mid-4` is `mid`) |
+| no tone name | the tone whose color is nearest the shape's own in lightness |
+| color | set on the shape itself, which wins over the `.cls-N` rule it was filled by. Those rules are shared between parts, so they are never edited |
+
+So name the tones of a part you want recolored, and keep its outline in a
+`strokes` or `outline` group. A frame without the part warns once in the console
+("`<Name>_<action>.svg` has no left-vest, so it stays as drawn") and is drawn as
+it is. The level design's checks look for each part in the enemy's base frame,
+`<Name>.svg`, and suggest the nearest layer name.
+
+**Check it:** SANDBOX TEST, step `design-7-render`: a gold JumpingJunkie, then a
+gray-vested one, walk out of the warehouse door.
 
 ## Names that do not follow the pattern yet
 

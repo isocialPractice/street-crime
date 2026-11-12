@@ -1,0 +1,26 @@
+{
+  "$schema": "../../schema/level-design.schema.json",
+  "version": 1,
+  "start": "initial",
+  "states": {
+    "initial": {
+      "svg": "loads",
+      "spawn": [
+        {
+          "group": "gold-and-gray",
+          "type": "enemy",
+          "count": 2,
+          "pick": "in-order",
+          "pool": [
+            "JumpingJunkie",
+            { "enemy": "JumpingJunkie", "render": { "left-vest": "gray", "right-vest": "gray" } }
+          ],
+          "from": "RESTRICTED-import-export-warehouse/ENTER-building",
+          "animation": "walk",
+          "after": 1,
+          "every": 0.8
+        }
+      ]
+    }
+  }
+}

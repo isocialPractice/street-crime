@@ -265,14 +265,18 @@ function _svgSceneSections(svgText, fieldSelector = '#field') {
 // breakables, animated pieces, holes in the field). It is off for the built-in
 // scenes below, which are built while the scripts are still loading, before
 // level-map.js exists; scenes that use it are built later, at runtime.
+//
+// layers are the layers a level design moves (levelDesignLayerMoves), cut out
+// of the background so they can be drawn where the design sends them. They
+// need the level map, and a scene built without them cannot move them later.
 function createSvgScene({ path, fieldSelector = '#field', worldWidth = 800, worldHeight = 600,
-                          levelMap = false, levelDir = '' }) {
+                          levelMap = false, levelDir = '', layers = [] }) {
     const svgText = loadSvgText(path);
     const sections = _svgSceneSections(svgText, fieldSelector);
     const sceneWidth = sections.length > 0 ? worldWidth * sections.length : worldWidth;
     const field = _svgSceneFieldShape(svgText, fieldSelector);
     const map = levelMap
-        ? parseLevelMap(svgText, { worldWidth: sceneWidth, worldHeight, levelDir, field })
+        ? parseLevelMap(svgText, { worldWidth: sceneWidth, worldHeight, levelDir, field, layers })
         : null;
     const sceneSvg = _svgSceneBackground(svgText, map ? map.stripIds : []);
     return {

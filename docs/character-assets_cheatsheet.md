@@ -56,5 +56,18 @@ Frames listed in `js/sprites/player.js`. Enemy-applied reactions:
 
 ## Layer names
 
-frame `walk_0` › part `front-glove` › tone `glove-light` / `-mid` / `-dark` / `outline`.
-Bulk rename: `scripts/mapLayers.jsx`. Scheme and recoloring: **planned**.
+frame `walk_0` › part `front-glove` › tone `glove-highlight` / `-light` / `-mid` /
+`-dark` / `-shadow`, outline in `outline` or `strokes`. Bulk rename:
+`scripts/mapLayers.jsx`. Outfit pieces and the rest of the scheme: **planned**.
+
+## Recoloring
+
+| Piece | Is |
+| --- | --- |
+| design | pool entry `{ "enemy": "<Name>", "render": { "<part>": "<palette>" } }` |
+| palettes | `config/palettes.json`: `tones` (lightest first), `palettes.<name>.<tone>` = `#rrggbb` |
+| part | layers named it (or `-<n>` copies); else the bare part (`left-vest` → `vest`) |
+| tone | nearest `<tone>` / `*-<tone>` layer name; else nearest in lightness |
+| skipped | `outline` / `strokes` groups, shapes with no fill |
+
+Check it: SANDBOX TEST `design-7-render`.

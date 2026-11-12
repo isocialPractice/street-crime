@@ -92,6 +92,7 @@ with, one feature at a time on `theStreets`. Each step's own design file is in
 | `design-3-spawn` | three enemies walk out of the warehouse door |
 | `design-4-defeat` | beating them fades the screen, the player walks back in, the warehouse opens |
 | `design-5-drafts` | the original draft file, converted |
+| `design-7-render` | a gold JumpingJunkie, then one with his vest recolored gray, from a pool entry with a `render` |
 | `level-design` | the real `config/levels/theStreets/level-design.json`, end to end |
 
 ## On the published site
