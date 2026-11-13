@@ -1,23 +1,34 @@
 {
   "current": {
-    "JumpingJunkie": {
-        "left-vest": {
-         "layers": [  "<Path>","<Path>","<Path>","<Path>" ]
-        },
-        "right-vest": {
-         "layers": [ "<Path>","<Path>","<Path>","<Path>", "<Path>","<Path>" ]
-        }
-      
-    }
+    "JammingJabber": {
+      "right-vest": {
+        "layers": [ "strokes", "right-vest"]
+      },
+      "left-vest": {
+        "layers": [ "strokes", "left-vest"]
+      },
+      "front-leg": {
+       "layers": ["strokes", "<Path>", "<Path>", "front-leg"]
+      },
+      "back-leg": {
+       "layers": ["strokes", "<Path>", "back-leg"]
+      }
+     }
   },
   "change": {
-    "JumpingJunkie": {
-        "left-vest": {
-         "layers": [ "vest-mid", "vest-light", "vest-mid", "vest-dark" ]
-        },
-        "right-vest": {
-         "layers": [ "vest-light", "vest-mid", "vest-mid", "vest-mid", "vest-shadow","vest-dark" ]
-        }
+    "JammingJabber": {
+      "right-vest": {
+        "layers": [ "strokes", "vest-dark"]
+      },
+      "left-vest": {
+        "layers": [ "strokes", "vest-light"]
+      },
+      "front-leg": {
+       "layers": ["strokes", "pants-dark", "pants-light", "pants-dark"]
+      },
+      "back-leg": {
+       "layers": ["strokes", "pants-light", "pants-dark"]
+      }
     }
-  }
+   }
 }
