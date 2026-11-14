@@ -24,9 +24,10 @@ function draw() {
     const depthKey = item => {
         if (item === player)           return player.y + player.h + 0.5;
         if (item instanceof Enemy)     return item.y + item.h;
-        /* BreakableObj */             return item.y;
+        /* BreakableObj, WorldItem */  return item.y;
     };
-    [...enemies, player, ...breakables]
+    // Items lying in the level sort by the ground under them, as a crate does.
+    [...enemies, player, ...breakables, ...(levelRuntime ? levelRuntime.worldItems() : [])]
         .sort((a, b) => depthKey(a) - depthKey(b))
         .forEach(item => item.draw());
 
@@ -228,22 +229,24 @@ const LEVEL_MAP_DEBUG_STYLE = {
     'RESTRICTED':     { stroke: 'rgba(255,120,120,0.6)',  dash: [2, 4], above: true },
     'REQUIRE':        { stroke: 'rgba(255,120,120,0.95)', dash: [1, 3] },
     'EVENT':          { stroke: 'rgba(80,200,255,0.95)',  fill: 'rgba(80,200,255,0.12)', dash: [4, 3] },
+    'INVENTORY':      { stroke: 'rgba(120,255,255,0.95)', fill: 'rgba(120,255,255,0.12)', dash: [2, 2] },
 };
-// INVENTORY-, MISSING-, SWITCH- and USABLE- are drawn alike until they do
-// something: grey, so a reserved name reads as present but inert.
+// MISSING-, SWITCH- and USABLE- are drawn alike until they do something:
+// grey, so a reserved name reads as present but inert.
 const LEVEL_MAP_DEBUG_RESERVED = { stroke: 'rgba(200,200,200,0.8)', dash: [3, 3] };
 
 // drawLevelDesignDebug - where the level design is, in the bottom-left
-// corner: the current state, every case (true in full, false dimmed), the
-// RESTRICTED layers still locked, and each spawn group's count. Enough to see
-// why a transition has not fired.
+// corner: the current state, every case (true in full, false dimmed, and the
+// condition a case follows), the RESTRICTED layers still locked, and each
+// spawn group's counts. Enough to see why a transition has not fired.
 function drawLevelDesignDebug(director) {
     if (!director) return;
     const snap = director.snapshot();
+    const conditions = snap.conditions || {};
     const lines = [
         { text: `DESIGN  state: ${snap.state || '(not started)'}`, color: 'rgba(255,215,0,0.95)' },
         ...Object.entries(snap.cases).map(([name, value]) => ({
-            text: `  ${value ? 'T' : 'F'} ${name}`,
+            text: `  ${value ? 'T' : 'F'} ${name}${conditions[name] ? `  (${conditions[name]})` : ''}`,
             color: value ? 'rgba(140,255,160,0.95)' : 'rgba(200,200,200,0.6)',
         })),
     ];
@@ -251,9 +254,16 @@ function drawLevelDesignDebug(director) {
         lines.push({ text: `  locked: ${snap.locked.join(', ')}`, color: 'rgba(255,120,120,0.95)' });
     }
     for (const group of snap.groups) {
+        const fled = group.fled ? `, ${group.fled} fled` : '';
         lines.push({
-            text: `  ${group.name}: ${group.spawned}/${group.total} out, ${group.down} down`,
+            text: `  ${group.name}: ${group.standing} standing, ${group.toCome} to come, ${group.down} down${fled}`,
             color: 'rgba(120,200,255,0.95)',
+        });
+    }
+    if (snap.inventory?.length) {
+        lines.push({
+            text: `  carrying: ${snap.inventory.map(slot => slot.count > 1 ? `${slot.item} x${slot.count}` : slot.item).join(', ')}`,
+            color: 'rgba(255,215,0,0.8)',
         });
     }
     if (snap.entrance) lines.push({ text: `  player ${snap.entrance}`, color: 'rgba(255,215,0,0.8)' });

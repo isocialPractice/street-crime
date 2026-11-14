@@ -18,7 +18,8 @@ it, and how characters and objects are named so the game can find them.
 | Page | |
 | --- | --- |
 | [level-naming.md](level-naming.md) | What a level SVG says through its layer names: the walkable field, doors, locks, animated and breakable scenery, trigger areas, holes. Also as a [quickstart](level-naming_quickstart.md) and a [cheatsheet](level-naming_cheatsheet.md) |
-| [level-design.md](level-design.md) | When things happen: states, cases, triggers, spawn groups, player entrances and drafts in `level-design.json`. Also as a [quickstart](level-design_quickstart.md) and a [cheatsheet](level-design_cheatsheet.md) |
+| [level-design.md](level-design.md) | When things happen: states, cases and conditions, triggers, spawn groups and crews, player entrances, resets and drafts in `level-design.json`. Also as a [quickstart](level-design_quickstart.md) and a [cheatsheet](level-design_cheatsheet.md) |
+| [inventory.md](inventory.md) | Items: the catalog, items lying in a level, taking and carrying them, the item screen, the command line, and what a level design reads |
 
 ## Assets
 
@@ -40,3 +41,4 @@ it, and how characters and objects are named so the game can find them.
 | `scripts/README.md` | The Illustrator scripts: running them from a terminal, and renaming layers from a layer map |
 | `config/schema/level-design.schema.json` | The level design format, for editors |
 | `config/palettes.json`, `config/schema/palettes.schema.json` | The palettes a level design can recolor a character's parts with |
+| `config/debug/items.json`, `config/schema/items.schema.json` | The sandbox's item catalog, and the format of one |

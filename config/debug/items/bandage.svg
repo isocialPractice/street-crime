@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <g id="bandage">
+    <g id="bandage-mid">
+      <path d="M24 44 C 36 46.5, 44 43.5, 58.5 46.5 L 57 55.5 C 44 52.5, 36 56, 22.5 53.5 Z" fill="#d9d9d2" stroke="#000" stroke-width="2.5" stroke-linejoin="round"/>
+      <circle cx="24" cy="29" r="17" fill="#f4f4f0" stroke="#000" stroke-width="2.5"/>
+    </g>
+    <g id="bandage-dark">
+      <circle cx="24" cy="29" r="11.5" fill="none" stroke="#a8a8a0" stroke-width="1.4"/>
+      <circle cx="24" cy="29" r="6.5" fill="none" stroke="#a8a8a0" stroke-width="1.4"/>
+      <circle cx="24" cy="29" r="3" fill="#a8a8a0"/>
+      <path d="M39.6 33.6 A15.8 15.8 0 0 1 14 41.4 L15.9 39 A12.8 12.8 0 0 0 36.6 32.6 Z" fill="#d9d9d2"/>
+      <path d="M24.5 51.2 C 36 53.6, 44 50.2, 57.2 53.2 L 57 55.5 C 44 52.5, 36 56, 22.5 53.5 Z" fill="#a8a8a0"/>
+    </g>
+    <g id="bandage-light">
+      <path d="M8.9 26.3 A15.4 15.4 0 0 1 21.3 13.8 L21.8 16.3 A12.9 12.9 0 0 0 11.4 26.8 Z" fill="#ffffff"/>
+    </g>
+    <g id="cross">
+      <rect x="40.5" y="47.3" width="7.4" height="2.6" fill="#d22"/>
+      <rect x="42.9" y="44.9" width="2.6" height="7.4" fill="#d22"/>
+    </g>
+  </g>
+</svg>

@@ -40,6 +40,8 @@ test is a new entry in that file.
 | `levelMap` | `{ "enabled": true, "animate": {} }` | read the level's map ids, and how its animations play ([object-assets.md](object-assets.md#animation-frames)) |
 | `enterables` | `{}` | an interior for an enterable whose file is not named after it: `{ "bad-bar": "enterables/badBar.svg" }` |
 | `enemies` | `[]` | enemy ids to spawn near the player at the start |
+| `items` | none | an item catalog, such as `config/debug/items.json` ([inventory.md](inventory.md#the-item-catalog)) |
+| `inventory` | `[]` | items the player starts with, as ids or `{ "item", "count" }`, given after the design's start state |
 | `checklist` | `[]` | `{ "label", "event" }` rows, ticked when the event is reported |
 
 A key left out takes its default. An object merges with its default one level
@@ -56,7 +58,8 @@ missing its `level` or `scene`, the sandbox runs a built-in test of
 | --- | --- |
 | test list | picks another test from the file |
 | RESTART | starts the picked test again from the beginning |
-| status line | `ready`, how many map ids and warnings the level has, and `design: N warnings`; red when something is wrong |
+| status line | `ready`, how many map ids and warnings the level has, `items: N warnings` with a catalog, and `design: N warnings`; red when something is wrong |
+| ITEMS | with a catalog: pick an item, then GIVE it to the player, USE one they carry, or DROP one at their feet (one they carry, else a new one), to take again |
 | checklist | each row ticks when its event is reported |
 
 Checklist events are anything the level or its design reports: `break:`,
@@ -75,8 +78,9 @@ Checklist events are anything the level or its design reports: `break:`,
 - **A draft design** is converted, and the console prints it as version 1, ready to
   save.
 - **Show Hitboxes.** Outlines every map id with its name, and shows the level
-  design's state box in the bottom-left corner: the current state, the cases, what
-  is locked, spawn groups, the player's entrance and what was stored.
+  design's state box in the bottom-left corner: the current state, the cases (with
+  the conditions they follow), what is locked, each spawn group's counts, what the
+  player carries, the player's entrance and what was stored.
 
 ## The level design steps
 
@@ -93,7 +97,10 @@ with, one feature at a time on `theStreets`. Each step's own design file is in
 | `design-4-defeat` | beating them fades the screen, the player walks back in, the warehouse opens |
 | `design-5-drafts` | the original draft file, converted |
 | `design-7-render` | a gold JumpingJunkie, then one with his vest recolored gray, from a pool entry with a `render` |
-| `level-design` | the real `config/levels/theStreets/level-design.json`, end to end |
+| `design-8-crews` | crews defined once under `groups`, a count from the pool, two SassyGirls of which one is recolored, `order` (reverse, and all at once after a door) |
+| `design-9-conditions` | condition cases, a lock that locks again, `when`, enemies from the edges, a crew coming back with its health, one running off, `reset` |
+| `design-10-inventory` | the item catalog, the key in the warehouse, the item screen, the whistle, the command line, and walking out with or without the key |
+| `level-design` | the real `config/levels/theStreets/level-design.json`, end to end: the key decides whether the response crew fights or runs |
 
 ## On the published site
 

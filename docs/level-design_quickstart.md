@@ -72,5 +72,15 @@ them and the last two rows tick.
   `"restricted": { "corner-shop": { "until": "case:alley-cleared" } }`
 - Start the ambush from a place instead of the crates: draw an `EVENT-alley-ambush`
   area and use `"on": "event:alley-ambush"`
+- Write the gang once and spawn it from any state: move its keys under
+  `"groups": { "enemy": { "alley-gang": { ... } } }` and leave
+  `{ "group": "alley-gang", "from": "..." }` in the state
+- Open the shop only while nobody is left to fight: give a case a condition,
+  `"nobody-left": { "condition": "alive = 0" }`, and write
+  `"restricted": { "corner-shop": { "until": "case:nobody-left", "type": "condition" } }`
+- Branch on what the player carries: lay a crowbar in the shop
+  (`INVENTORY-crowbar`, [inventory.md](inventory.md)), add
+  `"has-crowbar": { "condition": "inventory:crowbar" }`, and give a step
+  `"when": { "has-crowbar": true }`
 
 The full list of keys and triggers is in [level-design_cheatsheet.md](level-design_cheatsheet.md).

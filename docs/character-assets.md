@@ -178,14 +178,21 @@ for each tone in each palette.
 {
   "tones": ["highlight", "light", "mid", "dark", "shadow"],
   "palettes": {
-    "gray": { "highlight": "#e3e3e3", "light": "#c7c7c7", "mid": "#848484", "dark": "#545454", "shadow": "#050505" }
+    "gray": { "highlight": "#e3e3e3", "light": "#c7c7c7", "mid": "#848484", "dark": "#545454", "shadow": "#050505" },
+    "dark-gray": { "highlight": "#8a8a8a", "light": "#6a6a6a", "mid": "#4e4e4e", "dark": "#383838", "shadow": "#050505" }
   }
 }
 ```
 
 The gray ramp matches how light the gold it replaces looks, so the vest keeps its
-contrast with the shirt and the outline. A palette missing a tone uses the
-nearest tone it has.
+contrast with the shirt and the outline. The dark gray ramp is darker than the
+colors it replaces, with its tones further apart than theirs: SassyGirl's pink
+dress shades by hue as much as by lightness, and gray has only lightness to shade
+with. A palette missing a tone uses the nearest tone it has.
+
+A pool entry can bring several of an enemy and recolor only some of them:
+`{ "enemy": "SassyGirl", "count": 2, "re-render": 1, "render": { "dress": "dark-gray" } }`
+is one SassyGirl in dark gray and one as drawn ([level-design.md](level-design.md#pool-entries)).
 
 Every frame of the enemy is recolored as it loads; the files are never changed.
 In each frame:

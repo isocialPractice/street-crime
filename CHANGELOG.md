@@ -8,6 +8,64 @@ anything earlier, see the commit log.
 
 ---
 
+## [2026.11.14]
+
+### Added
+- **Crews written once.** A level design's `groups` holds spawn groups by type and
+  name (`"groups": { "enemy": { "warehouse-crew": { ... } } }`); a state's spawn
+  names one and lays its own keys over it. A spawn's `order` (`random`, `sequence`,
+  `reverse`, `same`, or a list of names) sets who comes out first, and all come at
+  once after a door; `count` can be left to the pool. A pool entry takes `count`,
+  `re-render` (how many of them are recolored) and `name`. New `dark-gray` palette.
+- **Condition cases.** A case can follow a condition instead of holding a value,
+  `{ "condition": "alive = 0" }` or `"inventory:key"`, read every frame, from the
+  start or from a state on (a state's `cases`). Sources: `alive`, `alive:<group>`,
+  `fled:<group>`, `inventory`, `case`, `state`, with `=`, `!=`, `<`, `<=`, `>`, `>=`.
+- **Flow.** `next` steps branch on cases with `when`; a `restricted` entry with
+  `"type": "condition"` locks again when its condition stops holding (`lock:<name>`);
+  a state's `reset` mends a breakable, moves a layer back, locks a door, resets a
+  case, or starts the whole level over (`"level"`); `"svg": "none"`.
+- **Crews that come and go.** A spawn can come `from` the view's `edges`, bring back
+  the members still standing with their health (`inherit`), or stand a moment and
+  run off (`"then": "flee"`, reporting `fled:<group>`). Enemies have a short script
+  queue (walk, wait, leave).
+- **Items.** An item catalog (`config/schema/items.schema.json`; the sandbox's is
+  `config/debug/items.json`, with seven drawings in `config/debug/items/`), the
+  player's `Inventory`, `INVENTORY-<item>` layers for items lying in a level (E:
+  CHECK, then a take window), `REQUIRE-item-` locks, and `take:`, `use:`, `drop:`,
+  `combine:` reports. USE heals, scatters (the whistle: every fighting enemy runs
+  off the nearer edge and comes back a second later) or says something; COMBINE
+  makes one item of two.
+- **The item screen.** I or Tab: the player's condition as a heartbeat trace,
+  the slots, and USE, CHECK (the item turning) and COMBINE, by keys or the mouse.
+- **The command line.** Ctrl+I: `look`, `talk`, `use`, `take`, `inventory`, `help`,
+  with `look:` and `talk:` reports and a design's own `look` sentences.
+- Sandbox steps `design-8-crews`, `design-9-conditions` and `design-10-inventory`;
+  test keys `items` and `inventory`, and an ITEMS block (GIVE, USE, DROP).
+- Settings: Stand Before Run, Run Speed, Text Speed, Look Range, Talk Range.
+- `docs/inventory.md`.
+
+### Changed
+- `config/levels/theStreets/level-design.json` is rewritten from the shorthand it
+  held: the warehouse crew under `groups` (a CrimeGuy, a JumpingJunkie and a gray
+  CrimeGuy), the warehouse opening only while nobody is left to fight, a key on the
+  warehouse's second screen that decides whether the response crew fights or runs
+  off, and what leaving the bar then does (mend the gate, or start the level over).
+  The warehouse interior gains `OBJECT-key-crate` / `INVENTORY-key`.
+- A design's `player` `inventory` rules (`empty`, `inherit`, `store`) act on what
+  the player carries.
+- The design's debug box shows each case's condition, each group's standing, to
+  come, down and fled counts, and what the player carries.
+- `scripts/checkLevelDesignVocab.js` compares the new words, and runs sample
+  conditions through both the game's parser and the schema's pattern.
+- The level design, level naming, sandbox and character asset pages, the
+  cheatsheets, and the controls in the README and quickstart.
+
+### Fixed
+- `config/levels/theStreets/level-design.json` parses again.
+
+---
+
 ## [2026.11.11]
 
 ### Added

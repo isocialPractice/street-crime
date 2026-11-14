@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "items.schema.json",
+  "title": "Item catalog",
+  "description": "The items a level can hold and the player can carry. A level places one with an INVENTORY-<item> layer inside an OBJECT- layer; a level design reads what the player carries with \"inventory:<item>\" conditions and waits on \"take:<item>\", \"use:<item>\" and \"combine:<item>\".",
+  "type": "object",
+  "required": ["items"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "description": "Path to this schema, for editor autocomplete and hover help.",
+      "type": "string"
+    },
+    "slots": {
+      "description": "How many slots the player has. A stack of one item takes one slot.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 24,
+      "default": 8
+    },
+    "items": {
+      "description": "The items, keyed by id: the name an INVENTORY- layer, a condition and a report use.",
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "$ref": "#/$defs/id" },
+      "additionalProperties": { "$ref": "#/$defs/item" }
+    }
+  },
+  "$defs": {
+    "id": {
+      "description": "Lower-case letters, digits and -.",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "item": {
+      "type": "object",
+      "required": ["name", "art"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "description": "What the item is called on screen, such as \"Brass Key\".",
+          "type": "string",
+          "minLength": 1
+        },
+        "art": {
+          "description": "The item's SVG, relative to this file: drawn lying in the level, in its slot, and turning when checked.",
+          "type": "string",
+          "minLength": 1
+        },
+        "look": {
+          "description": "What checking or looking at it says.",
+          "type": "string"
+        },
+        "stack": {
+          "description": "How many share one slot.",
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        },
+        "use": {
+          "description": "What using it does. Left out, using it says there is nothing to use it on.",
+          "oneOf": [
+            {
+              "description": "Restore this much health, up to full. At full health it is not used.",
+              "type": "object", "required": ["heal"], "additionalProperties": false,
+              "properties": { "heal": { "type": "number", "exclusiveMinimum": 0 } }
+            },
+            {
+              "description": "Every enemy fighting in the scene runs off the nearer edge of the view, waits this many seconds, and comes back in at the same edge.",
+              "type": "object", "required": ["scatter"], "additionalProperties": false,
+              "properties": { "scatter": { "type": "number", "minimum": 0 } }
+            },
+            {
+              "description": "Only say this.",
+              "type": "object", "required": ["say"], "additionalProperties": false,
+              "properties": { "say": { "type": "string", "minLength": 1 } }
+            }
+          ]
+        },
+        "consume": {
+          "description": "true: one is used up each time it is used.",
+          "type": "boolean",
+          "default": false
+        },
+        "combine": {
+          "description": "Other item id to the id of what the two make together. Both are used up and the result takes this item's slot. May be written on one side or both.",
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/id" },
+          "additionalProperties": { "$ref": "#/$defs/id" }
+        }
+      }
+    }
+  }
+}

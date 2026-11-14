@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <g id="coin">
+    <g id="coin-mid">
+      <circle cx="32" cy="32" r="22" fill="#b5b9bd" stroke="#000" stroke-width="2.5"/>
+    </g>
+    <g id="coin-light">
+      <circle cx="32" cy="32" r="16.5" fill="#e6e8ea"/>
+      <path d="M11.52 28.39 A20.8 20.8 0 0 1 35.61 11.52 L34.95 15.26 A17 17 0 0 0 15.26 29.05 Z" fill="#e6e8ea"/>
+    </g>
+    <g id="coin-dark">
+      <path d="M52.49 35.61 A20.8 20.8 0 0 1 21.6 50.01 L23.5 46.72 A17 17 0 0 0 48.74 34.95 Z" fill="#7d8287"/>
+      <circle cx="32" cy="32" r="16.5" fill="none" stroke="#7d8287" stroke-width="1"/>
+    </g>
+    <g id="star">
+      <g id="star-mid">
+        <polygon points="32,22 34.47,28.6 41.51,28.91 35.99,33.3 37.88,40.09 32,36.2 26.12,40.09 28.01,33.3 22.49,28.91 29.53,28.6" fill="#b5b9bd" stroke="#7d8287" stroke-width="1.2" stroke-linejoin="round"/>
+      </g>
+      <g id="star-light">
+        <polygon points="32,23.6 30.1,28.8 32,28.6" fill="#f7f8f9"/>
+        <polygon points="24.6,29.6 29.4,29.4 28.5,31" fill="#f7f8f9"/>
+      </g>
+    </g>
+  </g>
+</svg>

@@ -19,11 +19,26 @@
       "description": "The state the level begins in. Must be a key of `states`.",
       "$ref": "#/$defs/name"
     },
+    "groups": {
+      "description": "Spawn groups defined once, for any state to spawn by name: spawn type, then group name, then the group's keys. A state's spawn names the group in `group` and its own keys win, key by key; a list (`pool`, `order`) is replaced whole.",
+      "type": "object",
+      "propertyNames": { "enum": ["enemy"] },
+      "additionalProperties": {
+        "type": "object",
+        "propertyNames": { "$ref": "#/$defs/name" },
+        "additionalProperties": { "$ref": "#/$defs/groupDef" }
+      }
+    },
     "cases": {
-      "description": "Named true/false flags for the level, with their starting values. States change them with `set`; triggers and locks read them as \"case:<name>\".",
+      "description": "Named flags for the level. Each is a starting true or false that states change with `set`, or { \"condition\": ... } to follow from the start, such as \"has-key\": { \"condition\": \"inventory:key\" }. Triggers, `when` and locks read them as \"case:<name>\"; turning true reports \"case:<name>\".",
       "type": "object",
       "propertyNames": { "$ref": "#/$defs/name" },
-      "additionalProperties": { "type": "boolean" }
+      "additionalProperties": {
+        "anyOf": [
+          { "type": "boolean" },
+          { "$ref": "#/$defs/caseCondition" }
+        ]
+      }
     },
     "restricted": {
       "description": "Unlock conditions for RESTRICTED-<name> layers, keyed by <name>. Overrides a REQUIRE- layer inside it. A RESTRICTED layer with no condition here or in the SVG stays locked.",
@@ -35,10 +50,24 @@
         "additionalProperties": false,
         "properties": {
           "until": {
-            "description": "Locked until this is true, for example \"case:enemies-defeated\" or \"state:boss-down\". Once unlocked it stays unlocked for the run, and reports \"unlock:<name>\".",
+            "description": "Locked until this is true, for example \"case:enemies-defeated\" or \"state:boss-down\". Reports \"unlock:<name>\" when it opens.",
             "$ref": "#/$defs/trigger"
+          },
+          "type": {
+            "description": "\"once\" (default): opens the first time `until` holds and stays open for the run. \"condition\": open while `until` holds, locked again (reporting \"lock:<name>\") when it stops.",
+            "enum": ["once", "condition"],
+            "default": "once"
           }
         }
+      }
+    },
+    "look": {
+      "description": "What LOOK on the command line says about things, by layer name: an OBJECT-, BREAKABLE-, ENTERABLE- or RESTRICTED- (for its door) or INVENTORY- layer. Without one, a thing is named by its layer name in words (\"parking gate box\").",
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/name" },
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
       }
     },
     "states": {
@@ -56,9 +85,9 @@
       "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
     },
     "trigger": {
-      "description": "\"<kind>:<key>\" for any level event (break:, enter:, exit:, interact:, animate:, event:, locked:, unlock:, spawn:<group>, defeated:<group>, arrive:<state> once the player has come on for that state), or \"case:<name>\" (that case is true) or \"state:<name>\" (that state was entered).",
+      "description": "\"<kind>:<key>\" for any level event (break:, enter:, exit:, interact:, animate:, event:, locked:, unlock:, lock:, spawn:<group>, defeated:<group>, fled:<group> when any of a group ran off, arrive:<state> once the player has come on for that state, take:<item>, use:<item>, drop:<item>, combine:<item> each time the player does it with an item, look:<name> and talk:<name> from the command line), or \"case:<name>\" (that case is true) or \"state:<name>\" (that state was entered).",
       "type": "string",
-      "pattern": "^(animate|break|enter|exit|interact|event|locked|unlock|spawn|defeated|arrive|state|case):[A-Za-z0-9][A-Za-z0-9_-]*$"
+      "pattern": "^(animate|break|enter|exit|interact|event|locked|unlock|lock|spawn|defeated|fled|arrive|state|case|take|use|drop|combine|look|talk):[A-Za-z0-9][A-Za-z0-9_-]*$"
     },
     "layerPath": {
       "description": "A layer named by its map id, optionally under its nearest mapped parent: \"ENTER-building\" or \"RESTRICTED-import-export-warehouse/ENTER-building\". Illustrator's numbered copies (\"ENTER-building-2\") match their base name.",
@@ -75,8 +104,8 @@
       "additionalProperties": false,
       "properties": {
         "svg": {
-          "description": "What the level art does on entering the state. \"loads\": nothing, the scene as loaded. \"layer-state-change\": a marker that the art changes through the layers themselves, such as a breakable's _broken art. \"fade-out\": fade to black and back, then place the player.",
-          "enum": ["loads", "layer-state-change", "fade-out"]
+          "description": "What the level art does on entering the state. \"loads\" and \"none\": nothing, the scene as it is. \"layer-state-change\": a marker that the art changes through the layers themselves, such as a breakable's _broken art. \"fade-out\": fade to black and back, then place the player.",
+          "enum": ["loads", "layer-state-change", "fade-out", "none"]
         },
         "set": {
           "description": "Cases to change on entering the state. Cases not listed keep their value. Each change reports \"case:<name>\" when the case becomes true.",
@@ -84,6 +113,13 @@
           "propertyNames": { "$ref": "#/$defs/name" },
           "additionalProperties": { "type": "boolean" }
         },
+        "cases": {
+          "description": "From entering this state on, these cases follow a condition (until a later state gives another, or `set`s them). Each must be in the top `cases`, which gives its value until then.",
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/name" },
+          "additionalProperties": { "$ref": "#/$defs/caseCondition" }
+        },
+        "reset": { "$ref": "#/$defs/reset" },
         "player": { "$ref": "#/$defs/player" },
         "spawn": {
           "description": "Groups of characters to bring in on entering the state.",
@@ -105,16 +141,33 @@
           }
         },
         "next": {
-          "description": "What moves the level on from this state. Only the current state's triggers are live, and the first to fire wins.",
+          "description": "What moves the level on from this state. Only the current state's steps are live, and the first to fire wins.",
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["on", "to"],
+            "required": ["to"],
             "additionalProperties": false,
             "properties": {
-              "on": { "description": "The trigger to wait for.", "$ref": "#/$defs/trigger" },
-              "to": { "description": "The state to move to. Must be a key of `states`.", "$ref": "#/$defs/name" }
-            }
+              "on": {
+                "description": "The trigger to wait for.",
+                "$ref": "#/$defs/trigger"
+              },
+              "when": {
+                "description": "Cases that must have these values for the step to fire, such as { \"has-key\": true }. With no `on`, the step fires as soon as they do.",
+                "type": "object",
+                "minProperties": 1,
+                "propertyNames": { "$ref": "#/$defs/name" },
+                "additionalProperties": { "type": "boolean" }
+              },
+              "to": {
+                "description": "The state to move to. Must be a key of `states`.",
+                "$ref": "#/$defs/name"
+              }
+            },
+            "anyOf": [
+              { "required": ["on"] },
+              { "required": ["when"] }
+            ]
           }
         }
       }
@@ -140,7 +193,7 @@
           "enum": ["walk", "idle"]
         },
         "inventory": {
-          "description": "\"empty\" clears it, \"inherit\" keeps it, \"store\" saves it for the next level. Planned: there is no inventory system yet, so this only records the choice.",
+          "description": "What the player carries: \"empty\" empties it, \"inherit\" keeps it, \"store\" keeps it and saves it for the next level.",
           "enum": ["empty", "inherit", "store"]
         },
         "health": {
@@ -150,23 +203,23 @@
       }
     },
     "spawnGroup": {
+      "description": "A group to bring in. Its keys may come from a group of the same name under `groups`; the ones written here win. `type` and `from` are needed here or there.",
       "type": "object",
-      "required": ["group", "type", "from"],
+      "required": ["group"],
       "additionalProperties": false,
       "properties": {
         "group": {
-          "description": "The group's name. Reports \"spawn:<group>\" when the first one appears and \"defeated:<group>\" when all of them are done.",
+          "description": "The group's name, and the group under `groups` it spawns, if there is one. Reports \"spawn:<group>\" when the first one appears and \"defeated:<group>\" when all of them are done.",
           "$ref": "#/$defs/name"
         },
         "type": {
-          "description": "What to spawn. Only \"enemy\" is built.",
+          "description": "What to spawn. Only \"enemy\" is built. May be left out when the group is defined under `groups`.",
           "enum": ["enemy"]
         },
         "count": {
-          "description": "How many to spawn.",
+          "description": "How many to spawn. Left out: every enemy the pool brings (each entry its own `count`), or 1 with no pool.",
           "type": "integer",
-          "minimum": 1,
-          "default": 1
+          "minimum": 1
         },
         "pick": {
           "description": "\"random\": each one is drawn from the pool, without repeats while the pool lasts. \"in-order\": the pool's ids in turn.",
@@ -179,14 +232,21 @@
           "minItems": 1,
           "items": {
             "anyOf": [
-              { "type": "string", "description": "An enemy's id or art name, in any case." },
+              {
+                "type": "string",
+                "description": "An enemy's id or art name, in any case."
+              },
               { "$ref": "#/$defs/poolEnemy" }
             ]
           }
         },
+        "order": { "$ref": "#/$defs/order" },
         "from": {
-          "description": "The layer they come out of, such as a door: they appear at its foot and walk down into the walkable area.",
-          "$ref": "#/$defs/layerPath"
+          "description": "Where they come in: a layer they come out of, such as a door (they appear at its foot and walk down into the walkable area), or \"edges\": from just off the view's left and right edges, taking turns.",
+          "anyOf": [
+            { "const": "edges" },
+            { "$ref": "#/$defs/layerPath" }
+          ]
         },
         "animation": {
           "description": "How they arrive. \"walk\" walks them out of the layer before their AI starts; \"idle\" starts the AI at once.",
@@ -198,13 +258,61 @@
           "$ref": "#/$defs/seconds"
         },
         "every": {
-          "description": "Seconds between each one after the first.",
+          "description": "Seconds between each one after the first. Not used when they come out all at once (`order` \"same\"). Also read when written \"timeout\", with a note.",
           "$ref": "#/$defs/seconds"
+        },
+        "then": {
+          "description": "What they do once out. \"fight\" (default), or \"flee\": stand a moment, run off the nearer edge of the view and are gone; the group then reports \"fled:<group>\" instead of \"defeated:<group>\".",
+          "enum": ["fight", "flee"],
+          "default": "fight"
+        },
+        "inherit": {
+          "description": "true: bring back the members of this group's last spawn still standing, wherever they are, with the health they had, instead of new ones. `count`, `pick`, `pool` and `order` are not used.",
+          "type": "boolean"
         }
       }
     },
+    "groupDef": {
+      "description": "A spawn group defined once. Any spawn key but `group` and `type`, which are where it is filed. A state's spawn of this group lays its own keys over these.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "count": { "$ref": "#/$defs/spawnGroup/properties/count" },
+        "pick": { "$ref": "#/$defs/spawnGroup/properties/pick" },
+        "pool": { "$ref": "#/$defs/spawnGroup/properties/pool" },
+        "order": { "$ref": "#/$defs/order" },
+        "from": { "$ref": "#/$defs/spawnGroup/properties/from" },
+        "animation": { "$ref": "#/$defs/spawnGroup/properties/animation" },
+        "after": { "$ref": "#/$defs/spawnGroup/properties/after" },
+        "every": { "$ref": "#/$defs/spawnGroup/properties/every" },
+        "then": { "$ref": "#/$defs/spawnGroup/properties/then" },
+        "inherit": { "$ref": "#/$defs/spawnGroup/properties/inherit" }
+      }
+    },
+    "order": {
+      "description": "The order the members `pick` chose come out in. \"random\": shuffled. \"sequence\": pool order. \"reverse\": the other way. \"same\" (or \"load\"): all at once. A list: those names first (a pool entry's `name`, an enemy's id or art name, or a pool position from 1), then the rest in pool order. Left out: all at once when the state was entered through a door, otherwise the order `pick` drew them in.",
+      "anyOf": [
+        { "enum": ["random", "sequence", "reverse", "same", "load"] },
+        {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "integer",
+                "minimum": 1
+              }
+            ]
+          }
+        }
+      ]
+    },
     "poolEnemy": {
-      "description": "An enemy drawn with some of its parts recolored, with the enemy's own stats.",
+      "description": "An enemy in a pool written as an object: how many of it, how many of those drawn with some of their parts recolored, and a name for `order` lists. Each has the enemy's own stats.",
       "type": "object",
       "required": ["enemy"],
       "additionalProperties": false,
@@ -212,6 +320,21 @@
         "enemy": {
           "description": "The enemy: its id or art name, in any case.",
           "type": "string"
+        },
+        "count": {
+          "description": "How many of this enemy the entry brings.",
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        },
+        "re-render": {
+          "description": "How many of `count` are drawn with `render`; the rest are drawn as the enemy is. Left out: all of them.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "name": {
+          "description": "A name for this entry, for `order` lists and the debug box, such as \"gray-crimeguy\".",
+          "$ref": "#/$defs/name"
         },
         "render": {
           "description": "Part name (a layer name in the enemy's art, such as \"left-vest\") to palette name (in config/palettes.json, such as \"gray\"). Every shape in the part takes the palette's color for its tone, read from its layer name (\"vest-mid\" is mid). A frame without a sided part (\"left-vest\") uses the bare one (\"vest\").",
@@ -251,6 +374,32 @@
           "$ref": "#/$defs/seconds"
         }
       }
+    },
+    "condition": {
+      "description": "<source>[:<name>] [<op> <whole number>], read every frame. Counts: \"alive\" (enemies in play, standing or still to come, in every scene), \"alive:<group>\" (that group still to beat; before it starts, all it will bring), \"fled:<group>\", \"inventory:<item>\", \"inventory\". With no op, a count means at least 1. Flags, true or false with no op: \"case:<name>\", \"state:<name>\" (entered). Ops: = != < <= > >=.",
+      "type": "string",
+      "pattern": "^\\s*(alive|fled|inventory|case|state)\\s*(:\\s*[A-Za-z0-9][A-Za-z0-9_-]*)?\\s*((==|=|!=|<=|>=|<|>)\\s*\\d+)?\\s*$"
+    },
+    "caseCondition": {
+      "description": "A case that follows a condition instead of holding a value.",
+      "type": "object",
+      "required": ["condition"],
+      "additionalProperties": false,
+      "properties": { "condition": { "$ref": "#/$defs/condition" } }
+    },
+    "reset": {
+      "description": "What entering the state puts back as it was at the start of the run, each able to report again: \"break:<name>\" (whole again), \"animate:<layer>\" (back where the art draws it), \"unlock:<name>\" (locked again), \"case:<name>\" (its starting value). Or \"level\": the whole run, then the start state.",
+      "anyOf": [
+        { "const": "level" },
+        {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^(break|animate|unlock|case):[A-Za-z0-9][A-Za-z0-9_-]*$"
+          }
+        }
+      ]
     }
   }
 }

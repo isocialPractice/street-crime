@@ -80,6 +80,9 @@ class Player extends Entity {
         // progress, set through walkTo. Both are the level design's to set.
         this.hidden   = false;
         this.script   = null;
+        // What the player carries (js/entities/inventory.js), as many slots as
+        // the item catalog in use says.
+        this.inventory = new Inventory(typeof ITEM_CATALOG !== 'undefined' ? ITEM_CATALOG.slots : 8);
         // Counts down while the guard shudders from a blow it just turned
         // aside. See _absorbBlockedHit and the 'block' case in getImg.
         this.resistT  = 0;

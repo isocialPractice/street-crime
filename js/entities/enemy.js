@@ -289,43 +289,121 @@ class Enemy extends Entity {
         this.getUps      = ENEMY_CHARS[def.img]?.getUps || 0;
         this.getUpsLeft  = this.getUps;
         // A move the level plays before the AI takes over, such as walking out
-        // of a door: { vx, vy, t, end }. Set through walkTo(). See _runScript.
+        // of a door: { kind: 'walk', vx, vy, t, end, face } or { kind: 'wait',
+        // t }. Set through walkTo(); more steps can wait behind it in scripts
+        // (queueScript) and run in turn. See _runScript.
         this.script      = null;
+        this.scripts     = [];
         // The level design group this enemy was spawned in, if any.
         this.spawnGroup  = null;
+        // Set when the enemy has run off the level ("then": "flee"): gone, like
+        // a beaten one, but not beaten. fleeing is set from the moment it is
+        // told to go, for whoever asks how it feels about the player.
+        this.fled        = false;
+        this.fleeing     = false;
+        // Set while it is away from a scatter (a whistle), back in the fight
+        // once it walks back in.
+        this.scattered   = false;
     }
 
     // walkTo - walk straight to (x, y), the hit box's top-left, at speed px/s,
-    // then hand over to the AI. The enemy cannot be hit on the way, and is not
-    // held to the walkable field until it arrives: a door's foot can sit just
-    // outside the field, and walking out of it is the point.
-    walkTo(x, y, speed) {
+    // then run any queued steps, then hand over to the AI. The enemy cannot be
+    // hit on the way, and is not held to the walkable field until it is handed
+    // back: a door's foot can sit just outside the field, and walking out of it
+    // is the point. face 'travel' faces the way it walks, else the player.
+    walkTo(x, y, speed, { face = 'player' } = {}) {
         const dx = x - this.x;
         const dy = y - this.y;
         const dist = Math.hypot(dx, dy);
         if (dist < 1 || !(speed > 0)) {
             this.x = x;
             this.y = y;
-            this.clampToStageField();
+            this.script = null;
+            this._nextScript();
             return;
         }
         const t = dist / speed;
-        this.script = { vx: dx / t, vy: dy / t, t, end: { x, y } };
+        this.script = { kind: 'walk', vx: dx / t, vy: dy / t, t, end: { x, y }, face };
         this.invincible = true;
     }
 
-    // _runScript - one frame of the current script. Walks the pose, faces the
-    // player, and on the last frame lands exactly on the end point, clamped to
-    // the field, so rounding never leaves an enemy outside it.
+    // queueScript - a step to run once the ones before it are done:
+    //   { walk: { x, y } or enemy => ({ x, y }), speed, face }  a walk, its
+    //        end worked out when it starts (where the camera is by then)
+    //   { wait: seconds }                                       standing still
+    //   { leave: true }   off the level for good, as fled
+    //   { call: enemy => ... }  done at once, between steps
+    // Starts at once when nothing else is running.
+    queueScript(step) {
+        this.scripts.push(step);
+        if (!this.script) this._nextScript();
+    }
+
+    // _nextScript - start the next queued step; with none left, hand back to
+    // the AI on the walkable field.
+    _nextScript() {
+        while (this.scripts.length) {
+            const step = this.scripts.shift();
+            if (step.leave) {
+                this.fled = true;
+                this.script = null;
+                this.scripts.length = 0;
+                this.vx = this.vy = 0;
+                return;
+            }
+            if (typeof step.call === 'function') {
+                step.call(this);
+                continue;
+            }
+            if (step.wait !== undefined) {
+                this.script = { kind: 'wait', t: Math.max(0, step.wait) };
+                this.invincible = true;
+                return;
+            }
+            const to = typeof step.walk === 'function' ? step.walk(this) : step.walk;
+            if (!to) continue;
+            const dx = to.x - this.x;
+            const dy = to.y - this.y;
+            const dist = Math.hypot(dx, dy);
+            if (dist < 1 || !(step.speed > 0)) {
+                this.x = to.x;
+                this.y = to.y;
+                continue;
+            }
+            const t = dist / step.speed;
+            this.script = { kind: 'walk', vx: dx / t, vy: dy / t, t, end: { x: to.x, y: to.y }, face: step.face || 'player' };
+            this.invincible = true;
+            return;
+        }
+        this.script = null;
+        this.vx = this.vy = 0;
+        this.invincible = false;
+        this.clampToStageField();
+    }
+
+    // _runScript - one frame of the current script. A walk moves the pose and
+    // lands exactly on its end point on the last frame; a wait stands. Then the
+    // next queued step, or the AI.
     _runScript(dt, player) {
         const s = this.script;
+        if (s.kind === 'wait') {
+            this.vx = this.vy = 0;
+            s.t -= dt;
+            this._walkOrIdle(dt);
+            if (s.t <= 0) this._nextScript();
+            return;
+        }
         const step = Math.min(dt, s.t);
         this.vx = s.vx;
         this.vy = s.vy;
         this.x += s.vx * step;
         this.y += s.vy * step;
         s.t -= dt;
-        if (player) this.facing = player.x > this.x ? 1 : -1;
+        if (s.face === 'travel') {
+            if (s.vx) this.facing = s.vx > 0 ? 1 : -1;
+        } else if (player) {
+            this.facing = player.x > this.x ? 1 : -1;
+        }
         this._walkOrIdle(dt);
         if (s.t > 0) return;
 
@@ -333,17 +411,17 @@ class Enemy extends Entity {
         this.y = s.end.y;
         this.vx = this.vy = 0;
         this.script = null;
-        this.invincible = false;
-        this.clampToStageField();
+        this._nextScript();
     }
 
     // A body lasts for the whole defeat outro: the animation, the held blink,
-    // then the fade. Waves wait on this, so all three phases count.
+    // then the fade. Waves wait on this, so all three phases count. One that
+    // ran off the level is done as soon as it is off.
     get defeatLifetime() {
         return CFG.defeatFadeDelay + CFG.defeatBlinkTime + CFG.defeatFadeTime;
     }
 
-    get isDone()  { return this.dead && this.deadT > this.defeatLifetime; }
+    get isDone()  { return this.fled || (this.dead && this.deadT > this.defeatLifetime); }
 
     // _defeatFade - 1 while the body is fully present, ramping to 0 across the
     // closing defeatFadeTime. Drives the shadow as well as the sprite so the
@@ -540,7 +618,8 @@ class Enemy extends Entity {
         if (this.resistT > 0) this.resistT -= dt;
         this._updateStrike(dt, player);
 
-        // ── Scripted move (walking out of a door) ────────────────────────────
+        // ── Scripted move (walking out of a door, running off) ───────────────
+        if (this.fled) return;
         if (this.script) {
             this._runScript(dt, player);
             return;

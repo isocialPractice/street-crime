@@ -19,18 +19,18 @@ usually learned something, and this file is what gets corrected.
 
 ## Where the game is now
 
-Measured 2026.11.08.
+Measured 2026.11.14.
 
 | | |
 | --- | --- |
-| What it is | A 2.5D side-scrolling beat-em-up in plain HTML5 Canvas and JavaScript, with no build step: 32 scripts under `js/` plus `game.js`, about 9,900 lines |
+| What it is | A 2.5D side-scrolling beat-em-up in plain HTML5 Canvas and JavaScript, with no build step: 38 scripts under `js/` plus `game.js`, about 14,200 lines |
 | What it plays | Three stages defined in `STAGES` (`js/level/data.js`), run by `LevelMgr`; debug mode with live tuning; SANDBOX TEST, which loads one level from its SVG's layer names and runs its `level-design.json` |
-| Levels from art | One: `theStreets`, with a door, a locked warehouse, a breakable gate, an animated sign, a hole, and a design in which the gate breaking sends three enemies out of the warehouse. Proven in seven sandbox tests, step by step |
+| Levels from art | One: `theStreets`, with a door, a locked warehouse, a breakable gate, an animated sign, a hole, a key to take, and a design in which the gate breaking sends a crew out of the warehouse, and the key decides whether a second crew fights or runs. Items, an item screen and a command line come with it. Proven in eleven sandbox tests, step by step |
 | Characters | 24 enemies in `ENEMY_DEFS`: 12 configured in `config/enemy-assets.json`, 13 listed as work in progress |
-| Size | 22M, of which `assets/` is 18M (426 SVGs). Illustrator sources live in the git-ignored `support/` |
-| Docs | 14 pages in `docs/`, plus `QUICKSTART.md` and `CHEATSHEET.md`. The site is built by `.github/workflows/pages.yml` and not yet deployed: Pages still publishes in legacy mode |
+| Size | 20M, of which `assets/` is 18M (426 SVGs). Illustrator sources live in the git-ignored `support/` |
+| Docs | 15 pages in `docs/`, plus `QUICKSTART.md` and `CHEATSHEET.md`. The site is built by `.github/workflows/pages.yml` and not yet deployed: Pages still publishes in legacy mode |
 | Tests | None automated. `scripts/checkLevelDesignVocab.js`, `scripts/checkAssetCase.js` and `scripts/stageDocs.js` are checks, the last two run by the Pages workflow. The level design was verified with headless browser runs kept out of the repository |
-| Queue | 155 open items and 30 done. 40 are under `## Current`, of which 7 are the user's own (`User Only - Update Assets`) and are not counted as work for anyone else |
+| Queue | 165 open items and 37 done. 42 are under `## Current`, of which 7 are the user's own (`User Only - Update Assets`) and are not counted as work for anyone else |
 | Release mode | Dated: `CHANGELOG.md` entries are `[YYYY.MM.DD]`, with no versions, tags or releases |
 
 **The level format is further along than the game that uses it.** A level built

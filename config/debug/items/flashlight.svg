@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <g id="flashlight">
+    <g id="flashlight-mid">
+      <rect x="3" y="25" width="29" height="14" rx="3" fill="#4a505a" stroke="#000" stroke-width="2.5"/>
+      <path d="M31 23.5 L43 18 L43 46 L31 40.5 Z" fill="#4a505a" stroke="#000" stroke-width="2.5" stroke-linejoin="round"/>
+    </g>
+    <g id="flashlight-dark">
+      <rect x="5" y="35.4" width="25" height="1.8" fill="#2b2f36"/>
+      <path d="M32.4 38.6 L41.6 42.6 L41.6 44.4 L32.4 40.2 Z" fill="#2b2f36"/>
+      <rect x="7" y="27.5" width="1.4" height="9.5" fill="#2b2f36"/>
+      <rect x="10.2" y="27.5" width="1.4" height="9.5" fill="#2b2f36"/>
+      <rect x="13.4" y="27.5" width="1.4" height="9.5" fill="#2b2f36"/>
+    </g>
+    <g id="flashlight-light">
+      <rect x="16" y="27" width="14" height="1.6" rx="0.8" fill="#7b8490"/>
+      <path d="M32.4 24.6 L41.6 20.6 L41.6 22.6 L32.4 26.4 Z" fill="#7b8490"/>
+    </g>
+    <rect id="switch" x="19" y="22.5" width="6" height="3.6" rx="1" fill="#d22" stroke="#000" stroke-width="1.5"/>
+    <ellipse id="lens" cx="43.5" cy="32" rx="3" ry="14" fill="#cfe6ff" stroke="#000" stroke-width="2.2"/>
+  </g>
+</svg>

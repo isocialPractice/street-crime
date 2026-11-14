@@ -2,6 +2,7 @@
   "$schema": "schema/palettes.schema.json",
   "tones": ["highlight", "light", "mid", "dark", "shadow"],
   "palettes": {
-    "gray": { "highlight": "#e3e3e3", "light": "#c7c7c7", "mid": "#848484", "dark": "#545454", "shadow": "#050505" }
+    "gray": { "highlight": "#e3e3e3", "light": "#c7c7c7", "mid": "#848484", "dark": "#545454", "shadow": "#050505" },
+    "dark-gray": { "highlight": "#8a8a8a", "light": "#6a6a6a", "mid": "#4e4e4e", "dark": "#383838", "shadow": "#050505" }
   }
 }

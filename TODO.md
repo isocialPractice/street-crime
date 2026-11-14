@@ -134,6 +134,11 @@
 - [x] Doors drawn above the field reach down to the ground below them (the warehouse door, past the parked car)
 - [x] Level design files: states, cases, triggers, spawn groups from a layer, player entrances, `fade-out`, drafts converted with notes, "did you mean" warnings
 - [x] Sandbox steps 1 to 6 for the level design, ending on `config/levels/theStreets/level-design.json`
+- [x] Crews written once under `groups`, with `order`, a count from the pool, and part of a crew recolored (`count`, `re-render`, `name`)
+- [x] Condition cases (`alive`, `fled`, `inventory`, `case`, `state`), a state's own `cases`, locks that follow a condition (`"type": "condition"`), steps that branch with `when`, and `reset`
+- [x] Spawns from the view's `edges`, crews that come back with their health (`inherit`) or run off (`"then": "flee"`)
+- [x] `INVENTORY-` items to take and `REQUIRE-item-` locks, with the inventory, the item screen and the Ctrl+I command line ([docs/inventory.md](docs/inventory.md))
+- [x] Sandbox steps 8 to 10, and the real `theStreets` design rewritten from its shorthand: the key in the warehouse decides whether the response crew fights or runs
 - [ ] `ENTER-vehicle` handler: a different movement mode while driving (recognised and stubbed today)
 - [ ] Load a level from its folder through `config/levels.json` (still reports "not built yet"), using the level map and its `level-design.json` through `LevelDirector`, the way the sandbox's `level-design` test does; hand `store`d health on to the next level
 - [ ] Draw tall breakables in correct depth order (the gate arm sorts by its bottom edge)
@@ -144,6 +149,9 @@
 - [ ] Art: if the gate should seal the lot until it breaks, extend the arm or add `negative-space` (there is room past it above and below)
 - [ ] Art (optional): `parking-gate-arm_damaged.svg` and `parking-gate-arm_broken.svg` in `theStreets/objects/`
 - [ ] Art: replace the placeholder `enterables/import-export-warehouse.svg` (a copy of the bar's placeholder) with the warehouse interior, with an `ENTER-exit` at its door
+  - It now holds `OBJECT-key-crate` with an empty `INVENTORY-key` rect on its second screen, where the key lies; keep a layer by that name where the key should be
+- [ ] Enemies coming in from the view's edges walk straight through `negative-space` (the parked car) on the way; only where they stop is kept off holes
+  - Route the walk in around holes, as rushing enemies already do
 - [ ] Art: the parked red car's `negative-space` (world x 690 to 967) sits in front of the warehouse door (x 633 to 805)
   - The player can only use the door from the street below the car, and enemies coming out in the middle and right lanes cross the car's back end
   - Move the car right of x 805, or give `#field` a notch up to the warehouse door the way the bar has one
@@ -231,6 +239,15 @@ in `scripts/`:
   - **Goal**: If they are hair or collar, move them out of `vest` (a layer map
     in `scripts/data/`); if they are vest, nothing to do.
   - From: Asset Scripts
+- [ ] Art: name CrimeGuy's vest and leg layers in every frame
+  - **Issue**: `theStreets`' gray CrimeGuy keeps his gold vest in `_attack`,
+    `_punch`, `_preDefeat` and `_defeat`, which name no `left-vest` or
+    `right-vest` layer (nor a bare `vest`), and `_walk_1` has two `back-leg`
+    layers and no `front-leg`. The game says so once per file in the console.
+  - **Goal**: The layers named in a layer map in `scripts/data/` and applied in
+    Illustrator, so every frame turns gray; or the crew uses the gray
+    JumpingJunkie, whose every frame is named.
+  - From: Level Design Config
 - [ ] Player outfit and color select, tied to the character select screen under [Major](#1-major)
 
 ## 1. Major
@@ -463,15 +480,62 @@ Intent: a level is art plus one design file, with no code.
     states and cases it changes; the validator reads the merged result and says
     which file each warning came from.
   - From: Level Design Config
-- [ ] Handlers for the planned layer names
-  - **Issue**: `INVENTORY-`, `MISSING-`, `SWITCH-`, `USABLE-` and
-    `REQUIRE-item-` are recognised and warned about, but do nothing. (`ENTER-vehicle`
-    is tracked under [Level Map](#level-map).)
-  - **Goal**: An inventory the player carries between states, items picked up
-    from `INVENTORY-` objects and used on `MISSING-` ones, `SWITCH-` objects that
-    set cases, `USABLE-` objects that can be carried but not stored, and
-    `REQUIRE-item-` locks; each reporting an event a design can wait on, as the
-    draft in `.support/DRAFT_docs-level-naming.md` describes.
+- [ ] Handlers for the remaining planned layer names
+  - **Issue**: `MISSING-`, `SWITCH-` and `USABLE-` are recognised and warned
+    about, but do nothing, and `use <item> on <thing>` on the command line reads
+    the thing and does nothing with it. (`INVENTORY-` and `REQUIRE-item-` are
+    built, see [docs/inventory.md](docs/inventory.md); `ENTER-vehicle` is tracked
+    under [Level Map](#level-map).)
+  - **Goal**: `MISSING-` objects that an item is used on, from the item screen or
+    `use <item> on <thing>`; `SWITCH-` objects that set cases; `USABLE-` objects
+    carried in the hands but not stored; each reporting an event a design can wait
+    on, as the draft in `.support/DRAFT_docs-level-naming.md` describes.
+  - From: Level Design Config
+- [ ] Item storage
+  - **Issue**: There is no drop or discard on the item screen, as in the genre's
+    originals, so with every slot full an item has to stay where it lies.
+  - **Goal**: A place to store items and take them back later (an item box, an
+    `OBJECT-` layer with a marker inside it), shared by every box in the level, as
+    the genre does it.
+  - From: Level Design Config
+- [ ] Weapons, held and equipped
+  - **Issue**: The item screen's HOLDING always says FISTS; weapons have no art
+    yet (User Only, Add weapons).
+  - **Goal**: Weapons as catalog items, an EQUIP command beside USE, CHECK and
+    COMBINE, and HOLDING showing the one in hand; the attack using it.
+  - From: Level Design Config
+- [ ] Each level's own item catalog
+  - **Issue**: Only a sandbox test names a catalog (its `"items"`); a level loaded
+    for real has none, so its `INVENTORY-` layers would name nothing.
+  - **Goal**: A level's catalog in its folder (`assets/levels/<level>/objects/`,
+    as the draft says), loaded with the level from `config/levels.json`.
+  - From: Level Design Config
+- [ ] FILE and MAP pages on the item screen
+  - **Issue**: The item screen shows the player and the slots only.
+  - **Goal**: Pages for notes found in a level (files, as items that are read
+    rather than used) and a map of the level's screens and doors, reached from the
+    item screen.
+  - From: Level Design Config
+- [ ] Leave a spent key behind
+  - **Issue**: A key keeps its slot after the last lock it opens is open.
+  - **Goal**: Once nothing in the level needs it any more, ask whether to leave
+    it behind, and free the slot on YES.
+  - From: Level Design Config
+- [ ] Check Ctrl+I in Firefox
+  - **Issue**: The command line's Ctrl+I is `preventDefault`ed and works in
+    Chrome. Firefox opens Page Info on Ctrl+I; whether a page can stop that was
+    not tried (no Firefox where it was built).
+  - **Goal**: Try it in Firefox. If Page Info opens, give the command line a
+    second key as well.
+  - From: Level Design Config
+- [ ] theStreets: the two bar outcomes with the warehouse crew still standing
+  - **Issue**: The warehouse is locked until its crew is beaten, so the response
+    crew never meets a standing warehouse crew: leaving the bar never reaches
+    `crew-returns`, and the "fought and beaten, warehouse crew standing" outcome
+    cannot happen.
+  - **Goal**: Decide whether to keep them as written, or also bring the warehouse
+    crew back in from the edges when the player leaves the bar mid-fight in
+    `gate-breaks`, which can happen in play.
   - From: Level Design Config
 - [ ] Friendly and neutral characters in a design
   - **Issue**: `characters.friendly` and `characters.neutral` are reserved and
@@ -509,12 +573,15 @@ Intent: a level is art plus one design file, with no code.
   - From: Level Design Config
 - [ ] Automated tests for the level design code, run in CI
   - **Issue**: The validator, draft migration, suggestions and director were
-    checked by hand-run headless browser pages kept in the git-ignored `.tmp/`;
-    only `scripts/checkLevelDesignVocab.js` is in the repository.
+    checked by hand-run headless browser pages kept in the git-ignored `.tmp/`
+    (now also crews, conditions, the inventory, the item screen, the command line
+    and the real `theStreets` file, played through its doors); only
+    `scripts/checkLevelDesignVocab.js` is in the repository.
   - **Goal**: `node` tests for `validateLevelDesign`, `migrateLevelDesign` (with
-    `config/debug/designs/5-draft.json`), `levelDesignClosest` and the vocabulary
-    against the schema, plus a headless run of each sandbox step's checklist, all
-    run by a workflow on every push.
+    `config/debug/designs/5-draft.json`), `levelDesignClosest`, the condition
+    parser, `Inventory` and the command line's parser, and the vocabulary against
+    the schema, plus a headless run of each sandbox step's checklist, all run by a
+    workflow on every push.
   - From: Level Design Config
 
 ---

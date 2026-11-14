@@ -222,11 +222,108 @@
         { "label": "Defeat both", "event": "defeated:gold-and-gray" }
       ]
     },
+    "design-8-crews": {
+      "label": "Design step 8: crews defined once, in order",
+      "level": "assets/levels/theStreets/",
+      "scene": "level-theStreets.svg",
+      "design": "config/debug/designs/8-crews.json",
+      "sectionWidth": 800,
+      "worldHeight": 600,
+      "spawn": { "minX": 60, "maxX": 220 },
+      "panels": { "debug": true, "checklist": true },
+      "cfg": { "showHitboxes": true },
+      "levelMap": {
+        "enabled": true,
+        "animate": {
+          "default": { "mode": "loop", "fps": 6 },
+          "sign-badBar": { "mode": "yoyo", "fps": 6 }
+        }
+      },
+      "enterables": {
+        "bad-bar": "enterables/badBar.svg"
+      },
+      "checklist": [
+        { "label": "Design starts in \"initial\"", "event": "state:initial" },
+        { "label": "Door crew comes out: a SassyGirl, one in dark gray, a CrimeGuy, a JumpingJunkie", "event": "spawn:door-crew" },
+        { "label": "Defeat all four", "event": "defeated:door-crew" },
+        { "label": "Go into the Bad Bar and back out", "event": "exit:bad-bar" },
+        { "label": "Two CrimeGuys come out at once", "event": "spawn:street-crew" },
+        { "label": "Defeat both", "event": "defeated:street-crew" }
+      ]
+    },
+    "design-9-conditions": {
+      "label": "Design step 9: conditions, locks that follow them, crews that come back or run",
+      "level": "assets/levels/theStreets/",
+      "scene": "level-theStreets.svg",
+      "design": "config/debug/designs/9-conditions.json",
+      "sectionWidth": 800,
+      "worldHeight": 600,
+      "spawn": { "minX": 60, "maxX": 220 },
+      "panels": { "debug": true, "checklist": true },
+      "cfg": { "showHitboxes": true },
+      "levelMap": {
+        "enabled": true,
+        "animate": {
+          "default": { "mode": "loop", "fps": 6 },
+          "sign-badBar": { "mode": "yoyo", "fps": 6 }
+        }
+      },
+      "enterables": {
+        "bad-bar": "enterables/badBar.svg"
+      },
+      "checklist": [
+        { "label": "Two CrimeGuys come out of the warehouse door", "event": "spawn:crew" },
+        { "label": "Go into the Bad Bar mid-fight and back out: they come back in from the edges, hurt as they were", "event": "state:crew-returns" },
+        { "label": "Defeat them", "event": "defeated:crew" },
+        { "label": "Nobody left: the warehouse unlocks", "event": "unlock:import-export-warehouse" },
+        { "label": "Two JumpingJunkies walk in from the edges", "event": "spawn:runners" },
+        { "label": "The warehouse locks again while they stand", "event": "lock:import-export-warehouse" },
+        { "label": "They run off", "event": "fled:runners" },
+        { "label": "Break the parking gate arm", "event": "break:parking-gate-arm" },
+        { "label": "Go into the bar and back out: the gate is whole again", "event": "state:gate-whole" },
+        { "label": "Break it again: the level starts over", "event": "state:replay" }
+      ]
+    },
+    "design-10-inventory": {
+      "label": "Design step 10: items, the key, and what it decides",
+      "level": "assets/levels/theStreets/",
+      "scene": "level-theStreets.svg",
+      "design": "config/debug/designs/10-inventory.json",
+      "items": "config/debug/items.json",
+      "inventory": [{ "item": "coin", "count": 3 }, "bandage", "whistle", "flashlight", "batteries"],
+      "enemies": ["crimeguy", "badgirl"],
+      "sectionWidth": 800,
+      "worldHeight": 600,
+      "spawn": { "minX": 60, "maxX": 220 },
+      "panels": { "debug": true, "checklist": true },
+      "cfg": { "showHitboxes": true },
+      "levelMap": {
+        "enabled": true,
+        "animate": {
+          "default": { "mode": "loop", "fps": 6 },
+          "sign-badBar": { "mode": "yoyo", "fps": 6 }
+        }
+      },
+      "enterables": {
+        "bad-bar": "enterables/badBar.svg"
+      },
+      "checklist": [
+        { "label": "Open the items (I), use the whistle: they scatter and come back", "event": "use:whistle" },
+        { "label": "Use a bandage when hurt", "event": "use:bandage" },
+        { "label": "Combine the flashlight with the batteries", "event": "combine:flashlight-lit" },
+        { "label": "Command line (CTRL+I): LOOK where nothing is near", "event": "look:ground" },
+        { "label": "Command line: TALK to the CrimeGuy", "event": "talk:crimeguy" },
+        { "label": "Take the key in the warehouse (second screen, E: CHECK)", "event": "take:key" },
+        { "label": "Walk out with the key: one comes to fight", "event": "state:with-key" },
+        { "label": "Walk out without it: one comes and runs off", "event": "state:without-key" }
+      ]
+    },
     "level-design": {
       "label": "Level design: gate breach (config/levels/theStreets)",
       "level": "assets/levels/theStreets/",
       "scene": "level-theStreets.svg",
       "design": "config/levels/theStreets/level-design.json",
+      "items": "config/debug/items.json",
       "sectionWidth": 800,
       "worldHeight": 600,
       "spawn": { "minX": 60, "maxX": 220 },
@@ -250,13 +347,16 @@
         { "label": "Warehouse door's right glass slides open", "event": "animate:door-glass-right" },
         { "label": "Enemies come out of the warehouse door", "event": "spawn:warehouse-crew" },
         { "label": "Defeat all three", "event": "defeated:warehouse-crew" },
-        {
-          "label": "Screen fades; design moves to \"enemy-defeat\"",
-          "event": "state:enemy-defeat"
-        },
-        { "label": "Player walks back in from the left", "event": "arrive:enemy-defeat" },
-        { "label": "Warehouse unlocks", "event": "unlock:import-export-warehouse" },
-        { "label": "Enter the warehouse", "event": "enter:import-export-warehouse" }
+        { "label": "Design moves to \"enemy-defeat\"", "event": "state:enemy-defeat" },
+        { "label": "Nobody left: the warehouse unlocks", "event": "unlock:import-export-warehouse" },
+        { "label": "Enter the warehouse", "event": "enter:import-export-warehouse" },
+        { "label": "Take the key (second screen, E: CHECK)", "event": "take:key" },
+        { "label": "Walk out with the key: the response crew closes in to fight", "event": "state:response-fights" },
+        { "label": "Or walk out without it: they come, look, and run off", "event": "state:response-flees" },
+        { "label": "The response crew comes in from both edges", "event": "spawn:response-crew" },
+        { "label": "The warehouse locks again while they stand", "event": "lock:import-export-warehouse" },
+        { "label": "They ran off, then leave the bar: the gate is whole again", "event": "state:gate-reset" },
+        { "label": "Both crews beaten, then leave the bar: the level starts over", "event": "state:replay" }
       ]
     }
   }

@@ -1,0 +1,33 @@
+{
+  "$schema": "../../schema/level-design.schema.json",
+  "version": 1,
+  "start": "initial",
+  "groups": {
+    "enemy": {
+      "door-crew": {
+        "order": "reverse",
+        "every": 0.6,
+        "from": "RESTRICTED-import-export-warehouse/ENTER-building",
+        "pool": [
+          "JumpingJunkie",
+          "CrimeGuy",
+          { "enemy": "SassyGirl", "name": "sassy-pair", "count": 2, "re-render": 1, "render": { "dress": "dark-gray" } }
+        ]
+      },
+      "street-crew": {
+        "from": "RESTRICTED-import-export-warehouse/ENTER-building",
+        "pool": [{ "enemy": "CrimeGuy", "count": 2 }]
+      }
+    }
+  },
+  "states": {
+    "initial": {
+      "svg": "loads",
+      "spawn": [{ "group": "door-crew", "type": "enemy", "after": 1 }],
+      "next": [{ "on": "exit:bad-bar", "to": "after-bar" }]
+    },
+    "after-bar": {
+      "spawn": [{ "group": "street-crew" }]
+    }
+  }
+}

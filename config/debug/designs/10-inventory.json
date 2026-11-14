@@ -1,0 +1,40 @@
+{
+  "$schema": "../../schema/level-design.schema.json",
+  "version": 1,
+  "start": "initial",
+  "groups": {
+    "enemy": {
+      "fighter": { "from": "edges", "pool": ["JumpingJunkie"] },
+      "runner":  { "from": "edges", "then": "flee", "pool": ["JumpingJunkie"] }
+    }
+  },
+  "cases": {
+    "has-key": { "condition": "inventory:key" }
+  },
+  "restricted": {
+    "import-export-warehouse": { "until": "state:initial" }
+  },
+  "look": {
+    "parking-gate-box": "A gate control box. Someone has kicked it in.",
+    "import-export-warehouse": "Steel doors, and a sign that has seen better days."
+  },
+  "states": {
+    "initial": {
+      "svg": "loads",
+      "next": [
+        { "on": "exit:import-export-warehouse", "when": { "has-key": true }, "to": "with-key" },
+        { "on": "exit:import-export-warehouse", "to": "without-key" }
+      ]
+    },
+    "with-key": {
+      "svg": "none",
+      "spawn": [{ "group": "fighter" }],
+      "next": [{ "on": "defeated:fighter", "to": "initial" }]
+    },
+    "without-key": {
+      "svg": "none",
+      "spawn": [{ "group": "runner" }],
+      "next": [{ "on": "fled:runner", "to": "initial" }]
+    }
+  }
+}

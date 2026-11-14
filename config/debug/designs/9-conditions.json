@@ -1,0 +1,64 @@
+{
+  "$schema": "../../schema/level-design.schema.json",
+  "version": 1,
+  "start": "initial",
+  "groups": {
+    "enemy": {
+      "crew": {
+        "from": "RESTRICTED-import-export-warehouse/ENTER-building",
+        "every": 0.6,
+        "pool": [{ "enemy": "CrimeGuy", "count": 2 }]
+      },
+      "runners": {
+        "from": "edges",
+        "then": "flee",
+        "pool": [{ "enemy": "JumpingJunkie", "count": 2 }]
+      }
+    }
+  },
+  "cases": {
+    "all-clear": false,
+    "crew-down": { "condition": "alive:crew = 0" }
+  },
+  "restricted": {
+    "import-export-warehouse": { "until": "case:all-clear", "type": "condition" }
+  },
+  "states": {
+    "initial": {
+      "svg": "loads",
+      "cases": { "all-clear": { "condition": "alive = 0" } },
+      "spawn": [{ "group": "crew", "type": "enemy", "after": 1 }],
+      "next": [
+        { "on": "exit:bad-bar", "when": { "crew-down": false }, "to": "crew-returns" },
+        { "on": "defeated:crew", "to": "cleared" }
+      ]
+    },
+    "crew-returns": {
+      "svg": "none",
+      "spawn": [{ "group": "crew", "from": "edges", "inherit": true }],
+      "next": [{ "on": "defeated:crew", "to": "cleared" }]
+    },
+    "cleared": {
+      "svg": "none",
+      "spawn": [{ "group": "runners" }],
+      "next": [{ "on": "fled:runners", "to": "gate-watch" }]
+    },
+    "gate-watch": {
+      "svg": "none",
+      "next": [{ "on": "break:parking-gate-arm", "to": "gate-broken" }]
+    },
+    "gate-broken": {
+      "svg": "none",
+      "next": [{ "on": "exit:bad-bar", "to": "gate-whole" }]
+    },
+    "gate-whole": {
+      "svg": "none",
+      "reset": ["break:parking-gate-arm"],
+      "next": [{ "on": "break:parking-gate-arm", "to": "replay" }]
+    },
+    "replay": {
+      "svg": "fade-out",
+      "reset": "level"
+    }
+  }
+}

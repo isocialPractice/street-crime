@@ -87,6 +87,14 @@ class BreakableObj {
             pickups.push(new Pickup(this.x + 8 + Math.random() * 28, this.y - 10, 'health'));
     }
 
+    // restore - whole again, as if never hit: a level design's "reset".
+    restore() {
+        this.broken   = false;
+        this.hits     = 0;
+        this.lastSeq  = -1;
+        this.shakeT   = 0;
+    }
+
     // _shakeOffset - this frame's sideways jolt in px. The jolt is a decaying
     // wobble: it starts at objHitShakeDist px and rings down to nothing over
     // objHitShakeTime, so a crate that survives a blow visibly takes it.

@@ -229,7 +229,10 @@ function gameLoop(ts) {
         if (gameState === 'title') {
             drawTitle();
         } else if (gameState === 'playing') {
-            update(dt);
+            // An overlay (an item's message, later the item screen) stops
+            // the game under it; only the overlay moves.
+            if (typeof GameUI !== 'undefined' && GameUI.isOpen()) GameUI.update(dt);
+            else update(dt);
             draw();
         } else if (gameState === 'paused') {
             draw();

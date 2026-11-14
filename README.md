@@ -28,6 +28,9 @@ A classic 2.5D side-scrolling beat-em-up built entirely in vanilla HTML5 Canvas 
 | Block | Hold C |
 | Jump Attack | J/Z or K/X while airborne |
 | Enter a door / interact | E, or push into the door (hold Up) |
+| Take an item | E at it, then YES |
+| Items (use, check, combine) | I or Tab |
+| Command line (look, talk, use, take) | Ctrl+I |
 | Pause | P |
 
 ## Features

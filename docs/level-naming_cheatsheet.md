@@ -24,14 +24,16 @@ Illustrator SVG export, **Object IDs: Layer Names**. Prefixes are upper case;
 | `RESTRICTED-<name>` | any | enterable, locked | `locked:` / `unlock:<name>` |
 | `REQUIRE-case-<c>` | `RESTRICTED` | unlock when case is true | |
 | `REQUIRE-state-<s>` | `RESTRICTED` | unlock once state entered | |
+| `REQUIRE-item-<i>` | `RESTRICTED` | unlock while the player carries it | |
 | `ENTER-building` | enterable | door to the interior | |
 | `ENTER-exit` | interior | way back out (else: left edge) | |
 | `OBJECT-<name>` | any | area; empty one: E reports | `interact:<name>` |
 | `ANIMATE-<asset>` | `OBJECT` | frames `objects/<asset>_0.svg`... | `animate:<asset>` |
 | `BREAKABLE-<name>` | `OBJECT` | cut out, breaks; `_damaged`, `_broken` art | `break:<name>` |
+| `INVENTORY-<item>` | `OBJECT` | an item to take (E: CHECK); empty layer: the catalog's art | `take:<item>` |
 | `EVENT-<name>` | any | trigger area | `event:<name>` |
 
-**Planned:** `ENTER-vehicle`, `REQUIRE-item-`, `INVENTORY-`, `MISSING-`, `SWITCH-`, `USABLE-`.
+**Planned:** `ENTER-vehicle`, `MISSING-`, `SWITCH-`, `USABLE-`. Items: [inventory.md](inventory.md).
 
 ## Files
 

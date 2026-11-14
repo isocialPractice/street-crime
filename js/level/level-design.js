@@ -34,57 +34,106 @@ function _levelDesignFreeze(value) {
 // ── Vocabulary ────────────────────────────────────────────────────────────────
 // Every word a level design may use, in one place. The schema's enums, the
 // validator and the docs' cheatsheet are all written from this table.
+const _LEVEL_DESIGN_SPAWN_KEYS = ['group', 'type', 'count', 'pick', 'pool', 'order', 'from', 'animation', 'after', 'every',
+                                  'then', 'inherit'];
+
 const LEVEL_DESIGN_VOCAB = _levelDesignFreeze({
     version: 1,
 
     // The keys each object may carry.
     keys: {
-        top:        ['$schema', 'version', 'start', 'cases', 'restricted', 'states'],
-        restricted: ['until'],
-        state:      ['svg', 'set', 'player', 'spawn', 'animate-layers', 'characters', 'next'],
+        top:        ['$schema', 'version', 'start', 'groups', 'cases', 'restricted', 'look', 'states'],
+        restricted: ['until', 'type'],
+        state:      ['svg', 'set', 'cases', 'reset', 'player', 'spawn', 'animate-layers', 'characters', 'next'],
+        // A case that follows a condition: { "condition": "alive = 0" }.
+        caseCondition: ['condition'],
         player:     ['spawn', 'after', 'animation', 'inventory', 'health'],
-        spawn:      ['group', 'type', 'count', 'pick', 'pool', 'from', 'animation', 'after', 'every'],
+        spawn:      _LEVEL_DESIGN_SPAWN_KEYS,
+        // A group defined once under "groups": every spawn key but the two
+        // that say where it is filed ("groups" > <type> > <group>).
+        group:      _LEVEL_DESIGN_SPAWN_KEYS.filter(key => key !== 'group' && key !== 'type'),
         animateLayer: ['layer', 'position-x', 'position-y', 'type', 'duration', 'after'],
-        // A pool entry written as an object: an enemy drawn with a render.
-        poolEntry:  ['enemy', 'render'],
+        // A pool entry written as an object: an enemy, how many of it, how
+        // many of those drawn with a render, and a name for "order" lists.
+        poolEntry:  ['enemy', 'render', 'count', 're-render', 'name'],
         characters: ['friendly', 'neutral'],
-        next:       ['on', 'to'],
+        next:       ['on', 'when', 'to'],
     },
 
     // The values a key may take.
     values: {
-        svg:         ['loads', 'layer-state-change', 'fade-out'],
+        // "loads" and "none" both leave the art as it is; "none" reads better
+        // on a state that is not the first.
+        svg:         ['loads', 'layer-state-change', 'fade-out', 'none'],
         playerSpawn: ['left', 'right'],
         animation:   ['walk', 'idle'],
         inventory:   ['empty', 'inherit', 'store'],
         health:      ['full', 'inherit', 'store'],
         spawnType:   ['enemy'],
         pick:        ['random', 'in-order'],
+        // The order a group's members come out in, once "pick" has chosen
+        // them; "order" may also be a list of names. "load" is "same".
+        order:       ['random', 'sequence', 'reverse', 'same', 'load'],
+        // What a group does once it is out: fight, or stand a moment and run
+        // off the nearest edge of the view.
+        then:        ['fight', 'flee'],
+        // A spawn's "from" may name this instead of a layer: just off the
+        // view's left and right edges, taking turns.
+        spawnFrom:   ['edges'],
+        // How a "restricted" entry's "until" opens its door: once for the run,
+        // or for as long as it holds.
+        restrictedType: ['once', 'condition'],
+        // What a state's "reset" can put back, as "<kind>:<name>", or "level".
+        reset:       ['break', 'animate', 'unlock', 'case'],
+        resetAll:    'level',
         // How a moving layer travels: LEVEL_LAYER_EASES in
         // js/entities/level-objects.js has one of each.
         ease:        ['linear', 'ease-in', 'ease-out', 'ease-in-out'],
     },
 
+    // A case's "condition": "<source>[:<name>] [<op> <whole number>]". Count
+    // sources compare a number (no op: at least 1); flag sources are true or
+    // false and take no op.
+    conditions: {
+        count: ['alive', 'fled', 'inventory'],
+        flag:  ['case', 'state'],
+        ops:   ['=', '==', '!=', '<', '<=', '>', '>='],
+    },
+
     // What "on" and "until" can name, as "<kind>:<key>".
     //   map       reported by the level map's runtime (js/level/level-runtime.js)
     //   director  reported by the director: "spawn:<group>" and
-    //             "defeated:<group>" for the groups it spawns, "arrive:<state>"
-    //             when the player has finished coming on for that state
+    //             "defeated:<group>" for the groups it spawns ("fled:<group>"
+    //             instead when any of them ran off), "arrive:<state>" when the
+    //             player has finished coming on for that state
     //   condition true or false right now, not an event: "case:<name>" is that
     //             case being true, "state:<name>" is that state having been entered
+    //   player    what the player does, every time: with items (js/entities/
+    //             items.js) "take:<item>", "use:<item>", "drop:<item>",
+    //             "combine:<made>"; on the command line (js/ui/parser.js)
+    //             "look:<name>" ("look:ground") and "talk:<group or enemy>"
     triggers: {
-        map:       ['animate', 'break', 'enter', 'exit', 'interact', 'event', 'locked', 'unlock'],
-        director:  ['spawn', 'defeated', 'arrive'],
+        map:       ['animate', 'break', 'enter', 'exit', 'interact', 'event', 'locked', 'unlock', 'lock'],
+        director:  ['spawn', 'defeated', 'fled', 'arrive'],
         condition: ['case', 'state'],
+        player:    ['take', 'use', 'drop', 'combine', 'look', 'talk'],
     },
+    // The player kinds whose name is an item, checked against the catalog.
+    itemTriggers: ['take', 'use', 'drop', 'combine'],
 
     // What the director reports on the level map's event bus, as "<kind>:<key>".
-    // "unlock" is sent by the runtime when the director opens a RESTRICTED.
-    reports: ['state', 'case', 'spawn', 'defeated', 'arrive', 'unlock'],
+    // "unlock" and "lock" are sent by the runtime when the director opens a
+    // RESTRICTED, or closes one that follows a condition.
+    reports: ['state', 'case', 'spawn', 'defeated', 'fled', 'arrive', 'unlock', 'lock'],
 });
 
 const LEVEL_DESIGN_TRIGGER_RE = /^([a-z]+):([A-Za-z0-9][A-Za-z0-9_-]*)$/;
 const LEVEL_DESIGN_NAME_RE    = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
+
+// Other words a spawn's keys get written as, and the key each one is. A
+// version 1 file is told to write the key; a draft is converted; either way
+// the game reads it, so a design works while it says so.
+const LEVEL_DESIGN_SPAWN_ALIASES = _levelDesignFreeze({ timeout: 'every' });
 
 // The shorthand a pool entry gets written in before the format is known:
 // "JumpingJunkie:render([left-vest.background(gray), right-vest.background(gray)])",
@@ -104,6 +153,83 @@ function levelDesignShorthandEnemy(text) {
     return Object.keys(render).length ? { enemy: match[1], render } : null;
 }
 
+// ── Conditions ────────────────────────────────────────────────────────────────
+// A case can follow a condition instead of holding a value:
+//   "has-key":          { "condition": "inventory:key" }
+//   "enemies-defeated": { "condition": "alive = 0" }
+// "<source>[:<name>] [<op> <whole number>]", read every frame.
+const LEVEL_DESIGN_CONDITION_RE = /^\s*([a-z]+)\s*(?::\s*([A-Za-z0-9][A-Za-z0-9_-]*))?\s*(?:(==|=|!=|<=|>=|<|>)\s*(\d+))?\s*$/;
+
+// levelDesignCondition - a condition as { source, name, op, value, text },
+// or null when the text is not one. The source is not checked here.
+function levelDesignCondition(text) {
+    const match = LEVEL_DESIGN_CONDITION_RE.exec(String(text ?? ''));
+    if (!match) return null;
+    const [, source, name = null, op = null, value = null] = match;
+    return {
+        source, name, op: op === '==' ? '=' : op, value: value === null ? null : Number(value),
+        text: `${source}${name ? `:${name}` : ''}${op ? ` ${op === '==' ? '=' : op} ${value}` : ''}`,
+    };
+}
+
+// levelDesignCompare - n against a condition's op and value. No op means "at
+// least 1": a count that is there, a flag (1 or 0) that is true.
+function levelDesignCompare(n, op, value) {
+    switch (op) {
+        case '=':  return n === value;
+        case '!=': return n !== value;
+        case '<':  return n < value;
+        case '<=': return n <= value;
+        case '>':  return n > value;
+        case '>=': return n >= value;
+        default:   return n >= 1;
+    }
+}
+
+// The shorthand a condition case gets written in before the format is known,
+// in a "cases" object: "<name>": "condition", with these keys beside it.
+//   "enemies-defeated": "condition", "conditional": "length=0"
+//   "has-key": "condition", "conditional": "player.inventory", "player-inventory": "key"
+const LEVEL_DESIGN_CASE_SHORTHAND_KEYS = ['conditional', 'player-inventory'];
+
+// _levelDesignShorthandCondition - what a "conditional" beside a shorthand
+// case means, as condition text: "length=0" counts enemies, as "alive = 0";
+// "player.inventory" is an item carried. Null when it cannot be read.
+function _levelDesignShorthandCondition(cases) {
+    const text = String(cases?.conditional ?? '').trim();
+    if (/^player\.inventory$/i.test(text)) {
+        const item = cases['player-inventory'];
+        return typeof item === 'string' && item.trim() ? `inventory:${item.trim()}` : 'inventory';
+    }
+    const length = /^length\s*(==|=|!=|<=|>=|<|>)\s*(\d+)$/i.exec(text);
+    if (length) return `alive ${length[1] === '==' ? '=' : length[1]} ${length[2]}`;
+    return levelDesignCondition(text) ? text : null;
+}
+
+// levelDesignCaseEntries - a "cases" object (the top one, or a state's) as
+// [{ name, value, condition, shorthand, bad }]: value the starting true or
+// false of a plain case (null for a condition), condition the text of one,
+// from { "condition": ... } or from the shorthand, whose "conditional" keys
+// are then not cases of their own. bad is a value that is neither.
+function levelDesignCaseEntries(cases) {
+    if (!_levelDesignIsObject(cases)) return [];
+    const shorthand = Object.values(cases).includes('condition');
+    const out = [];
+    for (const [name, value] of Object.entries(cases)) {
+        if (shorthand && LEVEL_DESIGN_CASE_SHORTHAND_KEYS.includes(name)) continue;
+        if (typeof value === 'boolean') {
+            out.push({ name, value, condition: null, shorthand: false, bad: false });
+        } else if (_levelDesignIsObject(value) && typeof value.condition === 'string') {
+            out.push({ name, value: null, condition: value.condition, shorthand: false, bad: false });
+        } else if (value === 'condition') {
+            out.push({ name, value: null, condition: _levelDesignShorthandCondition(cases), shorthand: true, bad: false });
+        } else {
+            out.push({ name, value, condition: null, shorthand: false, bad: true });
+        }
+    }
+    return out;
+}
+
 // How many times the level may move from state to state in one frame. States
 // that move on from each other's cases at once would otherwise loop for ever.
 const LEVEL_DESIGN_MAX_STEPS = 16;
@@ -119,8 +245,14 @@ function levelDesignTrigger(text) {
 }
 
 function _levelDesignTriggerKinds() {
-    const { map, director, condition } = LEVEL_DESIGN_VOCAB.triggers;
-    return [...map, ...director, ...condition];
+    const { map, director, condition, player } = LEVEL_DESIGN_VOCAB.triggers;
+    return [...map, ...director, ...condition, ...player];
+}
+
+// _levelDesignItemIds - the items of the catalog in use (js/entities/
+// items.js), or null when none is loaded, which skips checks of item names.
+function _levelDesignItemIds() {
+    return typeof ITEM_CATALOG !== 'undefined' && ITEM_CATALOG.path ? Object.keys(ITEM_CATALOG.items) : null;
 }
 
 // ── Suggestions ───────────────────────────────────────────────────────────────
@@ -278,6 +410,7 @@ function _levelDesignMapNames(map) {
         event:    new Set(map.events.map(entry => entry.name)),
         locked:   new Set(restricted),
         unlock:   new Set(restricted),
+        lock:     new Set(restricted),
     };
 }
 
@@ -285,7 +418,7 @@ function _levelDesignMapNames(map) {
 const LEVEL_DESIGN_MAP_KIND_LABEL = {
     animate: 'ANIMATE-', break: 'BREAKABLE-', enter: 'ENTERABLE- or RESTRICTED-',
     exit: 'ENTERABLE- or RESTRICTED-', interact: 'OBJECT-', event: 'EVENT-',
-    locked: 'RESTRICTED-', unlock: 'RESTRICTED-',
+    locked: 'RESTRICTED-', unlock: 'RESTRICTED-', lock: 'RESTRICTED-',
 };
 
 // validateLevelDesign - what in a design will not work as written, as a list
@@ -350,12 +483,32 @@ function validateLevelDesign(design, map = null) {
             warn(`${where} should be an enemy's name, or { "enemy": ..., "render": { ... } }`);
             return;
         }
+        if (_levelDesignIsObject(entry.enemy)) {
+            entry = _levelDesignFlatPoolEntry(entry);
+            warn(`${where} names its enemy as an object; it is read the same, written flat: ${JSON.stringify(entry)}`);
+        }
         unknownKeys(entry, V.keys.poolEntry, where);
         if (typeof entry.enemy !== 'string' || !entry.enemy.trim()) {
             warn(`${where} needs "enemy", the enemy to draw`);
             return;
         }
         const id = enemyName(entry.enemy, `${where} "enemy"`);
+        const count = Number.isInteger(entry.count) && entry.count >= 1 ? entry.count : 1;
+        if (entry.count !== undefined && !(Number.isInteger(entry.count) && entry.count >= 1)) {
+            warn(`${where} "count" should be a whole number, 1 or more`);
+        }
+        const reRender = entry['re-render'];
+        if (reRender !== undefined) {
+            if (!(Number.isInteger(reRender) && reRender >= 0)) {
+                warn(`${where} "re-render" should be a whole number: how many of its ${count} are drawn with the render`);
+            } else if (reRender > count) {
+                warn(`${where} "re-render" is ${reRender}, more than its "count" of ${count}`);
+            }
+            if (entry.render === undefined) warn(`${where} has "re-render" but no "render" to draw them with`);
+        }
+        if (entry.name !== undefined && (typeof entry.name !== 'string' || !LEVEL_DESIGN_NAME_RE.test(entry.name))) {
+            warn(`${where} "name" should be a name: letters, digits, - and _`);
+        }
         if (entry.render === undefined) return;
         if (!_levelDesignIsObject(entry.render)) {
             warn(`${where} "render" should be an object of part names and palettes, such as { "left-vest": "gray" }`);
@@ -377,6 +530,95 @@ function validateLevelDesign(design, map = null) {
                 warn(`${at}: ${art.path.split('/').pop()} has no layer named "${part}"`
                    + _levelDesignDidYouMean(part, parts.names));
             }
+        }
+    };
+    // The keys a spawn is also written with ("timeout" for "every"): read all
+    // the same, and the file is told which key to write.
+    const aliasKeys = (spec, at) => {
+        for (const [alias, key] of Object.entries(LEVEL_DESIGN_SPAWN_ALIASES)) {
+            if (spec[alias] === undefined) continue;
+            if (spec[key] !== undefined) {
+                warn(`${at} has "${alias}" and "${key}"; "${alias}" is ignored`);
+            } else {
+                const read = levelDesignSeconds(spec[alias]);
+                warn(`${at}: "${alias}" is "${key}" in version 1; write "${key}": ${read !== null ? read : 1}`);
+            }
+        }
+    };
+    // The fields of a spawn, or of a group under "groups", each checked where
+    // it is written: a group's mistake is reported once, under the group,
+    // however many states spawn it.
+    const spawnFields = (spec, at) => {
+        aliasKeys(spec, at);
+        if (spec.count !== undefined && !(Number.isInteger(spec.count) && spec.count >= 1)) {
+            warn(`${at} "count" should be a whole number, 1 or more`);
+        }
+        if (Array.isArray(spec.pick)) {
+            warn(`${at} "pick" lists enemies; list them in "pool", and write "pick": "random" or "in-order"`);
+            if (spec.pool === undefined) spec.pick.forEach((entry, n) => poolEntry(entry, `${at} "pick" #${n + 1}`));
+        } else {
+            oneOf(spec.pick, V.values.pick, `${at} "pick"`);
+        }
+        if (spec.pool !== undefined) {
+            if (!Array.isArray(spec.pool) || !spec.pool.length) {
+                warn(`${at} "pool" should be a list of enemies`);
+            } else {
+                const names = new Set();
+                spec.pool.forEach((entry, n) => {
+                    poolEntry(entry, `${at} "pool" #${n + 1}`);
+                    const name = levelDesignPoolEntry(entry)?.name;
+                    if (!name) return;
+                    if (names.has(name.toLowerCase())) warn(`${at} "pool" #${n + 1}: another entry is also named "${name}"`);
+                    names.add(name.toLowerCase());
+                });
+            }
+        }
+        if (Array.isArray(spec.order)) {
+            spec.order.forEach((name, n) => {
+                if (!(typeof name === 'string' && name.trim()) && !(Number.isInteger(name) && name >= 1)) {
+                    warn(`${at} "order" #${n + 1} should be a pool entry's name, an enemy, or a pool position from 1`);
+                }
+            });
+        } else if (spec.order !== undefined) {
+            if (typeof spec.order !== 'string') {
+                warn(`${at} "order" should be one of ${V.values.order.join(', ')}, or a list of names`);
+            } else {
+                oneOf(spec.order, V.values.order, `${at} "order"`);
+            }
+        }
+        if (spec.from !== undefined) {
+            if (typeof spec.from !== 'string') warn(`${at} "from" should be a layer path, or "edges"`);
+            else if (!V.values.spawnFrom.includes(spec.from)) layerPath(spec.from, `${at} "from"`);
+        }
+        oneOf(spec.animation, V.values.animation, `${at} "animation"`);
+        seconds(spec.after, `${at} "after"`);
+        seconds(spec.every, `${at} "every"`);
+        oneOf(spec.then, V.values.then, `${at} "then"`);
+        if (spec.inherit !== undefined && typeof spec.inherit !== 'boolean') {
+            warn(`${at} "inherit" should be true or false`);
+        }
+    };
+    // An "order" list's names, against the pool they choose among: each must
+    // find a member, and none more often than the pool has of it. Without a
+    // pool (every grunt) the names can only be enemies.
+    const orderNames = (spec, at) => {
+        if (!Array.isArray(spec.order)) return;
+        if (!Array.isArray(spec.pool)) {
+            spec.order.forEach(name => {
+                if (typeof name === 'string') enemyName(name, `${at} "order"`);
+                else if (Number.isInteger(name)) warn(`${at} "order" has position ${name}, but there is no "pool" to count in`);
+            });
+            return;
+        }
+        const slots = levelDesignPoolSlots(spec.pool);
+        const left = [...slots];
+        const known = [...new Set(slots.flatMap(slot => [slot.name, slot.enemy].filter(Boolean)))];
+        for (const name of spec.order) {
+            if (!(typeof name === 'string' && name.trim()) && !Number.isInteger(name)) continue;
+            if (_levelDesignOrderTake(left, name)) continue;
+            warn(slots.some(slot => _levelDesignOrderScore(slot, name) > 0)
+                ? `${at} "order" lists "${name}" more times than the pool has of it`
+                : `${at} "order" names "${name}", which is not in the pool${_levelDesignDidYouMean(String(name), known)}`);
         }
     };
     // A moving layer is any layer of the art, found when the scene was built
@@ -416,18 +658,105 @@ function validateLevelDesign(design, map = null) {
            + _levelDesignDidYouMean(design.start, stateNames));
     }
 
-    const cases = _levelDesignIsObject(design.cases) ? design.cases : {};
+    // The item catalog in use, when there is one, for item names.
+    const itemIds = _levelDesignItemIds();
+
+    // Cases, by name: a plain one with its starting value, or one that
+    // follows a condition. The shorthand's "conditional" keys are not cases.
+    const rawCases = _levelDesignIsObject(design.cases) ? design.cases : {};
+    const cases = Object.fromEntries(levelDesignCaseEntries(rawCases).map(entry => [entry.name, entry]));
     if (design.cases !== undefined && !_levelDesignIsObject(design.cases)) {
-        warn('"cases" should be an object of names and true or false');
-    }
-    for (const [name, value] of Object.entries(cases)) {
-        if (typeof value !== 'boolean') warn(`case "${name}" should be true or false`);
+        warn('"cases" should be an object of names, each true, false or { "condition": ... }');
     }
 
     const groups = new Set();
     for (const state of Object.values(states)) {
         for (const group of Array.isArray(state?.spawn) ? state.spawn : []) {
             if (typeof group?.group === 'string') groups.add(group.group);
+        }
+    }
+
+    // A condition names what it counts, and each name has to be something.
+    const conditionText = (text, at) => {
+        const c = levelDesignCondition(text);
+        const sources = [...V.conditions.count, ...V.conditions.flag];
+        if (!c) {
+            warn(`${at} is "${text}"; write a condition as <source>[:<name>] [<op> <number>], `
+               + 'such as "alive = 0" or "inventory:key"');
+            return;
+        }
+        if (!sources.includes(c.source)) {
+            const close = levelDesignClosest(c.source, sources);
+            warn(`${at}: "${c.source}" is not a condition source; ${close ? `did you mean "${close}"? ` : ''}`
+               + `use one of ${sources.join(', ')}`);
+            return;
+        }
+        if (V.conditions.flag.includes(c.source)) {
+            if (!c.name) warn(`${at}: "${c.source}" needs a name, as "${c.source}:<name>"`);
+            if (c.op) warn(`${at}: "${c.source}:" is true or false; leave out "${c.op} ${c.value}"`);
+        }
+        if (c.source === 'fled' && !c.name) warn(`${at}: "fled" needs a group, as "fled:<group>"`);
+        if (!c.name) return;
+        if (c.source === 'case' && !(c.name in cases)) {
+            warn(`${at} reads case "${c.name}", which is not in "cases"${_levelDesignDidYouMean(c.name, Object.keys(cases))}`);
+        } else if (c.source === 'state' && !stateNames.includes(c.name)) {
+            warn(`${at} reads state "${c.name}", which is not in "states"${_levelDesignDidYouMean(c.name, stateNames)}`);
+        } else if ((c.source === 'alive' || c.source === 'fled') && !groups.has(c.name)) {
+            warn(`${at} counts group "${c.name}", which no state spawns${_levelDesignDidYouMean(c.name, [...groups])}`);
+        } else if (c.source === 'inventory' && itemIds && !itemIds.includes(c.name)) {
+            warn(`${at} counts item "${c.name}", which is not in ${ITEM_CATALOG.path}${_levelDesignDidYouMean(c.name, itemIds)}`);
+        }
+    };
+    // A case's value, in the top "cases" or a state's: raw is what is written.
+    const caseValue = (entry, raw, at) => {
+        if (entry.bad) {
+            warn(`${at} should be true, false or { "condition": "<condition>" }`);
+            return;
+        }
+        if (entry.shorthand) {
+            if (entry.condition === null) {
+                warn(`${at} is written "condition", but its "conditional" cannot be read; `
+                   + 'write { "condition": ... }, such as { "condition": "alive = 0" }');
+                return;
+            }
+            warn(`${at} is written as shorthand; write "${entry.name}": ${JSON.stringify({ condition: entry.condition })}`);
+        } else if (entry.condition !== null) {
+            unknownKeys(raw, V.keys.caseCondition, at);
+        }
+        if (entry.condition !== null) conditionText(entry.condition, `${at} "condition"`);
+    };
+    for (const entry of Object.values(cases)) caseValue(entry, rawCases[entry.name], `case "${entry.name}"`);
+
+    // Groups defined once, under their spawn type, for states to spawn by name.
+    if (design.groups !== undefined && !_levelDesignIsObject(design.groups)) {
+        warn('"groups" should be an object of spawn types, such as { "enemy": { "<group>": { ... } } }');
+    }
+    for (const [type, defs] of Object.entries(_levelDesignIsObject(design.groups) ? design.groups : {})) {
+        if (!V.values.spawnType.includes(type)) {
+            const close = levelDesignClosest(type, V.values.spawnType);
+            warn(`"groups" has "${type}", which is not a spawn type; ${close ? `did you mean "${close}"? ` : ''}`
+               + `use ${V.values.spawnType.join(', ')}`);
+            continue;
+        }
+        if (!_levelDesignIsObject(defs)) {
+            warn(`"groups" "${type}" should be an object of group names`);
+            continue;
+        }
+        for (const [name, def] of Object.entries(defs)) {
+            const at = `group "${name}"`;
+            if (!LEVEL_DESIGN_NAME_RE.test(name)) warn(`${at}: use letters, digits, - and _ in a group name`);
+            if (!_levelDesignIsObject(def)) {
+                warn(`${at} should be an object of spawn keys, such as "pool" and "every"`);
+                continue;
+            }
+            for (const key of ['group', 'type'].filter(key => def[key] !== undefined)) {
+                warn(`${at}: "${key}" is where the group is filed ("groups" > "${type}" > "${name}"); leave it out`);
+            }
+            unknownKeys(Object.fromEntries(Object.entries(def).filter(([key]) => key !== 'group' && key !== 'type')),
+                        [...V.keys.group, ...Object.keys(LEVEL_DESIGN_SPAWN_ALIASES)], at);
+            spawnFields(def, at);
+            orderNames(def, at);
+            if (!groups.has(name)) warn(`${at} is defined under "groups", but no state spawns it`);
         }
     }
 
@@ -453,7 +782,12 @@ function validateLevelDesign(design, map = null) {
             } else if (states[key]?.player?.spawn === undefined) {
                 warn(`${where} waits on "arrive:${key}", but state "${key}" has no "player" "spawn", so the player never arrives`);
             }
-        } else if ((kind === 'spawn' || kind === 'defeated') && !groups.has(key)) {
+        } else if (LEVEL_DESIGN_VOCAB.triggers.player.includes(kind)) {
+            if (LEVEL_DESIGN_VOCAB.itemTriggers.includes(kind) && itemIds && !itemIds.includes(key)) {
+                warn(`${where} waits on "${kind}:${key}", but ${ITEM_CATALOG.path} has no item "${key}"`
+                   + _levelDesignDidYouMean(key, itemIds));
+            }
+        } else if ((kind === 'spawn' || kind === 'defeated' || kind === 'fled') && !groups.has(key)) {
             warn(`${where} waits on group "${key}", which no state spawns${_levelDesignDidYouMean(key, [...groups])}`);
         } else if (mapNames?.[kind] && !mapNames[kind].has(key)) {
             // The level SVG is the only scene known before play; an interior's
@@ -464,6 +798,26 @@ function validateLevelDesign(design, map = null) {
                + (close ? `; did you mean "${kind}:${close}"?` : ' (ignore this if it is inside an interior)'));
         }
     };
+
+    // What LOOK says about things, by layer name: an OBJECT-, a BREAKABLE-, an
+    // ENTERABLE- or RESTRICTED- (for its door), an INVENTORY- item.
+    if (design.look !== undefined) {
+        if (!_levelDesignIsObject(design.look)) {
+            warn('"look" should be an object of layer names and what LOOK says about each');
+        } else {
+            const named = map ? [...new Set([
+                ...map.objects.map(entry => entry.name), ...map.breakables.map(entry => entry.name),
+                ...map.enterables.map(entry => entry.name), ...(map.items || []).map(entry => entry.name),
+            ])] : null;
+            for (const [name, text] of Object.entries(design.look)) {
+                if (typeof text !== 'string' || !text.trim()) warn(`look "${name}" should be the sentence LOOK says`);
+                if (named && !named.includes(name)) {
+                    warn(`look "${name}": the level SVG has no OBJECT-, BREAKABLE-, ENTERABLE- or RESTRICTED-${name}`
+                       + `${_levelDesignDidYouMean(name, named)} (ignore this if it is inside an interior)`);
+                }
+            }
+        }
+    }
 
     // Restricted
     if (design.restricted !== undefined && !_levelDesignIsObject(design.restricted)) {
@@ -478,13 +832,13 @@ function validateLevelDesign(design, map = null) {
         unknownKeys(entry, V.keys.restricted, where);
         if (entry.until === undefined) warn(`${where} has no "until", so it stays locked`);
         else trigger(entry.until, `${where} "until"`);
+        oneOf(entry.type, V.values.restrictedType, `${where} "type"`);
         if (mapNames && !mapNames.locked.has(name)) {
             warn(`${where}: the level SVG has no RESTRICTED-${name}`);
         }
     }
 
     // States
-    const seenGroups = new Set();
     for (const [name, state] of Object.entries(states)) {
         const where = `state "${name}"`;
         if (!LEVEL_DESIGN_NAME_RE.test(name)) warn(`${where}: use letters, digits, - and _ in a state name`);
@@ -505,6 +859,56 @@ function validateLevelDesign(design, map = null) {
                            + _levelDesignDidYouMean(caseName, Object.keys(cases)));
                     }
                     if (typeof value !== 'boolean') warn(`${where} sets case "${caseName}" to something other than true or false`);
+                }
+            }
+        }
+
+        // A state's cases: conditions the named cases follow from here on.
+        if (state.cases !== undefined) {
+            if (!_levelDesignIsObject(state.cases)) {
+                warn(`${where} "cases" should be an object of case names and { "condition": ... }`);
+            } else {
+                for (const entry of levelDesignCaseEntries(state.cases)) {
+                    const at = `${where} case "${entry.name}"`;
+                    if (!(entry.name in cases)) {
+                        warn(`${at} is not in the top "cases", which gives its value until this state`
+                           + _levelDesignDidYouMean(entry.name, Object.keys(cases)));
+                    }
+                    if (typeof entry.value === 'boolean') {
+                        warn(`${at} is ${entry.value}; a state's "cases" give conditions, and a value goes in "set"`);
+                        continue;
+                    }
+                    caseValue(entry, state.cases[entry.name], at);
+                    if (_levelDesignIsObject(state.set) && entry.name in state.set) {
+                        warn(`${where} both sets case "${entry.name}" and gives it a condition; the condition wins`);
+                    }
+                }
+            }
+        }
+
+        // What a state puts back: "level", or a list of what reported it.
+        if (state.reset !== undefined && state.reset !== V.values.resetAll) {
+            if (!Array.isArray(state.reset)) {
+                warn(`${where} "reset" should be "level" or a list, such as ["break:parking-gate-arm"]`);
+            } else {
+                const moved = levelDesignLayerMoves(design).map(move => move.path.split('/').pop());
+                for (const item of state.reset) {
+                    const at = `${where} "reset" "${item}"`;
+                    const parsed = levelDesignTrigger(item);
+                    if (!parsed || !V.values.reset.includes(parsed.kind)) {
+                        const kind = String(item).split(':')[0];
+                        const close = levelDesignClosest(kind, V.values.reset);
+                        warn(`${at}: write what to put back as <kind>:<name>, the kind one of ${V.values.reset.join(', ')}`
+                           + (close && close !== kind ? `; did you mean "${close}:"?` : ''));
+                    } else if (parsed.kind === 'case' && !(parsed.key in cases)) {
+                        warn(`${at} names case "${parsed.key}", which is not in "cases"`
+                           + _levelDesignDidYouMean(parsed.key, Object.keys(cases)));
+                    } else if (parsed.kind === 'animate' && !moved.includes(parsed.key)) {
+                        warn(`${at}: no state moves a layer "${parsed.key}"${_levelDesignDidYouMean(parsed.key, moved)}`);
+                    } else if (mapNames?.[parsed.kind] && !mapNames[parsed.kind].has(parsed.key)) {
+                        warn(`${at}: the level SVG has no ${LEVEL_DESIGN_MAP_KIND_LABEL[parsed.kind]}${parsed.key}`
+                           + _levelDesignDidYouMean(parsed.key, [...mapNames[parsed.kind]]));
+                    }
                 }
             }
         }
@@ -530,43 +934,42 @@ function validateLevelDesign(design, map = null) {
         if (state.spawn !== undefined && !Array.isArray(state.spawn)) {
             warn(`${where} "spawn" should be a list of groups`);
         }
+        // A spawn's own keys are checked as written, then laid over the group
+        // it names (levelDesignSpawn) for what may come from either: its type,
+        // its "from", an "order" list against the pool it ends up with.
+        const seenGroups = new Set();
         for (const [i, group] of (Array.isArray(state.spawn) ? state.spawn : []).entries()) {
             const at = `${where} spawn ${typeof group?.group === 'string' ? `"${group.group}"` : `#${i + 1}`}`;
             if (!_levelDesignIsObject(group)) {
                 warn(`${at} should be an object`);
                 continue;
             }
-            unknownKeys(group, V.keys.spawn, at);
+            unknownKeys(group, [...V.keys.spawn, ...Object.keys(LEVEL_DESIGN_SPAWN_ALIASES)], at);
             if (typeof group.group !== 'string' || !LEVEL_DESIGN_NAME_RE.test(group.group)) {
                 warn(`${at} needs a "group" name, used to report spawn:<group> and defeated:<group>`);
             } else if (seenGroups.has(group.group)) {
-                warn(`${at}: another spawn is also named "${group.group}", so their reports cannot be told apart`);
+                warn(`${at}: this state spawns "${group.group}" twice, so their reports cannot be told apart`);
             } else {
                 seenGroups.add(group.group);
             }
-            if (group.type === undefined) warn(`${at} needs a "type"`);
+            const { spec, def } = levelDesignSpawn(design, group);
+            if (spec.type === undefined) warn(`${at} needs a "type"`);
             oneOf(group.type, V.values.spawnType, `${at} "type"`);
-            if (group.count !== undefined && !(Number.isInteger(group.count) && group.count >= 1)) {
-                warn(`${at} "count" should be a whole number, 1 or more`);
+            spawnFields(group, at);
+            if (typeof spec.from !== 'string') {
+                warn(`${at} needs "from", the layer they come out of${def ? ', here or in its group' : ''}`);
             }
-            if (Array.isArray(group.pick)) {
-                warn(`${at} "pick" lists enemies; list them in "pool", and write "pick": "random" or "in-order"`);
-                if (group.pool === undefined) group.pick.forEach((entry, n) => poolEntry(entry, `${at} "pick" #${n + 1}`));
-            } else {
-                oneOf(group.pick, V.values.pick, `${at} "pick"`);
-            }
-            if (group.pool !== undefined) {
-                if (!Array.isArray(group.pool) || !group.pool.length) {
-                    warn(`${at} "pool" should be a list of enemies`);
-                } else {
-                    group.pool.forEach((entry, n) => poolEntry(entry, `${at} "pool" #${n + 1}`));
+            if (!def || group.order !== undefined || group.pool !== undefined) orderNames(spec, at);
+            // "inherit" brings back the members still standing from an earlier
+            // spawn of the group: who they are is settled, so these keys are not.
+            if (group.inherit === true) {
+                for (const key of ['count', 'pick', 'pool', 'order'].filter(key => group[key] !== undefined)) {
+                    warn(`${at} has "${key}", which "inherit" does not use: the members still standing come back`);
                 }
+                const firstSpawn = Object.values(states).some(other => (Array.isArray(other?.spawn) ? other.spawn : [])
+                    .some(s => _levelDesignIsObject(s) && s.group === group.group && s.inherit !== true));
+                if (!firstSpawn) warn(`${at} "inherit": no state spawns "${group.group}" first, so nobody can come back`);
             }
-            if (typeof group.from !== 'string') warn(`${at} needs "from", the layer they come out of`);
-            else layerPath(group.from, `${at} "from"`);
-            oneOf(group.animation, V.values.animation, `${at} "animation"`);
-            seconds(group.after, `${at} "after"`);
-            seconds(group.every, `${at} "every"`);
         }
 
         const moves = state['animate-layers'];
@@ -618,8 +1021,21 @@ function validateLevelDesign(design, map = null) {
                 continue;
             }
             unknownKeys(step, V.keys.next, at);
-            if (step.on === undefined) warn(`${at} has no "on", so it never fires`);
-            else trigger(step.on, `${at} "on"`);
+            if (step.on === undefined && step.when === undefined) warn(`${at} has no "on" or "when", so it never fires`);
+            else if (step.on !== undefined) trigger(step.on, `${at} "on"`);
+            if (step.when !== undefined) {
+                if (!_levelDesignIsObject(step.when) || !Object.keys(step.when).length) {
+                    warn(`${at} "when" should be an object of case names and true or false, such as { "has-key": true }`);
+                } else {
+                    for (const [caseName, value] of Object.entries(step.when)) {
+                        if (!(caseName in cases)) {
+                            warn(`${at} "when" reads case "${caseName}", which is not in "cases"`
+                               + _levelDesignDidYouMean(caseName, Object.keys(cases)));
+                        }
+                        if (typeof value !== 'boolean') warn(`${at} "when" "${caseName}" should be true or false`);
+                    }
+                }
+            }
             if (!stateNames.includes(step.to)) {
                 warn(`${at} goes to "${step.to}", which is not in "states"${_levelDesignDidYouMean(step.to, stateNames)}`);
             }
@@ -709,16 +1125,33 @@ function migrateLevelDesign(draft, map = null) {
         const missing = draft.states.filter(name => !order.includes(name));
         if (missing.length) note(`"states" lists ${missing.join(', ')}, with nothing written for them`);
     }
-    const design = { version: 1, start: order[0], cases: {}, states: {} };
+    const design = { version: 1, start: order[0] };
+    if (_levelDesignIsObject(draft.groups)) {
+        design.groups = {};
+        for (const [type, defs] of Object.entries(draft.groups)) {
+            design.groups[type] = _levelDesignIsObject(defs)
+                ? Object.fromEntries(Object.entries(defs).map(([name, def]) =>
+                    [name, _levelDesignDraftSpawn(def, `group "${name}"`, note)]))
+                : defs;
+        }
+    }
+    design.cases = {};
+    design.states = {};
 
     // Cases, with their starting values from the first state.
+    const draftCases = Object.fromEntries(levelDesignCaseEntries(draft.cases).map(entry => [entry.name, entry]));
     const caseNames = Array.isArray(draft.case) ? draft.case
                     : Array.isArray(draft.cases) ? draft.cases
-                    : _levelDesignIsObject(draft.cases) ? Object.keys(draft.cases) : [];
+                    : Object.keys(draftCases);
     const firstSet = stateSource[order[0]]?.['set-case'] || stateSource[order[0]]?.set || {};
     for (const name of caseNames.filter(name => typeof name === 'string')) {
-        design.cases[name] = _levelDesignIsObject(draft.cases) && typeof draft.cases[name] === 'boolean'
-            ? draft.cases[name] : firstSet[name] === true;
+        const entry = draftCases[name];
+        if (entry?.condition) {
+            design.cases[name] = { condition: entry.condition };
+            if (entry.shorthand) note(`case "${name}" is written ${JSON.stringify(design.cases[name])}`);
+        } else {
+            design.cases[name] = typeof entry?.value === 'boolean' ? entry.value : firstSet[name] === true;
+        }
     }
     if (Array.isArray(draft.case) || Array.isArray(draft.cases)) {
         note(`"case" is "cases" in version 1, with each case's starting value, `
@@ -760,6 +1193,19 @@ function migrateLevelDesign(draft, map = null) {
         const where = `state "${name}"`;
         const state = {};
         if (src.svg !== undefined) state.svg = src.svg;
+        if (_levelDesignIsObject(src.cases)) {
+            state.cases = {};
+            for (const entry of levelDesignCaseEntries(src.cases)) {
+                if (!entry.condition) continue;
+                state.cases[entry.name] = { condition: entry.condition };
+                if (entry.shorthand) note(`${where} case "${entry.name}" is written ${JSON.stringify(state.cases[entry.name])}`);
+                if (!(entry.name in design.cases)) {
+                    design.cases[entry.name] = false;
+                    note(`${where} gives case "${entry.name}" a condition, but "cases" does not list it; it is added, starting false`);
+                }
+            }
+        }
+        if (src.reset !== undefined) state.reset = src.reset;
 
         const set = src['set-case'] ?? src.set;
         if (_levelDesignIsObject(set)) {
@@ -836,6 +1282,7 @@ function migrateLevelDesign(draft, map = null) {
                 }
             }
             if (enemySrc.every !== undefined) group.every = enemySrc.every;
+            else if (enemySrc.timeout !== undefined) group.timeout = enemySrc.timeout;
             if (enemySrc.spawned !== undefined) noteOnce('spawned-enemy', '"spawned" is not needed for enemies either');
             state.spawn = [group];
         }
@@ -847,7 +1294,7 @@ function migrateLevelDesign(draft, map = null) {
         if (Array.isArray(src.next)) state.next = [...src.next];
         if (Array.isArray(src.spawn)) state.spawn = src.spawn;
         if (Array.isArray(state.spawn)) {
-            state.spawn = state.spawn.map((group, i) => _levelDesignDraftPool(group,
+            state.spawn = state.spawn.map((group, i) => _levelDesignDraftSpawn(group,
                 `${where} spawn ${typeof group?.group === 'string' ? `"${group.group}"` : `#${i + 1}`}`, note));
         }
         if (Array.isArray(src['animate-layers'])) {
@@ -900,11 +1347,13 @@ function migrateLevelDesign(draft, map = null) {
     return { design, warnings };
 }
 
-// _levelDesignDraftPool - a draft spawn group's enemies as version 1 lists
-// them: a "pick" that lists enemies becomes the "pool" (when there is none)
-// with "pick": "random", and each shorthand entry,
-// "Name:render([part.background(palette), ...])", becomes { enemy, render }.
-function _levelDesignDraftPool(group, where, note) {
+// _levelDesignDraftSpawn - a draft spawn group (or a group under "groups") as
+// version 1 writes it: a "pick" that lists enemies becomes the "pool" (when
+// there is none) with "pick": "random"; "timeout" becomes "every"; a time
+// written as text ("1s") becomes seconds; each shorthand entry,
+// "Name:render([part.background(palette), ...])", becomes { enemy, render };
+// and an entry that names its enemy as an object is written flat.
+function _levelDesignDraftSpawn(group, where, note) {
     if (!_levelDesignIsObject(group)) return group;
     const out = { ...group };
     if (Array.isArray(out.pick)) {
@@ -912,11 +1361,36 @@ function _levelDesignDraftPool(group, where, note) {
         note(`${where}: "pick" lists enemies; version 1 lists them in "pool", with "pick": "random"`);
         out.pick = 'random';
     }
+    for (const [alias, key] of Object.entries(LEVEL_DESIGN_SPAWN_ALIASES)) {
+        if (out[alias] === undefined) continue;
+        if (out[key] === undefined) {
+            out[key] = out[alias];
+            note(`${where}: "${alias}" is "${key}" in version 1`);
+        } else {
+            note(`${where}: "${alias}" is left out, since "${key}" is given`);
+        }
+        delete out[alias];
+    }
+    for (const key of ['after', 'every']) {
+        if (typeof out[key] !== 'string') continue;
+        const value = levelDesignSeconds(out[key]);
+        if (value === null) continue;
+        note(`${where} "${key}": "${out[key]}" is written ${value}`);
+        out[key] = value;
+    }
     if (Array.isArray(out.pool)) {
         out.pool = out.pool.map(entry => {
             const read = typeof entry === 'string' ? levelDesignShorthandEnemy(entry) : null;
-            if (read) note(`${where} "pool": "${entry}" is written ${JSON.stringify(read)}`);
-            return read || entry;
+            if (read) {
+                note(`${where} "pool": "${entry}" is written ${JSON.stringify(read)}`);
+                return read;
+            }
+            if (_levelDesignIsObject(entry) && _levelDesignIsObject(entry.enemy)) {
+                const flat = _levelDesignFlatPoolEntry(entry);
+                note(`${where} "pool": an entry that names its enemy as an object is written flat, ${JSON.stringify(flat)}`);
+                return flat;
+            }
+            return entry;
         });
     }
     return out;
@@ -954,24 +1428,32 @@ function prepareLevelDesign(raw, map = null) {
     return { design, warnings, migrated };
 }
 
-// levelDesignEnemyVariants - every enemy a version 1 design's spawn pools ask
-// to have drawn differently, as [{ enemy, render }], one per enemy and render:
-// the pool entries written { "enemy": ..., "render": { ... } }. What the level
-// registers (enemyVariant) and waits on before it starts, so a variant's first
-// frame is never blank. Entries that are not that shape are left to the checks.
+// levelDesignEnemyVariants - every enemy a version 1 design's pools ask to
+// have drawn differently, as [{ enemy, render }], one per enemy and render:
+// the pool entries written { "enemy": ..., "render": { ... } }, in the
+// states' spawns and in "groups", leaving out an entry whose "re-render" is 0.
+// What the level registers (enemyVariant) and waits on before it starts, so
+// a variant's first frame is never blank. Entries that are not that shape are
+// left to the checks.
 function levelDesignEnemyVariants(design) {
-    const found = new Map();
-    const states = _levelDesignIsObject(design?.states) ? Object.values(design.states) : [];
-    for (const state of states) {
-        const groups = _levelDesignIsObject(state) && Array.isArray(state.spawn) ? state.spawn : [];
-        for (const group of groups) {
-            for (const entry of _levelDesignIsObject(group) && Array.isArray(group.pool) ? group.pool : []) {
-                if (!_levelDesignIsObject(entry) || typeof entry.enemy !== 'string' || !_levelDesignIsObject(entry.render)) continue;
-                const key = `${entry.enemy.trim().toLowerCase()}|${typeof variantRenderKey === 'function'
-                    ? variantRenderKey(entry.render) : JSON.stringify(entry.render)}`;
-                if (!found.has(key)) found.set(key, { enemy: entry.enemy.trim(), render: { ...entry.render } });
-            }
+    const pools = [];
+    for (const defs of _levelDesignIsObject(design?.groups) ? Object.values(design.groups) : []) {
+        for (const def of _levelDesignIsObject(defs) ? Object.values(defs) : []) {
+            if (_levelDesignIsObject(def) && Array.isArray(def.pool)) pools.push(def.pool);
         }
+    }
+    for (const state of _levelDesignIsObject(design?.states) ? Object.values(design.states) : []) {
+        for (const group of _levelDesignIsObject(state) && Array.isArray(state.spawn) ? state.spawn : []) {
+            if (_levelDesignIsObject(group) && Array.isArray(group.pool)) pools.push(group.pool);
+        }
+    }
+    const found = new Map();
+    for (const raw of pools.flat()) {
+        const entry = levelDesignPoolEntry(raw);
+        if (!entry?.render || !entry.reRender) continue;
+        const key = `${entry.enemy.toLowerCase()}|${typeof variantRenderKey === 'function'
+            ? variantRenderKey(entry.render) : JSON.stringify(entry.render)}`;
+        if (!found.has(key)) found.set(key, { enemy: entry.enemy, render: { ...entry.render } });
     }
     return [...found.values()];
 }
@@ -1010,9 +1492,30 @@ function levelDesignLayerMoves(design) {
 // doorway.
 const LEVEL_DESIGN_SPAWN_STEP_OUT = 16;
 // Side by side as they come out: the first in the middle, then left, then
-// right, as a share of each one's width.
-const LEVEL_DESIGN_SPAWN_LANES = [0, -1, 1];
+// right, then further left and right, as a share of each one's width. A sixth
+// and on stand a row deeper, so a crew that comes out all at once ("order":
+// "same") does not stand on itself.
+const LEVEL_DESIGN_SPAWN_LANES = [0, -1, 1, -2, 2];
 const LEVEL_DESIGN_SPAWN_LANE_W = 0.75;
+const LEVEL_DESIGN_SPAWN_ROW    = 40;
+// Coming in from the view's edges ("from": "edges"): how far inside the view
+// the first pair stops, how much further each next pair, and how far apart in
+// depth their lanes are.
+const LEVEL_DESIGN_EDGE_INSET      = 60;
+const LEVEL_DESIGN_EDGE_STEP       = 40;
+const LEVEL_DESIGN_EDGE_LANE_DEPTH = 24;
+
+// levelDesignNearerSide - the edge of the view nearer an enemy: -1 for the
+// left, 1 for the right.
+function levelDesignNearerSide(enemy) {
+    return enemy.x + enemy.w * 0.5 < cam.x + W * 0.5 ? -1 : 1;
+}
+
+// levelDesignOffView - just past one edge of the view for an enemy, at its
+// own depth, as the hit box's top-left: where it goes to leave, or waits.
+function levelDesignOffView(enemy, side) {
+    return { x: side < 0 ? cam.x - enemy.w - 8 : cam.x + W + 8, y: enemy.y };
+}
 
 // _levelDesignDrawable - whether an enemy has art to draw. One without would
 // be an invisible fight a level could not be finished without. Before the
@@ -1031,11 +1534,150 @@ function _levelDesignDrawable(id) {
 function levelDesignEnemyId(entry) {
     if (typeof ENEMY_DEFS === 'undefined' || typeof enemyDefId !== 'function') return null;
     if (typeof entry === 'string') return enemyDefId(entry);
+    if (_levelDesignIsObject(entry) && _levelDesignIsObject(entry.enemy)) entry = _levelDesignFlatPoolEntry(entry);
     if (!_levelDesignIsObject(entry) || typeof entry.enemy !== 'string') return null;
     const render = _levelDesignIsObject(entry.render) ? entry.render : {};
     return Object.keys(render).length && typeof enemyVariant === 'function'
         ? enemyVariant(entry.enemy, render)
         : enemyDefId(entry.enemy);
+}
+
+// _levelDesignFlatPoolEntry - a pool entry that names its enemy as an object,
+// { "enemy": { "name": "SassyGirl", "count": 2, ... } }, written flat:
+// { "enemy": "SassyGirl", "count": 2, ... }. Keys beside "enemy" win.
+function _levelDesignFlatPoolEntry(entry) {
+    const { enemy, ...rest } = entry;
+    const { name, ...inner } = _levelDesignIsObject(enemy) ? enemy : {};
+    return { enemy: name, ...inner, ...rest };
+}
+
+// levelDesignPoolEntry - a pool entry read as { enemy, render, count,
+// reRender, name }: a name is one of that enemy, an object brings "count" of
+// it (default 1), the first "re-render" of them (default all) drawn with its
+// "render". Null when the entry is neither, the shorthand string included.
+function levelDesignPoolEntry(entry) {
+    if (typeof entry === 'string') {
+        return entry.trim() && !levelDesignShorthandEnemy(entry)
+            ? { enemy: entry.trim(), render: null, count: 1, reRender: 0, name: null } : null;
+    }
+    if (!_levelDesignIsObject(entry)) return null;
+    const flat = _levelDesignIsObject(entry.enemy) ? _levelDesignFlatPoolEntry(entry) : entry;
+    if (typeof flat.enemy !== 'string' || !flat.enemy.trim()) return null;
+    const render = _levelDesignIsObject(flat.render) && Object.keys(flat.render).length ? flat.render : null;
+    const count = Number.isInteger(flat.count) && flat.count >= 1 ? flat.count : 1;
+    const asked = flat['re-render'];
+    const reRender = !render ? 0 : Number.isInteger(asked) && asked >= 0 ? Math.min(asked, count) : count;
+    const name = typeof flat.name === 'string' && LEVEL_DESIGN_NAME_RE.test(flat.name) ? flat.name : null;
+    return { enemy: flat.enemy.trim(), render, count, reRender, name };
+}
+
+// levelDesignPoolSlots - a pool as one slot per enemy it brings, in pool
+// order: [{ index, entry, enemy, render, name }], where index is the slot's
+// place in that order and entry the place of the pool entry it came from.
+// { "enemy": "SassyGirl", "count": 2, "re-render": 1, "render": { ... } } is
+// two slots, the recolored one first. Entries that are not enemies are left
+// out; the checks name them.
+function levelDesignPoolSlots(pool) {
+    const slots = [];
+    (Array.isArray(pool) ? pool : []).forEach((raw, entryIndex) => {
+        const entry = levelDesignPoolEntry(raw);
+        if (!entry) return;
+        for (let n = 0; n < entry.count; n++) {
+            slots.push({
+                index: slots.length, entry: entryIndex, enemy: entry.enemy,
+                render: n < entry.reRender ? entry.render : null, name: entry.name,
+            });
+        }
+    });
+    return slots;
+}
+
+// levelDesignSpawn - a state's spawn laid over the group it names under
+// "groups", as { spec, def, type }: the spawn's own keys win, key by key, and
+// a list ("pool", "order") is replaced whole, never merged. "type" may be
+// left out when the group is filed under one type only. "timeout" is read as
+// "every" on each side before they are laid together, so a spawn's "timeout"
+// still wins over its group's "every". def is null for a spawn whose group is
+// not under "groups", which is then read as written.
+function levelDesignSpawn(design, spawn) {
+    if (!_levelDesignIsObject(spawn)) return { spec: spawn, def: null, type: null };
+    const groups = _levelDesignIsObject(design?.groups) ? design.groups : {};
+    const filed = type => _levelDesignIsObject(groups[type]) && _levelDesignIsObject(groups[type][spawn.group]);
+    let type = typeof spawn.type === 'string' ? spawn.type : null;
+    if (!type && typeof spawn.group === 'string') {
+        const types = Object.keys(groups).filter(filed);
+        if (types.length === 1) type = types[0];
+    }
+    const def = type && typeof spawn.group === 'string' && filed(type) ? groups[type][spawn.group] : null;
+    const spec = { ..._levelDesignReadAliases(def || {}), ..._levelDesignReadAliases(spawn) };
+    if (type) spec.type = type;
+    return { spec, def, type };
+}
+
+// _levelDesignReadAliases - a spawn with its other spellings read as the
+// key ("timeout" as "every", a time in text as seconds), without the alias.
+function _levelDesignReadAliases(spec) {
+    const out = { ...spec };
+    for (const [alias, key] of Object.entries(LEVEL_DESIGN_SPAWN_ALIASES)) {
+        if (out[alias] === undefined) continue;
+        if (out[key] === undefined) {
+            const value = levelDesignSeconds(out[alias]);
+            out[key] = value !== null ? value : out[alias];
+        }
+        delete out[alias];
+    }
+    return out;
+}
+
+// _levelDesignOrderScore - how well a name in an "order" list matches a pool
+// slot: 3 for the entry's own "name" or its pool position (from 1), 2 for the
+// enemy drawn as itself, 1 for the enemy drawn with a render, 0 for none. So
+// "CrimeGuy" takes a plain CrimeGuy before a gray one.
+function _levelDesignOrderScore(slot, name) {
+    if (Number.isInteger(name)) return slot.entry + 1 === name ? 3 : 0;
+    const text = String(name ?? '').trim().toLowerCase();
+    if (!text) return 0;
+    if (slot.name && slot.name.toLowerCase() === text) return 3;
+    const id = n => (typeof enemyDefId === 'function' && typeof ENEMY_DEFS !== 'undefined' ? enemyDefId(n) : null)
+                 || String(n).trim().toLowerCase();
+    if (slot.enemy && id(slot.enemy) === id(name)) return slot.render ? 1 : 2;
+    return 0;
+}
+
+// _levelDesignOrderTake - take the slot a name matches best out of left
+// (earliest first among equals) and return it, or null when none matches.
+function _levelDesignOrderTake(left, name) {
+    let best = -1;
+    let bestScore = 0;
+    left.forEach((slot, i) => {
+        const score = _levelDesignOrderScore(slot, name);
+        if (score > bestScore) {
+            best = i;
+            bestScore = score;
+        }
+    });
+    return best < 0 ? null : left.splice(best, 1)[0];
+}
+
+// levelDesignOrderRoster - the members "pick" drew, in the order they come
+// out: "random" shuffled, "sequence" in pool order, "reverse" the other way,
+// a list by name first and the rest in pool order. "same" and "load" bring
+// them all at once, and no order at all keeps the order "pick" drew them in
+// (random for "random", the pool's for "in-order").
+function levelDesignOrderRoster(drawn, order) {
+    if (order === 'random') return _levelDesignShuffle(drawn);
+    const byPool = [...drawn].sort((a, b) => a.index - b.index);
+    if (order === 'sequence') return byPool;
+    if (order === 'reverse') return byPool.reverse();
+    if (Array.isArray(order)) {
+        const named = [];
+        for (const name of order) {
+            const slot = _levelDesignOrderTake(byPool, name);
+            if (slot) named.push(slot);
+        }
+        return [...named, ...byPool];
+    }
+    return [...drawn];
 }
 
 // levelDesignDefaultPool - the enemies a spawn group picks from when it names
@@ -1106,25 +1748,43 @@ function _levelDesignFieldPoint(stage, feet) {
 //
 // A "next" trigger that names an event fires only for an event heard while its
 // state is the current one. One that names a condition ("case:", "state:")
-// fires whenever the condition holds while its state is current. A
-// restricted "until" holds once its condition has been true at any point in
-// the run, events included.
+// fires whenever the condition holds while its state is current. A step's
+// "when" adds cases that must have given values at that moment; a step with
+// "when" and no "on" fires as soon as they do. A restricted "until" holds once
+// its condition has been true at any point in the run, events included; with
+// "type": "condition" the door is open only while it holds.
+//
+// A case either holds a value, changed by "set", or follows a condition
+// ("alive = 0", "inventory:key"), worked out every frame: from the start when
+// the top "cases" gives it one, from a state on when that state's "cases"
+// does. A "set" stops a case following. A state's "reset" puts back what it
+// lists ("break:<name>", "animate:<layer>", "unlock:<name>", "case:<name>"),
+// or with "level" the whole run, then enters the start state again. Whatever
+// can happen twice (a gate broken again, a group spawned again, a case
+// turning true again) forgets its report first, so it is heard again.
 //
 // A state's "player" rules apply when the state is entered: "health" and
 // "inventory" at once, and "spawn" as an entrance. The player is kept off
 // stage for "after" seconds, then walks in from the left or right edge of the
 // level (to the sandbox's spawn band, or its mirror on the right) or out of a
 // layer, and "arrive:<state>" is reported when they get there. With "svg":
-// "fade-out" the entrance starts while the screen is black. "store" keeps the
-// player's health (and the inventory word) on director.carry for the next
+// "fade-out" the entrance starts while the screen is black. "inventory":
+// "empty" empties what the player carries (player.inventory). "store" keeps
+// the player's health and what they carry on director.carry for the next
 // level to pick up.
 //
-// A state's "spawn" groups start when the state is entered. Each member
-// appears at the foot of the group's "from" layer and walks down into the
-// field, one every "every" seconds after the first "after". A group only
-// spawns while the player is in the scene its layer is in; inside a building,
-// its timer waits. "spawn:<group>" is reported when the first one appears,
-// "defeated:<group>" once all of them have appeared and are gone.
+// A state's "spawn" groups start when the state is entered, each laid over
+// its definition under "groups" when it has one. The roster is drawn then:
+// "pick" chooses from the pool, "order" sets who comes first ("same", or a
+// door into the state, brings them all at once). Each member appears at the
+// foot of the group's "from" layer (or just off the view's edges, for
+// "edges") and walks into the field, one every "every" seconds after the
+// first "after". "inherit" brings back the last spawn's members still
+// standing instead, with their health; "then": "flee" has them stand a moment
+// and run off. A group only spawns while the player is in the scene its layer
+// is in; inside a building, its timer waits. "spawn:<group>" is reported when
+// the first one appears, "defeated:<group>" once all of them have appeared
+// and are gone, or "fled:<group>" when any of them ran off.
 //
 // A state's "animate-layers" are sent when the state is entered, each once
 // its "after" is up, and the runtime slides them (LevelMapRuntime.moveLayer).
@@ -1147,13 +1807,28 @@ class LevelDirector {
             maxX: Number.isFinite(options.spawn?.maxX) ? options.spawn.maxX : 220,
         };
         this.entrance = null;           // the player coming on: { state, rules, at, walking }
-        this.inventory = 'empty';       // the inventory word; there is no inventory yet
         this.carry    = null;           // what "store" kept for the next level
+        // options.onStart  called each time the start state has been entered:
+        //                  the sandbox gives its test's items then, after the
+        //                  design's "inventory" rules, so they are not emptied.
+        this.onStart  = typeof options.onStart === 'function' ? options.onStart : null;
         this.states   = _levelDesignIsObject(design?.states) ? design.states : {};
-        this.cases    = {};
-        for (const [name, value] of Object.entries(_levelDesignIsObject(design?.cases) ? design.cases : {})) {
-            if (typeof value === 'boolean') this.cases[name] = value;
+        // Each case's starting value, and the top-level conditions some follow
+        // from the start; "reset" goes back to these. A condition case starts
+        // false and is worked out on the first update.
+        this.caseStart = {};
+        this.caseRules = {};
+        for (const entry of levelDesignCaseEntries(design?.cases)) {
+            if (typeof entry.value === 'boolean') this.caseStart[entry.name] = entry.value;
+            const rule = entry.condition !== null ? levelDesignCondition(entry.condition) : null;
+            if (rule) {
+                this.caseStart[entry.name] = false;
+                this.caseRules[entry.name] = rule;
+            }
         }
+        this.cases      = { ...this.caseStart };
+        this.conditions = { ...this.caseRules };   // case name -> the condition it follows now
+        this.plannedTotals = new Map();         // group -> how many its first spawn brings
         this.state    = null;           // the current state's name
         this.visited  = new Set();      // states entered this run
         this.heard    = new Set();      // "<kind>:<key>" heard this run
@@ -1197,6 +1872,9 @@ class LevelDirector {
         if (this.disposed) return;
         this.stepsThisFrame = 0;
         this.time += dt;
+        // Conditions first, so a step that fires on an event this frame reads
+        // the level as it is now.
+        this._updateConditions();
         if (!this.started) {
             this.started = true;
             for (const [name, value] of Object.entries(this.cases)) {
@@ -1204,6 +1882,7 @@ class LevelDirector {
             }
             if (this.states[this.design.start]) this._enter(this.design.start);
             else this.notify(`start state "${this.design?.start}" is not in "states", so the design does nothing`);
+            if (this.onStart) this.onStart(this);
         }
 
         while (this.queue.length) {
@@ -1212,11 +1891,17 @@ class LevelDirector {
             this._follow(step => step.on === event);
         }
         // Each move can make another state's condition true; follow them until
-        // the level settles or the per-frame limit is reached.
-        while (this._follow(step => this._isCondition(step.on) && this._holds(step.on))) { /* keep moving */ }
+        // the level settles or the per-frame limit is reached. A step with
+        // "when" and no "on" is a condition of its own.
+        while (this._follow(step => (step.on === undefined
+            ? _levelDesignIsObject(step.when)
+            : this._isCondition(step.on) && this._holds(step.on)))) { /* keep moving */ }
         this._updateEntrance();
         this._updateGroups();
         this._updateLayerMoves();
+        // Again before the locks, which read cases: a state entered this frame
+        // may have started groups that change them.
+        this._updateConditions();
         this._openLocks();
     }
 
@@ -1225,28 +1910,36 @@ class LevelDirector {
         return {
             state:  this.state,
             cases:  { ...this.cases },
+            conditions: Object.fromEntries(Object.entries(this.conditions).map(([name, rule]) => [name, rule.text])),
             locked: this.runtime ? this.runtime.restrictedEntries()
                 .filter(entry => this.runtime.isLocked(entry.name)).map(entry => entry.name) : [],
             entrance: this.entrance
                 ? `${this.entrance.state}: ${this.entrance.walking ? 'walking in' : 'waiting'}` : null,
             carry: this.carry ? { ...this.carry } : null,
+            inventory: this._player()?.inventory?.entries() || [],
             groups: [...this.groups.values()].map(group => ({
-                name:    group.name,
-                total:   group.total,
-                spawned: group.spawned,
-                down:    group.enemies.filter(enemy => enemy.dead).length,
-                ids:     group.enemies.map(enemy => enemy.typeId),
+                name:     group.name,
+                total:    group.total,
+                spawned:  group.spawned,
+                down:     group.enemies.filter(enemy => enemy.dead).length,
+                standing: group.enemies.filter(enemy => !enemy.dead && !enemy.fled).length,
+                toCome:   group.total - group.spawned,
+                fled:     group.enemies.filter(enemy => enemy.fled).length,
+                ids:      group.enemies.map(enemy => enemy.typeId),
+                order:    group.order,
+                queue:    group.queue.map(slot => slot.id),
             })),
         };
     }
 
     // ── States ────────────────────────────────────────────────────────────────
     // _follow - take the first of the current state's "next" steps that
-    // matches. Returns whether the level moved.
+    // matches, and whose "when" cases all have their values now. Returns
+    // whether the level moved.
     _follow(matches) {
         const steps = this.states[this.state]?.next;
         if (!Array.isArray(steps)) return false;
-        const step = steps.find(s => _levelDesignIsObject(s) && matches(s) && this.states[s.to]);
+        const step = steps.find(s => _levelDesignIsObject(s) && matches(s) && this._whenHolds(s.when) && this.states[s.to]);
         if (!step) return false;
         if (++this.stepsThisFrame > LEVEL_DESIGN_MAX_STEPS) {
             if (!this.loopReported) {
@@ -1256,23 +1949,50 @@ class LevelDirector {
             }
             return false;
         }
-        this._enter(step.to);
+        this._enter(step.to, step.on);
         return true;
     }
 
-    _enter(name) {
+    // via is the trigger of the step that led here: a state entered through a
+    // door ("enter:", "exit:") brings its spawn groups in all at once unless
+    // they say otherwise, since the scene is new to the player either way.
+    //
+    // A state's "reset" runs first, so what it puts back is there for the
+    // state's own "set" and spawns; with "svg": "fade-out" it waits for the
+    // screen to be black instead. "reset": "level" starts the level over, and
+    // the rest of the state is not used.
+    _enter(name, via = null) {
         this.state = name;
         this.visited.add(name);
         const state = this.states[name] || {};
+        const viaKind = levelDesignTrigger(via)?.kind;
+        const fades = state.svg === 'fade-out' && !!this.runtime;
         this._report('state', name);
+        if (state.reset !== undefined && !fades) {
+            if (state.reset === LEVEL_DESIGN_VOCAB.values.resetAll) {
+                this._resetLevel();
+                return;
+            }
+            this._reset(state.reset);
+        }
         this._applySet(state.set);
-        this._startGroups(state.spawn);
+        // Groups before the state's conditions, so a crew about to come out
+        // already counts: "alive = 0" is never true for the frame between.
+        this._startGroups(state.spawn, viaKind === 'enter' || viaKind === 'exit');
+        this._applyCaseRules(state.cases);
         this._startLayerMoves(state['animate-layers'], name);
         this._applyPlayerStats(state.player, name);
 
         const rules = _levelDesignIsObject(state.player) ? state.player : null;
-        if (state.svg === 'fade-out' && this.runtime) {
-            this.runtime.fadeThrough(this._player(), () => this._startEntrance(rules, name));
+        if (fades) {
+            this.runtime.fadeThrough(this._player(), () => {
+                if (state.reset === LEVEL_DESIGN_VOCAB.values.resetAll) {
+                    this._resetLevel();
+                    return;
+                }
+                if (state.reset !== undefined) this._reset(state.reset);
+                this._startEntrance(rules, name);
+            });
         } else {
             this._startEntrance(rules, name);
         }
@@ -1280,6 +2000,8 @@ class LevelDirector {
 
     // ── Player ────────────────────────────────────────────────────────────────
     // _applyPlayerStats - "health" and "inventory", at once on entering.
+    // "empty" empties what the player carries, "inherit" keeps it, and
+    // "store" keeps it and copies it onto carry for the next level.
     _applyPlayerStats(rules, stateName) {
         const p = this._player();
         if (!_levelDesignIsObject(rules) || !p) return;
@@ -1287,13 +2009,13 @@ class LevelDirector {
             p.hp = p.maxHp;
             if (typeof _hpHUD === 'function') _hpHUD(p);
         }
-        if (rules.inventory === 'empty') this.inventory = 'empty';
+        if (rules.inventory === 'empty') p.inventory?.clear();
         if (rules.health === 'store' || rules.inventory === 'store') {
             this.carry = {
                 from:      stateName,
                 health:    rules.health === 'store' ? p.hp : this.carry?.health ?? null,
                 maxHealth: p.maxHp,
-                inventory: rules.inventory === 'store' ? this.inventory : this.carry?.inventory ?? null,
+                inventory: rules.inventory === 'store' ? (p.inventory?.entries() || []) : this.carry?.inventory ?? null,
             };
         }
     }
@@ -1383,54 +2105,266 @@ class LevelDirector {
         };
     }
 
+    // ── Cases ─────────────────────────────────────────────────────────────────
+    // _setCase - give a case a value. Turning true reports "case:<name>";
+    // turning false forgets that report, so turning true again reports again.
+    _setCase(name, value) {
+        const was = this.cases[name] === true;
+        this.cases[name] = value;
+        if (value && !was) this._report('case', name);
+        else if (!value && was) this._forget(`case:${name}`);
+    }
+
+    // _applySet - a state's "set". A case that was following a condition
+    // stops following it and keeps the value given.
     _applySet(set) {
         if (!_levelDesignIsObject(set)) return;
         for (const [name, value] of Object.entries(set)) {
             if (typeof value !== 'boolean') continue;
-            const was = this.cases[name];
-            this.cases[name] = value;
-            if (value && !was) this._report('case', name);
+            delete this.conditions[name];
+            this._setCase(name, value);
         }
     }
 
+    // _applyCaseRules - a state's "cases": from here on, each named case
+    // follows its condition, worked out at once.
+    _applyCaseRules(cases) {
+        let changed = false;
+        for (const entry of levelDesignCaseEntries(cases)) {
+            const rule = entry.condition !== null ? levelDesignCondition(entry.condition) : null;
+            if (!rule) continue;
+            this.conditions[entry.name] = rule;
+            changed = true;
+        }
+        if (changed) this._updateConditions();
+    }
+
+    // _updateConditions - every case that follows a condition, as it is now.
+    _updateConditions() {
+        for (const [name, rule] of Object.entries(this.conditions)) {
+            this._setCase(name, this._conditionHolds(rule));
+        }
+    }
+
+    _conditionHolds(rule) {
+        const flag = LEVEL_DESIGN_VOCAB.conditions.flag.includes(rule.source);
+        const n = this._conditionCount(rule);
+        return flag && !rule.op ? n === 1 : levelDesignCompare(n, rule.op, rule.value);
+    }
+
+    // _conditionCount - the number a condition compares: a count, or 1 or 0
+    // for a flag.
+    _conditionCount(rule) {
+        switch (rule.source) {
+            case 'alive':     return rule.name ? this._aliveIn(rule.name) : this._aliveAll();
+            case 'fled':      return this.groups.get(rule.name)?.enemies.filter(enemy => enemy.fled).length || 0;
+            case 'inventory': {
+                const bag = this._player()?.inventory;
+                if (!bag || typeof bag.count !== 'function') return 0;
+                return rule.name ? bag.count(rule.name) : bag.total();
+            }
+            case 'case':      return this.cases[rule.name] === true ? 1 : 0;
+            case 'state':     return this.visited.has(rule.name) ? 1 : 0;
+            default:          return 0;
+        }
+    }
+
+    // _aliveIn - a group's members still to beat: before it has started, all
+    // that its first spawn would bring; then those still to come out plus
+    // those standing. Members that ran off are not counted.
+    _aliveIn(name) {
+        const group = this.groups.get(name);
+        if (!group) return this._plannedTotal(name);
+        return group.total - group.spawned
+             + group.enemies.filter(enemy => !enemy.dead && !enemy.fled).length;
+    }
+
+    // _aliveAll - enemies in play: standing in any scene of the run (the one
+    // the player is in, and the street kept while they are inside), plus the
+    // members of started groups still to come out. A group that has not
+    // started is not in play, so a crew for later never keeps a door shut.
+    _aliveAll() {
+        const lists = [typeof enemies !== 'undefined' ? enemies : [],
+                       ...(this.runtime ? this.runtime.stack.map(frame => frame.enemies || []) : [])];
+        let n = 0;
+        for (const list of lists) n += list.filter(enemy => !enemy.dead && !enemy.fled).length;
+        for (const group of this.groups.values()) n += group.total - group.spawned;
+        return n;
+    }
+
+    // _plannedTotal - how many a group's first spawn in the design brings,
+    // for a group that has not started yet.
+    _plannedTotal(name) {
+        if (!this.plannedTotals.has(name)) {
+            let total = 0;
+            for (const state of Object.values(this.states)) {
+                const raw = (Array.isArray(state?.spawn) ? state.spawn : [])
+                    .find(spawn => _levelDesignIsObject(spawn) && spawn.group === name && spawn.inherit !== true);
+                if (!raw) continue;
+                const { spec } = levelDesignSpawn(this.design, raw);
+                total = Number.isInteger(spec.count) && spec.count >= 1 ? spec.count
+                      : Array.isArray(spec.pool) ? levelDesignPoolSlots(spec.pool).length : 1;
+                break;
+            }
+            this.plannedTotals.set(name, total);
+        }
+        return this.plannedTotals.get(name);
+    }
+
+    // _whenHolds - a step's "when": every case named has the value given.
+    _whenHolds(when) {
+        if (when === undefined) return true;
+        if (!_levelDesignIsObject(when)) return false;
+        return Object.entries(when).every(([name, value]) => (this.cases[name] === true) === value);
+    }
+
+    // ── Reset ─────────────────────────────────────────────────────────────────
+    // _reset - a state's "reset" list: each thing put back as it was at the
+    // start of the run, and able to report again.
+    _reset(list) {
+        for (const item of Array.isArray(list) ? list : []) {
+            const parsed = levelDesignTrigger(item);
+            if (!parsed) continue;
+            const { kind, key } = parsed;
+            if (kind === 'break') {
+                if (this.runtime && !this.runtime.resetBreakable(key)) this.notify(`"reset": there is no breakable "${key}" to mend`);
+            } else if (kind === 'animate') {
+                if (this.runtime && !this.runtime.resetLayer(key)) this.notify(`"reset": no scene moves a layer "${key}"`);
+            } else if (kind === 'unlock') {
+                this.runtime?.lock(key);
+            } else if (kind === 'case') {
+                if (this.caseRules[key]) this.conditions[key] = this.caseRules[key];
+                else delete this.conditions[key];
+                this._setCase(key, this.caseStart[key] === true);
+                this._updateConditions();
+            }
+            this._forget(item);
+        }
+    }
+
+    // _resetLevel - "reset": "level". The run as it started: the level map
+    // put back (runtime.resetRun), every case at its starting value and
+    // following its starting condition, no groups, nothing heard or visited,
+    // then the start state entered, whose "player" rules settle the player's
+    // health and inventory.
+    _resetLevel() {
+        const p = this._player();
+        if (this.runtime) this.runtime.resetRun(p);
+        else if (typeof enemies !== 'undefined') enemies.length = 0;
+        if (this.entrance && p) {
+            p.hidden = false;
+            p.script = null;
+        }
+        this.entrance   = null;
+        this.cases      = { ...this.caseStart };
+        this.conditions = { ...this.caseRules };
+        this.visited.clear();
+        this.heard.clear();
+        this.queue.length = 0;
+        this.groups.clear();
+        this.layerMoves.length = 0;
+        // The start state first, whose "player" rules may empty what the
+        // player carries: conditions read after it, so a case such as
+        // "inventory:key" is never true for the moment between.
+        if (this.states[this.design.start]) this._enter(this.design.start);
+        if (this.onStart) this.onStart(this);
+        this._updateConditions();
+        for (const [name, value] of Object.entries(this.cases)) {
+            if (value) this._report('case', name);
+        }
+    }
+
+    // _forget - let reports be heard again: by the runtime, which sends each
+    // once per run, and by this director's record of what it heard.
+    _forget(...events) {
+        if (this.runtime) this.runtime.forget(...events);
+        for (const event of events) this.heard.delete(event);
+    }
+
     // ── Spawn groups ──────────────────────────────────────────────────────────
-    // _startGroups - set a state's spawn groups going. A group that cannot run
-    // (no such layer, no enemies to pick) says why once and is skipped; the
-    // validator has usually said so already, before play.
-    _startGroups(list) {
-        for (const spec of Array.isArray(list) ? list : []) {
-            if (!_levelDesignIsObject(spec) || typeof spec.group !== 'string') continue;
+    // _startGroups - set a state's spawn groups going, each laid over its
+    // group under "groups" (levelDesignSpawn). The whole roster is drawn when
+    // the group starts: "pick" chooses the members from the pool's slots (an
+    // entry with "count" 2 is two), "order" sets when each comes out, and a
+    // group with no "count" brings every slot in its pool. byDoor is whether
+    // the state was entered through a door, which makes "same" the default
+    // order. "from": "edges" brings them in from just off the view's sides
+    // instead of out of a layer. "inherit" brings back the members of the
+    // group's last spawn still standing, wherever they are, with their health,
+    // instead of drawing new ones. A group starting forgets its old reports,
+    // so it reports "spawn:", "defeated:" and "fled:" again. One that cannot
+    // run (no such layer, no enemies to pick) says why once and is skipped; the
+    // validator has usually said so already.
+    _startGroups(list, byDoor = false) {
+        for (const raw of Array.isArray(list) ? list : []) {
+            if (!_levelDesignIsObject(raw) || typeof raw.group !== 'string') continue;
+            const { spec } = levelDesignSpawn(this.design, raw);
             if (spec.type !== 'enemy') {
                 this.notify(`spawn "${spec.group}": type "${spec.type}" is not built, so nobody comes`);
                 continue;
             }
-            const place = this._findLayer(spec.from);
+            const edges = LEVEL_DESIGN_VOCAB.values.spawnFrom.includes(spec.from);
+            const place = edges ? { stage: this.runtime ? this.runtime.stage : this.stage, region: null }
+                                : this._findLayer(spec.from);
             if (!place) {
                 this.notify(`spawn "${spec.group}": there is no layer "${spec.from}" here, so nobody comes out`);
                 continue;
             }
-            const pool = Array.isArray(spec.pool)
-                ? spec.pool.map(entry => levelDesignEnemyId(entry)).filter(Boolean)
-                : levelDesignDefaultPool();
-            if (!pool.length) {
-                this.notify(`spawn "${spec.group}": its pool has no enemies, so nobody comes`);
-                continue;
+            const order = spec.order !== undefined ? spec.order : byDoor ? 'same' : null;
+            let queue;
+            if (spec.inherit === true) {
+                const before = this.groups.get(spec.group);
+                if (!before) this.notify(`spawn "${spec.group}": "inherit", but it has not been spawned yet, so nobody comes back`);
+                const back = before ? before.enemies.filter(enemy => !enemy.dead && !enemy.fled) : [];
+                back.forEach(enemy => this._takeOut(enemy));
+                queue = back.map((member, index) => ({ index, entry: index, id: member.typeId, member }));
+            } else {
+                const slots = (Array.isArray(spec.pool)
+                    ? levelDesignPoolSlots(spec.pool).map(slot => ({
+                        ...slot, id: levelDesignEnemyId(slot.render ? { enemy: slot.enemy, render: slot.render } : slot.enemy),
+                    }))
+                    : levelDesignDefaultPool().map((id, index) => ({ index, entry: index, enemy: id, render: null, name: null, id })))
+                    .filter(slot => slot.id);
+                if (!slots.length) {
+                    this.notify(`spawn "${spec.group}": its pool has no enemies, so nobody comes`);
+                    continue;
+                }
+                const total = Number.isInteger(spec.count) && spec.count >= 1 ? spec.count
+                            : Array.isArray(spec.pool) ? slots.length : 1;
+                const pick = _levelDesignPicker(slots, spec.pick);
+                queue = levelDesignOrderRoster(Array.from({ length: total }, pick), order);
             }
+            const together = order === 'same' || order === 'load';
             const seconds = value => (typeof value === 'number' && value >= 0 ? value : 0);
+            this._forget(`spawn:${spec.group}`, `defeated:${spec.group}`, `fled:${spec.group}`);
             this.groups.set(spec.group, {
                 name:     spec.group,
                 stage:    place.stage,
-                rect:     place.region.world,
-                gap:      levelFieldGapBelow(place.stage, place.region.world),
-                total:    Number.isInteger(spec.count) && spec.count >= 1 ? spec.count : 1,
+                edges,
+                rect:     edges ? null : place.region.world,
+                gap:      edges ? 0 : levelFieldGapBelow(place.stage, place.region.world),
+                total:    queue.length,
                 walk:     spec.animation !== 'idle',
-                pick:     _levelDesignPicker(pool, spec.pick),
+                flee:     spec.then === 'flee',
+                order:    spec.inherit === true ? 'inherit' : Array.isArray(order) ? 'list' : order || 'as picked',
+                queue,
                 nextAt:   this.time + seconds(spec.after),
-                every:    seconds(spec.every),
+                every:    together ? 0 : seconds(spec.every),
                 spawned:  0,
                 enemies:  [],
-                defeated: false,
+                finished: false,
             });
+        }
+    }
+
+    // _takeOut - an enemy off every list it is on: the scene the player is
+    // in, and the street kept while they are inside.
+    _takeOut(enemy) {
+        const lists = [typeof enemies !== 'undefined' ? enemies : null,
+                       ...(this.runtime ? this.runtime.stack.map(frame => frame.enemies) : [])];
+        for (const list of lists) {
+            const i = Array.isArray(list) ? list.indexOf(enemy) : -1;
+            if (i >= 0) list.splice(i, 1);
         }
     }
 
@@ -1462,47 +2396,108 @@ class LevelDirector {
                     group.nextAt += group.every;
                 }
             }
-            if (!group.defeated && group.spawned === group.total
+            // Finished once every member has come out and is gone: beaten and
+            // faded, or run off. "fled:" when any of them ran.
+            if (!group.finished && group.spawned === group.total
                 && group.enemies.every(enemy => enemy.isDone)) {
-                group.defeated = true;
-                this._report('defeated', group.name);
+                group.finished = true;
+                this._report(group.enemies.some(enemy => enemy.fled) ? 'fled' : 'defeated', group.name);
             }
         }
     }
 
-    // _spawnOne - the next member of a group, at the foot of its layer,
-    // walking down to a place in the field beside the ones before it: past
-    // the gap between the layer and the field (levelFieldGapBelow), and past
-    // the depth a door reaches, so nobody stands in the doorway.
+    // _spawnOne - the next member of a group: new, or one coming back
+    // ("inherit") with the health it had. It walks in to a place in the field,
+    // and a "then": "flee" group's members stand a moment there and run off.
     _spawnOne(group) {
-        const id   = group.pick();
-        const def  = ENEMY_DEFS[id];
         const i    = group.spawned;
-        const door = group.rect;
-        const footX = door.x + door.w * 0.5;
-        const footY = door.y + door.h;
+        const slot = group.queue[i];
+        const def  = ENEMY_DEFS[slot.id];
+        const path = group.edges ? this._edgePath(group, i, def) : this._doorPath(group, i, def);
 
-        const enemy = new Enemy(footX - def.w * 0.5, footY - def.h, id);
-        enemy.spawnGroup = group.name;
-        enemy.flankDir   = i % 2 === 0 ? 1 : -1;
-
-        const lane = LEVEL_DESIGN_SPAWN_LANES[i % LEVEL_DESIGN_SPAWN_LANES.length];
-        const target = _levelDesignFieldPoint(group.stage, {
-            x: footX + lane * def.w * LEVEL_DESIGN_SPAWN_LANE_W,
-            y: footY + group.gap + CFG.enterDepthTol + LEVEL_DESIGN_SPAWN_STEP_OUT,
-        });
-        if (group.walk) {
-            enemy.walkTo(target.x - def.w * 0.5, target.y - def.h, enemy.speed * CFG.enemySpeedMultiplier);
+        let enemy = slot.member;
+        if (enemy) {
+            // Whatever it was doing is over; only its health and looks stay.
+            enemy.script = null;
+            enemy.scripts.length = 0;
+            enemy.strike = null;
+            enemy.vx = enemy.vy = 0;
+            if (typeof enemy.setState === 'function' && enemy.state !== 'idle') enemy.setState('idle');
+            enemy.x = path.from.x;
+            enemy.y = path.from.y;
         } else {
-            enemy.x = target.x - def.w * 0.5;
-            enemy.y = target.y - def.h;
+            enemy = new Enemy(path.from.x, path.from.y, slot.id);
+            enemy.spawnGroup = group.name;
+            enemy.flankDir   = i % 2 === 0 ? 1 : -1;
+        }
+        if (group.walk) {
+            enemy.walkTo(path.to.x, path.to.y, enemy.speed * CFG.enemySpeedMultiplier);
+        } else {
+            enemy.x = path.to.x;
+            enemy.y = path.to.y;
             enemy.clampToStageField();
         }
+        if (group.flee) this._sendOff(enemy);
 
         enemies.push(enemy);
         group.enemies.push(enemy);
         group.spawned++;
         if (group.spawned === 1) this._report('spawn', group.name);
+    }
+
+    // _doorPath - out of the foot of the group's layer, down to a place in
+    // the field beside the ones before: past the gap between the layer and
+    // the field (levelFieldGapBelow) and past the depth a door reaches, so
+    // nobody stands in the doorway. Both as the hit box's top-left.
+    _doorPath(group, i, def) {
+        const door = group.rect;
+        const footX = door.x + door.w * 0.5;
+        const footY = door.y + door.h;
+        const lanes = LEVEL_DESIGN_SPAWN_LANES.length;
+        const lane = LEVEL_DESIGN_SPAWN_LANES[i % lanes];
+        const target = _levelDesignFieldPoint(group.stage, {
+            x: footX + lane * def.w * LEVEL_DESIGN_SPAWN_LANE_W,
+            y: footY + group.gap + CFG.enterDepthTol + LEVEL_DESIGN_SPAWN_STEP_OUT
+             + Math.floor(i / lanes) * LEVEL_DESIGN_SPAWN_ROW,
+        });
+        return {
+            from: { x: footX - def.w * 0.5, y: footY - def.h },
+            to:   { x: target.x - def.w * 0.5, y: target.y - def.h },
+        };
+    }
+
+    // _edgePath - from just off the view's left edge, then its right, taking
+    // turns, walking in to a place 60 to 140 px inside the view at the
+    // player's depth, give or take a lane, so a crew closes in from both sides.
+    _edgePath(group, i, def) {
+        const side = i % 2 === 0 ? -1 : 1;
+        const pair = Math.floor(i / 2);
+        const p = this._player();
+        const feetY = p ? p.y + p.h : H * 0.8;
+        const lane = LEVEL_DESIGN_SPAWN_LANES[pair % LEVEL_DESIGN_SPAWN_LANES.length];
+        const inset = LEVEL_DESIGN_EDGE_INSET + (pair % 3) * LEVEL_DESIGN_EDGE_STEP;
+        const feet = _levelDesignFieldPoint(group.stage, {
+            x: side < 0 ? cam.x + inset : cam.x + W - inset,
+            y: feetY + lane * LEVEL_DESIGN_EDGE_LANE_DEPTH,
+        });
+        return {
+            from: { x: side < 0 ? cam.x - def.w - 8 : cam.x + W + 8, y: feet.y - def.h },
+            to:   { x: feet.x - def.w * 0.5, y: feet.y - def.h },
+        };
+    }
+
+    // _sendOff - a member of a "then": "flee" group, once out: it stands for
+    // CFG.enemyFleeDelay, runs off the nearer edge of the view (faster than it
+    // walks, facing the way it runs), and is gone.
+    _sendOff(enemy) {
+        enemy.fleeing = true;
+        enemy.queueScript({ wait: CFG.enemyFleeDelay });
+        enemy.queueScript({
+            walk:  e => levelDesignOffView(e, levelDesignNearerSide(e)),
+            speed: enemy.speed * CFG.enemySpeedMultiplier * CFG.enemyFleeSpeed,
+            face:  'travel',
+        });
+        enemy.queueScript({ leave: true });
     }
 
     // ── Moving layers ─────────────────────────────────────────────────────────
@@ -1561,19 +2556,26 @@ class LevelDirector {
     // A RESTRICTED opens on its "restricted" entry's "until" when the design
     // has one, else when every REQUIRE- layer inside it holds. One with
     // neither stays locked (the level map warns about that when it is read).
+    //
+    // An entry with "type": "condition" is open only while its "until" holds:
+    // it locks again when that stops (runtime.lock, "lock:<name>").
     _openLocks() {
         if (!this.runtime) return;
         const restricted = _levelDesignIsObject(this.design.restricted) ? this.design.restricted : {};
         for (const entry of this.runtime.restrictedEntries()) {
-            if (!this.runtime.isLocked(entry.name)) continue;
-            const until = restricted[entry.name]?.until;
-            const open = until !== undefined
-                ? this._holds(until)
+            const rule = _levelDesignIsObject(restricted[entry.name]) ? restricted[entry.name] : {};
+            const follows = rule.type === 'condition';
+            const locked = this.runtime.isLocked(entry.name);
+            if (!locked && !follows) continue;
+            const open = rule.until !== undefined
+                ? this._holds(rule.until)
                 : entry.requires.length > 0 && entry.requires.every(req =>
                     req.type === 'case'  ? this.cases[req.name] === true
                   : req.type === 'state' ? this.visited.has(req.name)
+                  : req.type === 'item'  ? !!this._player()?.inventory?.has(req.name)
                   : false);
-            if (open) this.runtime.unlock(entry.name);
+            if (locked && open) this.runtime.unlock(entry.name);
+            else if (!locked && follows && !open) this.runtime.lock(entry.name);
         }
     }
 

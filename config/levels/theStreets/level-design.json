@@ -2,13 +2,44 @@
   "$schema": "../../schema/level-design.schema.json",
   "version": 1,
   "start": "initial",
+  "groups": {
+    "enemy": {
+      "warehouse-crew": {
+        "count": 3,
+        "pick": "random",
+        "order": "random",
+        "every": 1,
+        "pool": [
+          "JumpingJunkie",
+          "CrimeGuy",
+          {
+            "enemy": "CrimeGuy",
+            "name": "gray-crimeguy",
+            "render": { "left-vest": "gray", "right-vest": "gray", "front-leg": "gray", "back-leg": "gray" }
+          }
+        ]
+      },
+      "response-crew": {
+        "order": "load",
+        "from": "edges",
+        "pool": [
+          "JammingJabber",
+          "BadGirl",
+          { "enemy": "SassyGirl", "count": 2, "re-render": 1, "render": { "dress": "dark-gray" } }
+        ]
+      }
+    }
+  },
   "cases": {
     "start": true,
     "has-gate": true,
-    "enemies-defeated": false
+    "enemies-defeated": false,
+    "has-key": { "condition": "inventory:key" },
+    "warehouse-crew-down": { "condition": "alive:warehouse-crew = 0" },
+    "response-crew-down": { "condition": "alive:response-crew = 0" }
   },
   "restricted": {
-    "import-export-warehouse": { "until": "case:enemies-defeated" }
+    "import-export-warehouse": { "until": "case:enemies-defeated", "type": "condition" }
   },
   "states": {
     "initial": {
@@ -20,18 +51,12 @@
     "gate-breaks": {
       "svg": "layer-state-change",
       "set": { "start": false, "has-gate": false },
+      "cases": { "enemies-defeated": { "condition": "alive = 0" } },
       "player": { "inventory": "inherit", "health": "inherit" },
       "spawn": [
         {
           "group": "warehouse-crew",
           "type": "enemy",
-          "count": 3,
-          "pick": "random",
-          "pool": [
-            "CrimeGuy",
-            "JumpingJunkie",
-            { "enemy": "JumpingJunkie", "render": { "left-vest": "gray", "right-vest": "gray" } }
-          ],
           "from": "RESTRICTED-import-export-warehouse/ENTER-building",
           "animation": "walk",
           "after": 0.5,
@@ -47,9 +72,42 @@
       "next": [{ "on": "defeated:warehouse-crew", "to": "enemy-defeat" }]
     },
     "enemy-defeat": {
+      "svg": "none",
+      "player": { "inventory": "store", "health": "store" },
+      "next": [
+        { "on": "exit:import-export-warehouse", "when": { "has-key": true }, "to": "response-fights" },
+        { "on": "exit:import-export-warehouse", "to": "response-flees" }
+      ]
+    },
+    "response-fights": {
+      "svg": "none",
+      "spawn": [{ "group": "response-crew", "type": "enemy" }],
+      "next": [
+        { "on": "exit:bad-bar", "when": { "response-crew-down": true, "warehouse-crew-down": true }, "to": "replay" }
+      ]
+    },
+    "response-flees": {
+      "svg": "none",
+      "spawn": [{ "group": "response-crew", "type": "enemy", "then": "flee" }],
+      "next": [
+        { "on": "exit:bad-bar", "when": { "warehouse-crew-down": true }, "to": "gate-reset" },
+        { "on": "exit:bad-bar", "when": { "warehouse-crew-down": false }, "to": "crew-returns" }
+      ]
+    },
+    "gate-reset": {
+      "svg": "none",
+      "reset": ["break:parking-gate-arm"],
+      "set": { "has-gate": true },
+      "next": [{ "on": "break:parking-gate-arm", "to": "gate-breaks" }]
+    },
+    "crew-returns": {
+      "svg": "none",
+      "spawn": [{ "group": "warehouse-crew", "type": "enemy", "from": "edges", "inherit": true }],
+      "next": [{ "on": "defeated:warehouse-crew", "to": "enemy-defeat" }]
+    },
+    "replay": {
       "svg": "fade-out",
-      "set": { "enemies-defeated": true },
-      "player": { "spawn": "left", "after": 2, "animation": "walk", "inventory": "store", "health": "store" }
+      "reset": "level"
     }
   }
 }

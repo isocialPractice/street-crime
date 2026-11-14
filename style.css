@@ -444,6 +444,462 @@ canvas {
     letter-spacing: 2px;
 }
 
+/* ── Game overlays (js/ui/overlay.js) ───────────────────────────────────────
+   What opens over the frozen game: the message window for now. The HUD's own
+   tokens: the panel background in a steel frame with the storm rim inside it,
+   Courier bold with the hard shadow, the accent kept to what is picked. */
+.ui-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 12;
+    pointer-events: auto;
+    background: rgba(0,0,0,0.28);
+}
+
+.ui-overlay.hidden { display: none; }
+
+.ui-message-box {
+    position: absolute;
+    left: 50%;
+    bottom: 22px;
+    width: 640px;
+    min-height: 112px;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    padding: 14px 18px 16px;
+    background: var(--wx-panel-bg);
+    border: 2px solid var(--wx-frame);
+    box-shadow:
+        inset 0 0 0 1px var(--wx-storm-rim),
+        0 10px 28px rgba(0,0,0,0.65);
+    font-family: 'Courier New', Courier, monospace;
+    font-weight: bold;
+    color: var(--wx-text);
+    text-shadow: 2px 2px 0 #000;
+}
+
+.ui-message-box.rise { animation: uiRise 180ms ease-out; }
+
+@keyframes uiRise {
+    from { opacity: 0; transform: translate(-50%, 12px); }
+    to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.ui-message-art {
+    flex: 0 0 auto;
+    width: 76px;
+    height: 76px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #18202b;
+    border: 2px solid var(--wx-frame);
+    box-shadow: inset 0 2px 0 rgba(255,255,255,0.06), inset 0 -2px 0 rgba(0,0,0,0.5);
+}
+
+.ui-message-art[hidden] { display: none; }
+.ui-message-art img { width: 64px; height: 64px; }
+
+.ui-message-body {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 76px;
+}
+
+.ui-message-text,
+.ui-message-ask {
+    margin: 0;
+    font-size: 17px;
+    line-height: 1.45;
+    letter-spacing: 0.5px;
+}
+
+.ui-message-ask { margin-top: 8px; color: var(--wx-text); }
+.ui-message-ask[hidden] { display: none; }
+
+.ui-message-choices {
+    display: flex;
+    gap: 28px;
+    margin-top: 8px;
+}
+
+.ui-choice {
+    font: inherit;
+    font-size: 17px;
+    letter-spacing: 2px;
+    padding: 0 0 0 18px;
+    border: 0;
+    background: none;
+    color: var(--wx-text-dim);
+    text-shadow: 2px 2px 0 #000;
+    cursor: pointer;
+    position: relative;
+}
+
+.ui-choice.selected { color: var(--wx-accent); }
+.ui-choice.selected::before {
+    content: '\25B6';
+    position: absolute;
+    left: 0;
+    font-size: 13px;
+    top: 2px;
+}
+
+.ui-message-more {
+    position: absolute;
+    right: 0;
+    bottom: -4px;
+    font-size: 12px;
+    color: var(--wx-accent);
+    animation: blink 0.75s infinite alternate;
+}
+
+.ui-message-more[hidden] { display: none; }
+
+/* ── Item screen (js/ui/inventory-screen.js) ─────────────────────────────────
+   Over the frozen game: 70% black, faint scan lines and a soft vignette. The
+   panel is the message window's, larger; the live part is the condition
+   trace, drawn on its canvas. */
+.ui-items {
+    background:
+        radial-gradient(ellipse at center, rgba(0,0,0,0) 45%, rgba(0,0,0,0.55) 100%),
+        repeating-linear-gradient(180deg,
+            rgba(255,255,255,0.035) 0px, rgba(255,255,255,0.035) 1px,
+            rgba(0,0,0,0) 1px, rgba(0,0,0,0) 3px),
+        rgba(0,0,0,0.7);
+}
+
+.ui-items-panel {
+    position: absolute;
+    inset: 20px;
+    display: grid;
+    grid-template-rows: auto 1fr auto auto;
+    gap: 10px;
+    padding: 12px 18px 10px;
+    background: var(--wx-panel-bg);
+    border: 2px solid var(--wx-frame);
+    box-shadow:
+        inset 0 0 0 1px var(--wx-storm-rim),
+        0 14px 40px rgba(0,0,0,0.7);
+    font-family: 'Courier New', Courier, monospace;
+    font-weight: bold;
+    color: var(--wx-text);
+    text-shadow: 2px 2px 0 #000;
+}
+
+.ui-items-panel.rise { animation: uiRisePanel 180ms ease-out; }
+
+@keyframes uiRisePanel {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: none; }
+}
+
+.ui-items-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--wx-frame);
+}
+
+.ui-items-title {
+    margin: 0;
+    font-size: 34px;
+    letter-spacing: 6px;
+    color: var(--wx-accent);
+    text-shadow: 3px 3px 0 #000, 0 0 16px rgba(255,138,43,0.35);
+}
+
+.ui-items-count,
+.ui-label,
+.ui-items-keys {
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--wx-text-dim);
+}
+
+.ui-items-body {
+    display: grid;
+    grid-template-columns: 236px 1fr;
+    gap: 18px;
+    min-height: 0;
+}
+
+.ui-items-status {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.ui-portrait {
+    height: 150px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    overflow: hidden;
+    background: radial-gradient(circle at 50% 80%, #222c3a 0%, #18202b 55%, #0b1118 100%);
+    border: 2px solid var(--wx-frame);
+    box-shadow: inset 0 0 0 1px var(--wx-storm-rim);
+}
+
+.ui-portrait img { height: 142px; margin-bottom: -4px; }
+
+.ui-ecg {
+    display: block;
+    width: 236px;
+    height: 64px;
+    border: 2px solid var(--wx-frame);
+    box-shadow: inset 0 0 0 1px var(--wx-storm-rim);
+}
+
+.ui-cond-word { font-size: 20px; letter-spacing: 5px; }
+.ui-cond-word.fine    { color: #4ade80; }
+.ui-cond-word.caution { color: var(--wx-accent); }
+.ui-cond-word.danger  { color: #fc8181; animation: blink 0.75s infinite alternate; }
+
+.ui-holding { font-size: 16px; letter-spacing: 3px; }
+
+.ui-items-right {
+    position: relative;
+    min-height: 0;
+}
+
+.ui-items-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 76px);
+    grid-auto-rows: 76px;
+    gap: 10px;
+    max-height: 100%;
+    overflow-y: auto;
+}
+
+.ui-items-grid[hidden] { display: none; }
+
+.ui-slot {
+    position: relative;
+    padding: 0;
+    background: #18202b;
+    border: 2px solid var(--wx-frame);
+    box-shadow: inset 0 2px 0 rgba(255,255,255,0.06), inset 0 -3px 0 rgba(0,0,0,0.55);
+    color: var(--wx-text);
+    font: inherit;
+    font-size: 10px;
+    cursor: pointer;
+}
+
+.ui-slot img {
+    position: absolute;
+    left: 8px;
+    top: 8px;
+    width: 56px;
+    height: 56px;
+}
+
+.ui-slot .ui-count {
+    position: absolute;
+    right: 5px;
+    bottom: 1px;
+    font-size: 15px;
+    color: var(--wx-text);
+    text-shadow: 2px 2px 0 #000;
+}
+
+.ui-slot.selected {
+    border-color: var(--wx-accent);
+    animation: uiPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes uiPulse {
+    0%, 100% { box-shadow: 0 0 0 1px var(--wx-accent), 0 0 14px rgba(255,138,43,0.5); }
+    50%      { box-shadow: 0 0 0 1px var(--wx-accent), 0 0 4px rgba(255,138,43,0.15); }
+}
+
+.ui-slot.picked img { animation: blink 0.35s infinite alternate; }
+
+.ui-items-menu {
+    position: absolute;
+    left: 182px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 14px 6px 8px;
+    background: rgba(6,9,14,0.98);
+    border: 2px solid var(--wx-frame);
+    box-shadow: inset 0 0 0 1px var(--wx-storm-rim), 0 8px 18px rgba(0,0,0,0.6);
+}
+
+.ui-items-menu[hidden] { display: none; }
+
+.ui-command {
+    position: relative;
+    padding: 2px 0 2px 20px;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 17px;
+    letter-spacing: 3px;
+    text-align: left;
+    color: var(--wx-text-dim);
+    text-shadow: 2px 2px 0 #000;
+    cursor: pointer;
+}
+
+.ui-command.selected { color: var(--wx-accent); }
+.ui-command.selected::before {
+    content: '\25B6';
+    position: absolute;
+    left: 2px;
+    top: 5px;
+    font-size: 12px;
+}
+
+.ui-items-check {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.ui-items-check[hidden] { display: none; }
+
+.ui-check-stage {
+    width: 260px;
+    height: 260px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    perspective: 700px;
+    background: radial-gradient(circle at 50% 58%, #26313f 0%, #0b1118 72%);
+    border: 2px solid var(--wx-frame);
+    box-shadow: inset 0 0 0 1px var(--wx-storm-rim);
+}
+
+.ui-check-turn {
+    position: relative;
+    width: 220px;
+    height: 220px;
+    transform-style: preserve-3d;
+}
+
+.ui-check-turn img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    backface-visibility: hidden;
+}
+
+/* The back is the art seen from behind: mirrored, and in shade. */
+.ui-check-turn img.back { transform: rotateY(180deg) scaleX(-1); filter: brightness(0.55); }
+
+.ui-items-message {
+    min-height: 66px;
+    padding: 7px 12px 8px;
+    background: rgba(0,0,0,0.35);
+    border: 2px solid var(--wx-frame);
+    box-shadow: inset 0 0 0 1px var(--wx-storm-rim);
+}
+
+.ui-msg-name {
+    margin: 0 0 3px;
+    font-size: 16px;
+    letter-spacing: 2px;
+    color: var(--wx-accent);
+}
+
+.ui-msg-name[hidden] { display: none; }
+
+.ui-msg-text {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.4;
+}
+
+.ui-items-keys { text-align: center; }
+
+/* ── Command line (js/ui/parser.js) ──────────────────────────────────────────
+   A black bar across the bottom of the view, an amber prompt and a block
+   caret; the answer above it in the panel's background inside a
+   double-ruled steel border. */
+.ui-cmdline { background: rgba(0,0,0,0.25); }
+
+.ui-cmd-bar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    background: #000;
+    border-top: 2px solid var(--wx-frame);
+    box-shadow: inset 0 1px 0 var(--wx-storm-rim);
+    font-family: 'Courier New', Courier, monospace;
+    font-weight: bold;
+    font-size: 18px;
+    color: var(--wx-text);
+    text-shadow: 2px 2px 0 #000;
+}
+
+.ui-cmd-prompt { color: var(--wx-accent); margin-right: 10px; }
+.ui-cmd-line   { white-space: pre; }
+
+.ui-cmd-caret {
+    width: 11px;
+    height: 20px;
+    margin-left: 1px;
+    background: var(--wx-text);
+    animation: caretBlink 1s steps(2, start) infinite;
+}
+
+.ui-cmd-caret[hidden] { display: none; }
+
+@keyframes caretBlink { to { visibility: hidden; } }
+
+.ui-cmd-answer {
+    position: absolute;
+    left: 50%;
+    bottom: 60px;
+    width: 600px;
+    transform: translateX(-50%);
+    padding: 12px 18px 14px;
+    background: var(--wx-panel-bg);
+    border: 5px double var(--wx-frame);
+    box-shadow: inset 0 0 0 1px var(--wx-storm-rim), 0 10px 28px rgba(0,0,0,0.65);
+    font-family: 'Courier New', Courier, monospace;
+    font-weight: bold;
+    color: var(--wx-text);
+    text-shadow: 2px 2px 0 #000;
+    cursor: pointer;
+}
+
+.ui-cmd-answer[hidden] { display: none; }
+
+.ui-cmd-echo {
+    margin: 0 0 6px;
+    font-size: 14px;
+    letter-spacing: 1px;
+    color: var(--wx-text-dim);
+}
+
+.ui-cmd-text {
+    margin: 0;
+    font-size: 17px;
+    line-height: 1.45;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ui-cmd-caret { animation: none; }
+    .ui-message-box.rise, .ui-message-more,
+    .ui-items-panel.rise, .ui-slot.selected, .ui-slot.picked img, .ui-cond-word.danger { animation: none; }
+    .ui-slot.selected { box-shadow: 0 0 0 1px var(--wx-accent), 0 0 10px rgba(255,138,43,0.4); }
+}
+
 /* ── Blink animation ────────────────────────────────────────────────────── */
 .blink { animation: blink 0.75s infinite alternate; }
 
@@ -785,3 +1241,11 @@ body.dbg-resizing {
     margin-bottom: 10px;
     padding-bottom: 8px;
 }
+
+/* The sandbox's ITEMS block: GIVE, USE and DROP side by side. */
+.sbx-item-buttons {
+    display: flex;
+    gap: 4px;
+}
+
+.sbx-item-buttons .dbg-spawn-btn { margin-top: 4px; padding: 6px 0; }

@@ -10,17 +10,20 @@
 //   ENTERABLE-<name>        something that can be entered (a building, a car)
 //   RESTRICTED-<name>       an ENTERABLE that starts locked
 //     REQUIRE-case-<case>   what unlocks it: a level-design case that is true,
-//     REQUIRE-state-<state> or a state that has been entered. May be an empty
-//                           layer. (REQUIRE-item-<item> is reserved.)
+//     REQUIRE-state-<state> a state that has been entered, or an item the
+//     REQUIRE-item-<item>   player carries. May be an empty layer.
 //     ENTER-<type>          its entry hotspot; <type> picks what entering does
 //   OBJECT-<name>           an area holding something to interact with
 //     ANIMATE-<asset-name>  drawn from frames <asset-name>_0.svg, _1, ...
 //     BREAKABLE-<name>      cut out of the art; takes hits and breaks
+//     INVENTORY-<item>      an item lying there, to take: its own art cut out
+//                           of the level, or, for an empty layer, the item
+//                           catalog's art (js/entities/items.js)
 //   EVENT-<name>            a trigger area; the player walking in reports it
 //   negative-space          a hole in #field that nobody can walk into
 //
-// INVENTORY-, MISSING-, SWITCH- and USABLE- are reserved: recognised, listed,
-// and warned about once, so a level can be named for them before they work.
+// MISSING-, SWITCH- and USABLE- are reserved: recognised, listed, and warned
+// about once, so a level can be named for them before they work.
 //
 // The upper-case prefixes are matched case-sensitively, so ordinary art names
 // such as "enter-sign" or "object-shadow" never turn into behavior. The
@@ -46,15 +49,15 @@ const LEVEL_MAP_RULES = [
     { kind: 'animate',   label: 'ANIMATE',        re: /^ANIMATE[-_](.+)$/ },
     { kind: 'breakable', label: 'BREAKABLE',      re: /^BREAKABLE[-_](.+)$/ },
     { kind: 'event',     label: 'EVENT',          re: /^EVENT[-_](.+)$/ },
-    { kind: 'reserved',  label: 'INVENTORY',      re: /^INVENTORY[-_](.+)$/ },
+    { kind: 'item',      label: 'INVENTORY',      re: /^INVENTORY[-_](.+)$/ },
     { kind: 'reserved',  label: 'MISSING',        re: /^MISSING[-_](.+)$/ },
     { kind: 'reserved',  label: 'SWITCH',         re: /^SWITCH[-_](.+)$/ },
     { kind: 'reserved',  label: 'USABLE',         re: /^USABLE[-_](.+)$/ },
     { kind: 'hole',      label: 'negative-space', re: /^negative-space(?:[-_]\d+)?$/ },
 ];
 
-// What a REQUIRE- layer can wait on, as REQUIRE-<type>-<name>. "item" is
-// reserved until there is an inventory.
+// What a REQUIRE- layer can wait on, as REQUIRE-<type>-<name>: a case, a
+// state, or an item the player carries.
 const LEVEL_MAP_REQUIRE_TYPES = ['case', 'state', 'item'];
 const LEVEL_MAP_REQUIRE_RE = /^([a-z]+)[-_](.+)$/;
 
@@ -246,6 +249,22 @@ function _levelMapSpriteMarkup(el, spriteBox, defsMarkup, matrix) {
          + `<g transform="matrix(${a} ${b} ${c} ${d} ${e} ${f})">`
          + new XMLSerializer().serializeToString(el)
          + '</g></svg>';
+}
+
+// _levelMapHasPaint - whether an element draws anything: a leaf shape with a
+// fill or a stroke that shows. An empty group, or a rect with fill="none"
+// and no stroke, only marks a place.
+function _levelMapHasPaint(el) {
+    const nodes = el.children.length ? Array.from(el.querySelectorAll('*')) : [el];
+    return nodes.some(node => {
+        if (node.children.length || node.closest('defs')) return false;
+        if (!/^(path|rect|circle|ellipse|polygon|polyline|line|text|image|use)$/i.test(node.tagName)) return false;
+        const style = getComputedStyle(node);
+        if (style.display === 'none' || style.visibility === 'hidden' || +style.opacity === 0) return false;
+        const fill   = style.fill && style.fill !== 'none' && +style.fillOpacity !== 0;
+        const stroke = style.stroke && style.stroke !== 'none' && +style.strokeOpacity !== 0 && parseFloat(style.strokeWidth) > 0;
+        return fill || stroke || /^(image|use|text)$/i.test(node.tagName);
+    });
 }
 
 // _levelMapColors - the fill colors of the shapes an element is made of, for
@@ -731,6 +750,8 @@ function _levelMapMovingLayers(map, root, vb, requests, worldWidth, worldHeight)
 //                 drawBox, drawWorld }
 //   breakables  { id, name, object, box, world, spriteBox, spriteWorld, markup, colors,
 //                 states: { damaged, broken } }
+//   items       { id, name, object, box, world, spriteBox, spriteWorld, markup }, the
+//               sprite fields null for an empty layer (the catalog's art is drawn)
 //   holes       { id, box, world, normalizedPoints }
 //   layers      { id, name, paths, box, world, reach }, the layers a design moves
 //   slabs       { box, world, layers: [ids], slices: [markup], sprites: [markup] }
@@ -744,7 +765,7 @@ function parseLevelMap(svgText, { worldWidth = 800, worldHeight = 600, levelDir 
                                   layers = [] } = {}) {
     const map = {
         vb: null, scale: { x: 0, y: 0 }, levelDir,
-        enterables: [], hotspots: [], objects: [], animations: [], breakables: [], holes: [],
+        enterables: [], hotspots: [], objects: [], animations: [], breakables: [], items: [], holes: [],
         events: [], reserved: [], layers: [], slabs: [], layerRequests: [], ids: [],
         regions: [], stripIds: [], warnings: [],
     };
@@ -881,6 +902,23 @@ function parseLevelMap(svgText, { worldWidth = 800, worldHeight = 600, levelDir 
                     map.stripIds.push(id);
                     break;
                 }
+                case 'item': {
+                    // Art drawn in the layer is the item as it lies: cut out,
+                    // drawn live until it is taken. An empty layer only marks
+                    // the spot, and the catalog's art is drawn there.
+                    const painted = _levelMapHasPaint(el);
+                    const spriteBox = painted ? _levelMapPad(box, LEVEL_MAP_SPRITE_PAD) : null;
+                    map.items.push({
+                        id, name: rule.name, box, world,
+                        object: _levelMapMappedAncestor(el, root, 'object')?.name || null,
+                        spriteBox,
+                        spriteWorld: painted ? _levelMapWorld(spriteBox, vb, worldWidth, worldHeight) : null,
+                        markup: painted ? _levelMapSpriteMarkup(el, spriteBox, defsMarkup,
+                                                                _levelMapParentMatrix(el, root, vb)) : null,
+                    });
+                    if (painted) map.stripIds.push(id);
+                    break;
+                }
                 case 'hole': {
                     const normalizedPoints = _levelMapHolePoints(el, box, vb, warn);
                     const outside = field?.normalizedPoints
@@ -905,7 +943,7 @@ function parseLevelMap(svgText, { worldWidth = 800, worldHeight = 600, levelDir 
     }
 
     for (const object of map.objects) {
-        object.children = [...map.animations, ...map.breakables]
+        object.children = [...map.animations, ...map.breakables, ...map.items]
             .filter(entry => entry.object === object.name)
             .map(entry => entry.id);
     }
@@ -945,6 +983,5 @@ function _levelMapRequire(map, el, root, vb, id, rule, worldWidth, worldHeight, 
         warn(`${id} is not inside a RESTRICTED- layer, so it has nothing to unlock`);
         return;
     }
-    if (type === 'item') warn(`${id}: REQUIRE-item- is recognised, but not built yet`);
     enterable.requires.push({ id, type, name });
 }

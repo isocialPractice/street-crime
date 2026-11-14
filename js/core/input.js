@@ -8,6 +8,29 @@ const Keys = {};
 const JustPressed = {};
 
 window.addEventListener('keydown', e => {
+    // An overlay over the game (js/ui/overlay.js) takes every key while it is
+    // open: none reaches the player, and P and Esc do not pause.
+    if (typeof GameUI !== 'undefined' && GameUI.isOpen()) {
+        if (GameUI.key(e)) e.preventDefault();
+        return;
+    }
+    // Ctrl+I opens the command line (js/ui/parser.js), and I or Tab the item
+    // screen (js/ui/inventory-screen.js), while playing. Not while typing into
+    // a debug panel's field; Tab never moves focus during play, and Ctrl+I's
+    // own browser action (Firefox's Page Info) is prevented.
+    const typing = e.target instanceof HTMLElement && e.target.matches('input, textarea, select, [contenteditable]');
+    if (!typing && gameState === 'playing' && typeof CommandLine !== 'undefined'
+        && e.code === 'KeyI' && e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        if (!e.repeat) CommandLine.open();
+        return;
+    }
+    if (!typing && gameState === 'playing' && typeof ItemScreen !== 'undefined'
+        && ((e.code === 'KeyI' && !e.ctrlKey && !e.metaKey && !e.altKey) || e.code === 'Tab')) {
+        e.preventDefault();
+        if (!e.repeat) ItemScreen.open();
+        return;
+    }
     // !Keys[e.code] guard prevents JustPressed from being re-set every frame
     // while the key is held — the OS fires repeated keydown events during a hold.
     if (!Keys[e.code]) JustPressed[e.code] = true;

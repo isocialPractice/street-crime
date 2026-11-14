@@ -160,6 +160,9 @@ const CFG = {
     enemyDmgMultiplier:      1.0,
     enemySpeedMultiplier:    1.0,
     enemyHealthMultiplier:   1.0,
+    // ── Enemies leaving (level design "then": "flee") ────────────────────────
+    enemyFleeDelay:          1.2,   // seconds a fleeing enemy stands once out, before it runs
+    enemyFleeSpeed:          1.6,   // its running speed, as a multiple of its walk
     // ── Enemy engagement timing ──────────────────────────────────────────────
     enemyEngageDelayMin:     1.5,
     enemyEngageDelayMax:     2.0,
@@ -218,6 +221,11 @@ const CFG = {
     enterDepthTol:           16,
     enterHoldTime:         0.25,   // seconds of pushing into a door (Up) that opens it; E is instant
     enterFadeTime:         0.35,   // seconds to fade out, and again to fade in, going through
+    // ── Overlays (js/ui/overlay.js) ──────────────────────────────────────────
+    textSpeed:               40,   // characters a second for text that types itself out
+    // ── Command line (js/ui/parser.js) ───────────────────────────────────────
+    lookRange:               32,   // px from the player's feet LOOK sees things in, to each thing's box
+    talkRange:              160,   // px TALK finds an enemy in
     // ── Arena (debug) ────────────────────────────────────────────────────────
     groundMin:             390,
     groundMax:             510,

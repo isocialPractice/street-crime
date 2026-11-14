@@ -4,7 +4,8 @@
 
 Open the [demo](https://isocialpractice.github.io/street-crime/) and press Enter.
 Move with the arrow keys or WASD, punch with J, kick with K, jump with Space, run
-with Shift, block with C, and use doors with E.
+with Shift, block with C, and use doors and take items with E. I or Tab opens your
+items; Ctrl+I opens a command line for LOOK, TALK and USE ([inventory](docs/inventory.md)).
 
 ## Run it locally
 

@@ -62,14 +62,15 @@ exactly as written**, so ordinary art names such as `enter-sign` or
 | `ENTERABLE-<name>` | anything | Something that can be entered. Its interior is `enterables/<name>.svg` (or the camelCase name) | `ENTERABLE-bad-bar` opens `enterables/badBar.svg` |
 | `RESTRICTED-<name>` | anything | An `ENTERABLE` that starts locked. Same interior lookup | `RESTRICTED-import-export-warehouse` |
 | `REQUIRE-case-<case>`, `REQUIRE-state-<state>` | `RESTRICTED` | What unlocks it. Can be an empty layer | (the warehouse uses the level design instead) |
-| `REQUIRE-item-<item>` | `RESTRICTED` | **Planned.** Unlock by an inventory item | |
+| `REQUIRE-item-<item>` | `RESTRICTED` | Unlocks while the player carries that item ([inventory.md](inventory.md)) | |
 | `ENTER-<type>` | `ENTERABLE` or `RESTRICTED` | The way in. `building` swaps to the interior, `exit` goes back out, `vehicle` is **planned** | `ENTER-building` |
 | `OBJECT-<name>` | anything | An area with something to interact with. On its own, pressing E in it reports `interact:<name>` | `OBJECT-sign-bad-bar`, `OBJECT-parking-gate-box` |
 | `ANIMATE-<asset-name>` | `OBJECT` | Drawn from frames `<asset-name>_0.svg`, `_1`, ... placed where the layer was | `ANIMATE-sign-badBar` plays `objects/sign-badBar_0..2.svg` |
 | `BREAKABLE-<name>` | `OBJECT` | Cut out of the scenery: blocks movement, takes hits and breaks like a crate | `BREAKABLE-parking-gate-arm` |
+| `INVENTORY-<item>` | `OBJECT` | An item lying there, for the player to take: its own art cut out of the scenery, or for an empty layer the item catalog's art | `INVENTORY-key`, in the warehouse interior |
 | `EVENT-<name>` | anything | A trigger area. The player walking into it reports `event:<name>` | |
 | `negative-space` | inside `field` | A hole in the field that neither the player nor enemies can walk into | the parked red car |
-| `INVENTORY-`, `MISSING-`, `SWITCH-`, `USABLE-` | `OBJECT` | **Planned.** Recognised and listed, with a "not built yet" warning | |
+| `MISSING-`, `SWITCH-`, `USABLE-` | `OBJECT` | **Planned.** Recognised and listed, with a "not built yet" warning | |
 
 An id that looks like a map id but matches no rule, such as `ANIMTE-sign`, is
 reported as a likely typo.
@@ -130,7 +131,7 @@ reports `locked:<name>` on every try. It unlocks when its requirement holds:
 | --- | --- |
 | `REQUIRE-case-<case>` | that level design case is true |
 | `REQUIRE-state-<state>` | that level design state has been entered |
-| `REQUIRE-item-<item>` | **Planned**, needs an inventory |
+| `REQUIRE-item-<item>` | the player carries that item |
 | `"restricted": { "<name>": { "until": ... } }` in the level design | that trigger has held. This takes the place of any `REQUIRE-` layer |
 
 Several `REQUIRE-` layers must all hold. A `RESTRICTED` layer with no requirement
@@ -140,7 +141,7 @@ anywhere stays locked, and the level map warns about it. Once unlocked it report
 ### OBJECT: interaction areas
 
 An `OBJECT-<name>` layer's box is an area. What sits inside it gives it behavior:
-an `ANIMATE-` or `BREAKABLE-` layer. An `OBJECT` with neither is an interaction
+an `ANIMATE-`, `BREAKABLE-` or `INVENTORY-` layer. An `OBJECT` with none is an interaction
 spot: standing in it shows `E: INTERACT`, and pressing E reports
 `interact:<name>`. A level design can wait on that event.
 
@@ -208,6 +209,23 @@ measurements leave out.
 A tall breakable is drawn in depth order by its bottom edge; better ordering for
 tall pieces is **planned**.
 
+### INVENTORY: items to take
+
+```text
+OBJECT-tool-crate
+  INVENTORY-crowbar            an empty rect where it lies, or the crowbar drawn in place
+```
+
+`<item>` is an id in the item catalog ([inventory.md](inventory.md#the-item-catalog));
+a numbered copy (`INVENTORY-coin-2`) is the same item, so several can lie about.
+Art drawn inside the layer is cut out of the background and drawn as the item
+until it is taken. An empty layer, such as a rect with `fill="none"`, only marks
+the spot, and the catalog's art stands there, bobbing, with a glint.
+
+Standing at it shows `E: CHECK`; E says what it is and asks whether to take it.
+Taking it reports `take:<item>`. An item taken stays taken for the run, in the
+level and in every building.
+
 ### EVENT: trigger areas
 
 An `EVENT-<name>` layer's box is an area on the ground. The first time the
@@ -254,16 +272,20 @@ wait on:
 | `event:<name>` | the player first steps into an `EVENT` area |
 | `locked:<name>` | the player tries a locked `RESTRICTED` door (every try) |
 | `unlock:<name>` | a `RESTRICTED` layer unlocks |
+| `lock:<name>` | a `RESTRICTED` that follows a level design condition locks again ([level-design.md](level-design.md#restricted)) |
+| `take:<item>` | the player takes an item lying there |
 
-Each is reported once per run, except going through doors, `interact:` and
-`locked:`, which report every time.
+Each is reported once per run, except going through doors, `interact:`, `locked:`
+and `take:`, which report every time. A level design adds reports of its own, and
+of what the player does with items and on the command line
+([level-design.md](level-design.md#reports)).
 
 ## Checking a level
 
 With **Show Hitboxes** on in debug mode, every map id is outlined on the level
 with its id: doors in green, objects in orange, animations in magenta,
-breakables in yellow, holes in red, trigger areas in blue, locks in pink, planned
-layers in grey.
+breakables in yellow, items in cyan, holes in red, trigger areas in blue, locks in
+pink, planned layers in grey.
 
 SANDBOX TEST also prints the map as a table in the browser console (each id, its
 kind, its parent and where it landed in the world) and warns about anything that
@@ -279,12 +301,14 @@ will not work as its name suggests:
 - a hole outside `#field`, or a hole that is not a rect, polygon or polyline
 - a layer with nothing to measure, such as an empty group
 - a planned prefix (`SWITCH-lever`: recognised, but not built yet)
+- an `INVENTORY-` layer naming an item the test's item catalog does not have (said
+  when its scene is first entered)
 
 See [sandbox.md](sandbox.md) for setting up a test.
 
 ## Planned
 
 - `ENTER-vehicle`: a different way of moving while driving
-- `INVENTORY-`, `MISSING-`, `SWITCH-`, `USABLE-` and `REQUIRE-item-`
+- `MISSING-`, `SWITCH-` and `USABLE-`
 - an interior saved as a folder, with rooms of its own
 - levels loaded from `config/levels.json` (today levels are tried in SANDBOX TEST)

@@ -153,6 +153,38 @@ class LevelBreakable extends BreakableObj {
     }
 }
 
+// ── Items lying in level art (INVENTORY-<item>) ───────────────────────────────
+// levelSceneItemSprites - the cut-out art of each item a scene draws itself,
+// keyed by id, made once per scene like a breakable's. Items whose layer is
+// empty have none: the catalog's art is drawn for them.
+function levelSceneItemSprites(scene) {
+    if (!scene?.map) return {};
+    if (!scene.itemSprites) {
+        scene.itemSprites = {};
+        for (const entry of scene.map.items || []) {
+            if (entry.markup) scene.itemSprites[entry.id] = loadSvgImg(entry.markup);
+        }
+    }
+    return scene.itemSprites;
+}
+
+// levelMapItems - fresh items for one run of a scene, as WorldItems
+// (js/entities/items.js), each the catalog item its layer names (a
+// numbered copy, "coin-2", is a coin). notify hears about a name the item
+// catalog does not have; the item still lies there, under its own name.
+function levelMapItems(scene, notify = null) {
+    const sprites = levelSceneItemSprites(scene);
+    return (scene?.map?.items || []).map(entry => {
+        const item = typeof itemFor === 'function' ? itemFor(entry.name) : null;
+        if (!item && notify) notify(`${entry.id}: the item catalog has no "${entry.name}"`);
+        return new WorldItem({
+            item: item || entry.name, id: entry.id, box: entry.world,
+            x: entry.world.x + entry.world.w * 0.5, y: entry.world.y + entry.world.h,
+            sprite: sprites[entry.id] || null, spriteWorld: entry.spriteWorld,
+        });
+    });
+}
+
 // levelMapBreakables - fresh breakables for one run of a scene.
 function levelMapBreakables(scene) {
     const sprites = levelSceneBreakableSprites(scene);

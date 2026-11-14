@@ -23,6 +23,9 @@ same('restricted keys', V.keys.restricted, Object.keys(S.properties.restricted.a
 same('state keys', V.keys.state, Object.keys(d.state.properties));
 same('player keys', V.keys.player, Object.keys(d.player.properties));
 same('spawn keys', V.keys.spawn, Object.keys(d.spawnGroup.properties));
+same('group keys', V.keys.group, Object.keys(d.groupDef.properties));
+same('group types', V.values.spawnType, S.properties.groups.propertyNames.enum);
+same('order', V.values.order, d.order.anyOf[0].enum);
 same('animate-layers keys', V.keys.animateLayer, Object.keys(d.animateLayer.properties));
 same('pool entry keys', V.keys.poolEntry, Object.keys(d.poolEnemy.properties));
 same('characters keys', V.keys.characters, Object.keys(d.state.properties.characters.properties));
@@ -37,7 +40,25 @@ same('spawn type', V.values.spawnType, d.spawnGroup.properties.type.enum);
 same('pick', V.values.pick, d.spawnGroup.properties.pick.enum);
 same('ease', V.values.ease, d.animateLayer.properties.type.enum);
 const kinds = /^\^\(([^)]+)\):/.exec(d.trigger.pattern)[1].split('|');
-same('trigger kinds', [...V.triggers.map, ...V.triggers.director, ...V.triggers.condition], kinds);
+same('trigger kinds', [...V.triggers.map, ...V.triggers.director, ...V.triggers.condition, ...V.triggers.player], kinds);
+same('then', V.values.then, d.spawnGroup.properties.then.enum);
+same('spawn from', V.values.spawnFrom, d.spawnGroup.properties.from.anyOf.filter(s => 'const' in s).map(s => s.const));
+same('restricted type', V.values.restrictedType, S.properties.restricted.additionalProperties.properties.type.enum);
+same('case condition keys', V.keys.caseCondition, Object.keys(d.caseCondition.properties));
+same('reset kinds', V.values.reset, /^\^\(([^)]+)\):/.exec(d.reset.anyOf[1].items.pattern)[1].split('|'));
+same('reset all', [V.values.resetAll], [d.reset.anyOf[0].const]);
+same('condition sources', [...V.conditions.count, ...V.conditions.flag], /\(([a-z|]+)\)/.exec(d.condition.pattern)[1].split('|'));
+// The schema's condition pattern has to accept and refuse what the game's
+// parser (levelDesignCondition) does, spacing included.
+{
+  const schemaRe = new RegExp(d.condition.pattern);
+  const samples = ['alive = 0', 'alive:warehouse-crew = 0', 'inventory:key', 'inventory', 'fled:runners >= 2',
+                   'case:has-key', 'state:initial', 'alive==3', '  alive  ', 'alive = zero', 'alive:', 'alive = -1', ''];
+  for (const text of samples) {
+    const game = !!ctx.levelDesignCondition(text);
+    if (game !== schemaRe.test(text)) diffs.push(`condition "${text}": game ${game ? 'reads' : 'refuses'} it, schema does not agree`);
+  }
+}
 if (V.version !== S.properties.version.const) diffs.push(`version: vocab ${V.version} vs schema ${S.properties.version.const}`);
 console.log(diffs.length ? 'DIFFERENCES\n' + diffs.join('\n') : 'vocab and schema agree');
 process.exit(diffs.length ? 1 : 0);

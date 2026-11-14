@@ -1,0 +1,13 @@
+{
+  "$schema": "../schema/items.schema.json",
+  "slots": 8,
+  "items": {
+    "key":            { "name": "Brass Key", "art": "items/key.svg", "look": "A heavy brass key. The paper tag reads STORE ROOM." },
+    "coin":           { "name": "Coin", "art": "items/coin.svg", "stack": 99, "look": "A silver coin, worn smooth.", "use": { "say": "You flip the coin. Heads. It is always heads." } },
+    "bandage":        { "name": "Bandage", "art": "items/bandage.svg", "stack": 3, "look": "A clean roll of bandage.", "use": { "heal": 25 }, "consume": true },
+    "whistle":        { "name": "Whistle", "art": "items/whistle.svg", "look": "A loud steel whistle on a red cord.", "use": { "scatter": 1 } },
+    "flashlight":     { "name": "Flashlight", "art": "items/flashlight.svg", "look": "A flashlight. No batteries.", "combine": { "batteries": "flashlight-lit" } },
+    "batteries":      { "name": "Batteries", "art": "items/batteries.svg", "stack": 4, "look": "Two batteries, still in the wrapper.", "combine": { "flashlight": "flashlight-lit" } },
+    "flashlight-lit": { "name": "Flashlight (on)", "art": "items/flashlight-lit.svg", "look": "A flashlight with fresh batteries.", "use": { "say": "You sweep the light around. Nothing but grime." } }
+  }
+}

@@ -31,6 +31,8 @@ const SANDBOX_TEST_DEFAULTS = {
     enemies:    [],
     checklist:  [],
     design:     null,   // path to a level design file, from the site root
+    items:      null,   // path to an item catalog (config/debug/items.json)
+    inventory:  [],     // items to start with: names, or { "item", "count" }
 };
 
 // The test run when the file cannot supply one, so a typo in the config still
@@ -205,7 +207,37 @@ function _sandboxSceneImages(scene) {
         ...levelSceneAnimations(scene).flatMap(anim => anim.frames),
         ...Object.values(levelSceneBreakableSprites(scene)).flatMap(Object.values),
         ...levelSceneLayerImages(scene),
+        ...Object.values(levelSceneItemSprites(scene)),
     ].filter(Boolean);
+}
+
+// _sandboxItems - the test's item catalog, made the one in use, or none. Read
+// on every start, so an edit shows up on the next RESTART. What is wrong with
+// it goes to the console, and its count to the status line.
+function _sandboxItems(test) {
+    if (!test.items) {
+        useItemCatalog(null);
+        return [];
+    }
+    const catalog = useItemCatalog(loadItemCatalog(test.items));
+    catalog.warnings.forEach(text => console.warn('[items] %s: %s', test.items, text));
+    return catalog.warnings;
+}
+
+// _sandboxGiveItems - the test's "inventory" into the player's hands: names,
+// or { "item", "count" }. Given after the design's start state, so its
+// "inventory": "empty" does not take them away again.
+function _sandboxGiveItems(test) {
+    if (!player?.inventory) return;
+    for (const entry of test.inventory) {
+        const item = typeof entry === 'string' ? entry : entry?.item;
+        const count = typeof entry === 'string' ? 1 : (Number.isInteger(entry?.count) && entry.count > 0 ? entry.count : 1);
+        if (typeof item !== 'string' || !itemDef(item)) {
+            console.warn('[sandbox] "inventory" names "%s", which is not in the item catalog', item);
+            continue;
+        }
+        if (player.inventory.add(item, count) < count) console.warn('[sandbox] no room for all of "%s"', item);
+    }
 }
 
 // Only finite numbers reach the spawn sampler; a stray string there would turn
@@ -228,13 +260,27 @@ function _sandboxPanelHtml(run) {
         .map(item => `<div class="dbg-check" data-event="${_sandboxEsc(item.event)}">`
                    + `${_sandboxEsc(item.label || item.event)}</div>`)
         .join('');
+    // Items to tinker with, when the test names a catalog: give one, use one
+    // carried, or put one down at the player's feet.
+    const items = itemIds()
+        .map(id => `<option value="${_sandboxEsc(id)}">${_sandboxEsc(itemName(id))}</option>`)
+        .join('');
+    const itemBlock = !items ? '' : `
+            <div class="dbg-subsection">ITEMS</div>
+            <select class="dbg-enemy-select" id="sbx-item-select">${items}</select>
+            <div class="sbx-item-buttons">
+                <button class="dbg-spawn-btn" id="sbx-item-give">GIVE</button>
+                <button class="dbg-spawn-btn" id="sbx-item-use">USE</button>
+                <button class="dbg-spawn-btn" id="sbx-item-drop">DROP</button>
+            </div>
+            <div class="dbg-status" id="sbx-item-status"></div>`;
     return `
         <div id="sbx-panel">
             <div class="dbg-section">SANDBOX TEST</div>
             <div class="dbg-subsection">${_sandboxEsc(run.test.label)}</div>
             <select class="dbg-enemy-select" id="sbx-test-select">${options}</select>
             <button class="dbg-spawn-btn" id="sbx-restart">&#8635; RESTART</button>
-            <div class="dbg-status" id="sbx-status"></div>
+            <div class="dbg-status" id="sbx-status"></div>${itemBlock}
             <div class="dbg-subsection">CHECKLIST</div>
             <div id="sbx-checklist">${rows || '<div class="dbg-status">this test has no checklist</div>'}</div>
         </div>`;
@@ -268,10 +314,50 @@ function _buildSandboxPanels(run) {
             restart.blur();
             startSandbox(select.value);
         });
+        _sandboxWireItems();
         if (!panels.debug) makeDebugPanelResizable(leftPanel, 'left');
     }
     leftPanel.classList.toggle('hidden', !panels.debug && !panels.checklist);
     _sandboxStatus(run.problem || `${run.test.label}: loading`, !!run.problem);
+}
+
+// sandboxItemAction - what the ITEMS block's buttons do, by name: "give" one
+// of an item, "use" one carried, "drop" one at the player's feet (one carried
+// if there is one, else a new one). Returns the sentence it shows. Exposed so
+// a check can press the buttons without a mouse.
+function sandboxItemAction(action, id) {
+    if (!player?.inventory || !itemDef(id)) return 'no player, or no such item';
+    const name = itemName(id);
+    if (action === 'give') {
+        return player.inventory.add(id, 1) ? `Gave: ${name}` : `No room for the ${name}`;
+    }
+    if (action === 'use') {
+        return player.inventory.has(id) ? itemUse(player, id).text : `Not carried: GIVE the ${name} first`;
+    }
+    if (action === 'drop') {
+        if (!levelRuntime) return 'Dropping needs a level map';
+        player.inventory.remove(id, 1);
+        const x = player.x + player.w * 0.5 + (player.facing || 1) * 34;
+        levelRuntime.dropItem(id, x, player.y + player.h);
+        levelMapEmit('drop', id);
+        return `Dropped: ${name}`;
+    }
+    return '';
+}
+
+function _sandboxWireItems() {
+    const select = document.getElementById('sbx-item-select');
+    if (!select) return;
+    select.addEventListener('change', () => select.blur());
+    const status = document.getElementById('sbx-item-status');
+    for (const action of ['give', 'use', 'drop']) {
+        const button = document.getElementById(`sbx-item-${action}`);
+        button.addEventListener('click', () => {
+            // Given up at once: a focused button is pressed again by Space.
+            button.blur();
+            status.textContent = sandboxItemAction(action, select.value);
+        });
+    }
 }
 
 function _sandboxStatus(text, isProblem = false) {
@@ -352,6 +438,9 @@ async function startSandbox(requestedKey) {
     _sandboxStarting = true;
     try {
         const run = _loadSandboxTest(requestedKey);
+        // Before the panels, whose ITEMS block lists the catalog, and before
+        // the design is checked, which reads item names from it.
+        run.itemWarnings = _sandboxItems(run.test);
 
         debugMode = true;
         document.getElementById('title-screen').classList.add('hidden');
@@ -368,7 +457,7 @@ async function startSandbox(requestedKey) {
         // few ms) does not flash it.
         const loading = document.getElementById('loading-screen');
         const showLoading = setTimeout(() => { loading.style.display = ''; }, 150);
-        await Promise.all([..._sandboxSceneImages(scene), ..._sandboxVariantImages(design)]
+        await Promise.all([..._sandboxSceneImages(scene), ..._sandboxVariantImages(design), ...itemCatalogImages()]
             .map(img => (img.decode ? img.decode().catch(() => {}) : null)));
         clearTimeout(showLoading);
         loading.style.display = 'none';
@@ -376,9 +465,11 @@ async function startSandbox(requestedKey) {
         // A fallback's reason outranks the map summary; warnings in the map
         // get the same color, since both mean something is not as written.
         const summary = _sandboxReportMap(scene);
-        const warned = !!scene.map?.warnings.length;
+        const warned = !!scene.map?.warnings.length || !!run.itemWarnings.length;
+        const items = run.test.items
+            ? `items: ${run.itemWarnings.length} warning${run.itemWarnings.length === 1 ? '' : 's'}` : '';
         run.status = {
-            text: run.problem || [`${run.test.label}: ready`, summary].filter(Boolean).join(', '),
+            text: run.problem || [`${run.test.label}: ready`, summary, items].filter(Boolean).join(', '),
             problem: !!run.problem || warned,
         };
         _sandboxStatus(run.status.text, run.status.problem);
@@ -424,6 +515,8 @@ function _sandboxStartDesign(stage, test) {
                 console.warn('[level-design] %s', text);
                 _sandboxStatus(text, true);
             },
+            // The test's items, once the start state's "inventory" rule is done.
+            onStart: () => _sandboxGiveItems(test),
         });
     }
     const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -452,8 +545,10 @@ function initSandbox() {
         breakables = levelRuntime.breakables;
     }
     _sandboxStartDesign(stage, test);
-    // RESTART can be clicked while paused, and nothing else would clear this.
+    // RESTART can be clicked while paused, or with an item's message open,
+    // and nothing else would clear them.
     pauseOverlay.classList.add('hidden');
+    GameUI.close();
 
     player = new Player(120, 445);
     const spawn = sampleStageEntityPosition(stage, player.w, player.h, _sandboxSpawnOptions(test.spawn));
@@ -463,6 +558,9 @@ function initSandbox() {
     }
     _hpHUD(player);
     livesEl.textContent = player.lives;
+    // With a design, its start state hands them over (onStart); without one,
+    // there is nothing to wait for.
+    if (!levelDirector) _sandboxGiveItems(test);
 
     _sandboxSpawnEnemies(test.enemies);
     debugRestart = initSandbox;

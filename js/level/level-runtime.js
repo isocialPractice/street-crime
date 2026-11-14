@@ -25,7 +25,15 @@
 // with the RESTRICTED's name; the level design does that when the condition
 // it names comes true. Using a locked door reports "locked:<name>" and shows
 // E: LOCKED instead of going through. Unlocking reports "unlock:<name>" and
-// lasts for the run, in every scene.
+// lasts for the run, in every scene, unless the design locks it again
+// (lock(), reporting "lock:<name>"), as a lock that follows a condition does.
+//
+// Items
+// -----
+// An INVENTORY-<item> layer is an item lying there (js/entities/items.js),
+// kept per scene for the run: one taken stays taken, in the street and in
+// every building. Standing at it shows E: CHECK, and E says what it is and
+// asks whether to take it. Taking reports "take:<item>".
 //
 // Trigger areas
 // -------------
@@ -118,6 +126,7 @@ class LevelMapRuntime {
     update(dt, player) {
         this._updateAnimations();
         this._updateLayers(dt);
+        for (const item of this.items) item.update(dt);
         for (const piece of this.breakables) {
             if (piece.broken) this._report('break', piece.name);
         }
@@ -134,12 +143,157 @@ class LevelMapRuntime {
         return !this.unlocked.has(name) && this.restrictedEntries().some(entry => entry.name === name);
     }
 
-    // unlock - open a RESTRICTED for the rest of the run. Safe to call more
-    // than once, or for a name this scene does not have (it may be in another).
+    // unlock - open a RESTRICTED for the rest of the run, or until lock().
+    // Safe to call more than once, or for a name this scene does not have (it
+    // may be in another).
     unlock(name) {
         if (this.unlocked.has(name)) return;
         this.unlocked.add(name);
+        this.forget(`lock:${name}`);
         this._report('unlock', name);
+    }
+
+    // lock - close a RESTRICTED that was opened: a level design lock that
+    // follows a condition which stopped holding, or a "reset". Reports
+    // "lock:<name>", and the next unlock reports "unlock:<name>" again. A
+    // player already inside can still leave: locks are on the way in.
+    lock(name) {
+        if (!this.unlocked.has(name)) return;
+        this.unlocked.delete(name);
+        this.forget(`unlock:${name}`);
+        this._report('lock', name);
+    }
+
+    // forget - let reports that were sent this run be sent again, for things
+    // that can happen more than once: a gate mended and broken again, a group
+    // spawned again, a case that turns false and back.
+    forget(...events) {
+        for (const event of events) this.reported.delete(event);
+    }
+
+    // resetBreakable - a BREAKABLE whole again, in every scene of the run that
+    // has one by that name, and able to report "break:<name>" again. False
+    // when none was found.
+    resetBreakable(name) {
+        let found = false;
+        for (const { breakables } of this.sceneStates.values()) {
+            for (const piece of breakables) {
+                if (piece.name !== name) continue;
+                piece.restore();
+                found = true;
+            }
+        }
+        this.forget(`break:${name}`);
+        return found;
+    }
+
+    // resetLayer - a layer the design moves back where the art draws it, at
+    // once, and able to report "animate:<layer>" again. False when no scene of
+    // the run was built to move it.
+    resetLayer(path) {
+        let found = false;
+        for (const [scene, state] of this.sceneStates) {
+            const layer = levelMapFindLayer(scene?.map, path);
+            if (!layer) continue;
+            state.layers.delete(layer.id);
+            this.forget(`animate:${layer.name}`);
+            found = true;
+        }
+        return found;
+    }
+
+    // resetRun - the run back to how it started, for a level design's
+    // "reset": "level": out to the street if the player is inside somewhere
+    // (just below the door they went in by, as when walking out), every
+    // breakable whole, every moved layer back, every lock closed, the street's
+    // enemies, pickups and effects gone, and nothing reported yet.
+    resetRun(player) {
+        if (this.stack.length) {
+            const frame = this.stack[0];
+            this.stack.length = 0;
+            currentStageData = frame.stage;
+            cam.x = frame.camX;
+            this._enterScene(frame.stage);
+            if (player) {
+                const door = frame.door;
+                player.x = door.x + door.w * 0.5 - player.w * 0.5;
+                player.y = door.y + door.h + frame.doorGap + CFG.enterDepthTol + 4 - player.h;
+                player.clampToStageField();
+            }
+        }
+        for (const [scene, state] of this.sceneStates) {
+            state.breakables.forEach(piece => piece.restore());
+            state.layers.clear();
+            state.items = levelMapItems(scene);
+        }
+        this.unlocked.clear();
+        this.reported.clear();
+        enemies    = [];
+        pickups    = [];
+        effects    = [];
+        breakables = this.breakables;
+        this.items = this.sceneStates.get(this.stage.scene).items;
+        this.hotspots = this._sceneHotspots(this.stage.scene);
+    }
+
+    // ── Items ─────────────────────────────────────────────────────────────────
+    // worldItems - the items lying in the scene the player is in, not taken.
+    worldItems() {
+        return this.items.filter(item => !item.taken);
+    }
+
+    // nearby - what lies within range px of the player's feet, nearest first,
+    // as [{ kind, key, rect, distance, ref, ... }]: items not taken, doors
+    // (with type and enterable), OBJECT- areas, breakables (with broken), and
+    // enemies standing. Distance is to each thing's box; a door's or an
+    // object's reaches down to the ground below it, as its reach does, since
+    // it is drawn on a wall the player cannot stand against. What the command
+    // line's LOOK and TAKE read.
+    nearby(player, range) {
+        const cx = player.x + player.w * 0.5;
+        const feet = player.y + player.h;
+        const things = [];
+        const add = (kind, key, rect, extra = {}) => {
+            const dx = Math.max(rect.x - cx, 0, cx - (rect.x + rect.w));
+            const dy = Math.max(rect.y - feet, 0, feet - (rect.y + rect.h));
+            const distance = Math.hypot(dx, dy);
+            if (distance <= range) things.push({ kind, key, rect, distance, ...extra });
+        };
+        const down = (rect, gap) => ({ x: rect.x, y: rect.y, w: rect.w, h: rect.h + (gap || 0) });
+        for (const spot of this.hotspots) {
+            if (spot.kind === 'item') {
+                if (!spot.item.taken) add('item', spot.key, spot.rect, { ref: spot.item });
+            } else if (spot.kind === 'enter') {
+                add('door', spot.key, down(spot.rect, spot.gap), { ref: spot, type: spot.type, enterable: spot.enterable });
+            } else {
+                add('object', spot.key, down(spot.rect, spot.gap), { ref: spot });
+            }
+        }
+        // OBJECT- areas holding something are not hotspots, but are there.
+        for (const object of this.stage?.scene?.map?.objects || []) {
+            if (!object.children.length) continue;
+            add('object', object.name, down(object.world, levelFieldGapBelow(this.stage, object.world)), { ref: object });
+        }
+        for (const piece of this.breakables) {
+            add('breakable', piece.name, { x: piece.x, y: piece.y - piece.h, w: piece.w, h: piece.h },
+                { ref: piece, broken: piece.broken });
+        }
+        for (const enemy of typeof enemies !== 'undefined' ? enemies : []) {
+            if (enemy.dead || enemy.fled) continue;
+            add('enemy', enemy.spawnGroup || enemy.def?.variantOf || enemy.typeId,
+                { x: enemy.x, y: enemy.y, w: enemy.w, h: enemy.h }, { ref: enemy });
+        }
+        return things.sort((a, b) => a.distance - b.distance);
+    }
+
+    // dropItem - an item put down at (x, feet y) in the scene the player is
+    // in: what the sandbox's DROP does. It can be taken again, once the
+    // player has stepped away from it.
+    dropItem(item, x, y) {
+        const dropped = new WorldItem({ item, x, y, dropped: true });
+        this.items.push(dropped);
+        this.hotspots = this._sceneHotspots(this.stage.scene);
+        return dropped;
     }
 
     // restrictedEntries - the level map's RESTRICTED entries in the scenes
@@ -215,9 +369,15 @@ class LevelMapRuntime {
         const scene = stage?.scene;
         if (!this.sceneStates.has(scene)) {
             // layers: layer id -> { x, y, move }, offsets in world px
-            this.sceneStates.set(scene, { breakables: levelMapBreakables(scene), layers: new Map() });
+            // items: what lies there to take, as WorldItems; taken ones stay
+            // taken for the run, so going out and back in never brings one back
+            this.sceneStates.set(scene, {
+                breakables: levelMapBreakables(scene), layers: new Map(),
+                items: levelMapItems(scene, this.notify),
+            });
         }
         this.breakables = this.sceneStates.get(scene).breakables;
+        this.items      = this.sceneStates.get(scene).items;
         this.hotspots   = this._sceneHotspots(scene);
         // hotspot -> whether it can be used: false until the player has been
         // out of its reach once, so arriving in one never uses it straight away.
@@ -239,14 +399,20 @@ class LevelMapRuntime {
             spots.push({ kind: 'interact', type: 'interact', id: object.id, key: object.name,
                          rect: object.world, push: null, gap: levelFieldGapBelow(this.stage, object.world) });
         }
+        for (const item of this.items || []) {
+            spots.push({ kind: 'item', type: 'item', id: item.id, key: item.item, item,
+                         rect: item.box, push: null, gap: levelFieldGapBelow(this.stage, item.box) });
+        }
         if (this.stack.length && !spots.some(spot => spot.type === 'exit')) {
             spots.push({
                 kind: 'enter', type: 'exit', id: 'implicit exit', key: this.stack[this.stack.length - 1].key,
                 rect: { x: 0, y: 0, w: LEVEL_IMPLICIT_EXIT_W, h: scene.worldHeight }, push: 'left', gap: 0,
             });
         }
-        // Doors before plain interact areas, when the player stands in both.
-        return spots.sort((a, b) => (a.kind === 'enter' ? 0 : 1) - (b.kind === 'enter' ? 0 : 1));
+        // Doors, then items, then plain interact areas, when the player
+        // stands in more than one.
+        const rank = spot => (spot.kind === 'enter' ? 0 : spot.kind === 'item' ? 1 : 2);
+        return spots.sort((a, b) => rank(a) - rank(b));
     }
 
     // ── Hotspots ──────────────────────────────────────────────────────────────
@@ -266,6 +432,7 @@ class LevelMapRuntime {
     _updateHotspots(dt, player) {
         let active = null;
         for (const spot of this.hotspots) {
+            if (spot.item?.taken) continue;
             if (!this._inReach(spot, player)) {
                 this.armed.set(spot, true);
                 continue;
@@ -296,6 +463,13 @@ class LevelMapRuntime {
     _use(spot, player) {
         if (spot.kind === 'interact') {
             levelMapEmit('interact', spot.key);
+            return;
+        }
+        // An item: what it is, and whether to take it (js/entities/items.js).
+        if (spot.kind === 'item') {
+            if (!spot.item.taken) itemOffer(player, spot.item);
+            this.armed.set(spot, false);
+            this.active = null;
             return;
         }
         // Reported on every try, like going through a door: each one is the
@@ -443,6 +617,7 @@ class LevelMapRuntime {
             ...levelSceneAnimations(scene).flatMap(anim => anim.frames),
             ...Object.values(levelSceneBreakableSprites(scene)).flatMap(Object.values),
             ...levelSceneLayerImages(scene),
+            ...Object.values(levelSceneItemSprites(scene)),
         ].filter(Boolean) : [];
         const fade = { phase: 'out', t: 0, swap, ready: false };
         Promise.all(images.map(img => (img.decode ? img.decode().catch(() => {}) : null)))
@@ -478,6 +653,7 @@ class LevelMapRuntime {
     drawPrompt(player) {
         if (this.fade || !this.active || !player) return;
         const label = this.active.kind === 'interact'  ? 'E: INTERACT'
+                    : this.active.kind === 'item'      ? 'E: CHECK'
                     : this._spotLocked(this.active)    ? 'E: LOCKED'
                     : this.active.type === 'exit'      ? 'E: EXIT'
                     : 'E: ENTER';

@@ -15,39 +15,61 @@ or `_`. `-2` copies keep their type.
 | `negative-space` | `field` | hole | |
 | `ENTERABLE-<name>` | any | interior `enterables/<name>.svg` | `enter:`, `exit:<name>` |
 | `RESTRICTED-<name>` | any | enterable, locked | `locked:`, `unlock:<name>` |
-| `REQUIRE-case-<c>`, `REQUIRE-state-<s>` | `RESTRICTED` | unlock condition | |
+| `REQUIRE-case-<c>`, `REQUIRE-state-<s>`, `REQUIRE-item-<i>` | `RESTRICTED` | unlock condition | |
 | `ENTER-building`, `ENTER-exit` | enterable | door in, way out | |
 | `OBJECT-<name>` | any | area; empty: E | `interact:<name>` |
 | `ANIMATE-<asset>` | `OBJECT` | frames `objects/<asset>_0.svg`... | `animate:<asset>` |
 | `BREAKABLE-<name>` | `OBJECT` | breaks; `_damaged`, `_broken` art | `break:<name>` |
+| `INVENTORY-<item>` | `OBJECT` | an item to take, E: CHECK | `take:<item>` |
 | `EVENT-<name>` | any | trigger area | `event:<name>` |
 
-**Planned:** `ENTER-vehicle`, `REQUIRE-item-`, `INVENTORY-`, `MISSING-`, `SWITCH-`, `USABLE-`.
+**Planned:** `ENTER-vehicle`, `MISSING-`, `SWITCH-`, `USABLE-`.
 Paths: `PARENT/CHILD`, such as `RESTRICTED-storage-room/ENTER-building`.
 
 ## Level design ([level-design](docs/level-design.md))
 
 `config/levels/<level>/level-design.json`:
-`{ "version": 1, "start", "cases", "restricted": { "<name>": { "until" } }, "states" }`
+`{ "version": 1, "start", "groups", "cases", "restricted": { "<name>": { "until", "type" } }, "look", "states" }`
 
 | State key | Value |
 | --- | --- |
-| `svg` | `loads`, `layer-state-change`, `fade-out` |
+| `svg` | `loads`, `none`, `layer-state-change`, `fade-out` |
 | `set` | `{ "<case>": true or false }` |
-| `player` | `spawn` (`left`, `right`, path), `after`, `animation` (`walk`, `idle`), `health`, `inventory` (`full`/`empty`, `inherit`, `store`) |
-| `spawn` | `[{ group, type: "enemy", from, count, pick (random, in-order), pool, animation, after, every }]`; a pool entry is a name or `{ "enemy", "render": { "<part>": "<palette>" } }` |
+| `cases` | `{ "<case>": { "condition": "alive = 0" } }`, followed from this state on |
+| `reset` | `"level"`, or `["break:<n>", "animate:<layer>", "unlock:<n>", "case:<n>"]` |
+| `player` | `spawn` (`left`, `right`, path), `after`, `animation` (`walk`, `idle`), `health` (`full`, `inherit`, `store`), `inventory` (`empty`, `inherit`, `store`) |
+| `spawn` | `[{ group, type: "enemy", from (path or edges), count, pick (random, in-order), pool, order, animation, after, every, then (fight, flee), inherit }]`; a pool entry is a name or `{ "enemy", "count", "re-render", "render": { "<part>": "<palette>" }, "name" }` |
 | `animate-layers` | `[{ layer, position-x, position-y (SVG units from the art's place), type (linear, ease-in, ease-out, ease-in-out), duration, after }]` |
-| `next` | `[{ "on": "<trigger>", "to": "<state>" }]` |
+| `next` | `[{ "on": "<trigger>", "when": { "<case>": true }, "to": "<state>" }]` |
+
+`groups.enemy.<name>`: a crew written once; a state's spawn of it wins key by key.
+`order`: `random`, `sequence`, `reverse`, `same` (`load`), or a list of names; left
+out, all at once after a door. Conditions: `alive`, `alive:<group>`, `fled:<group>`,
+`inventory:<item>`, `case:`, `state:`, with `=` `!=` `<` `<=` `>` `>=` and a number.
+`restricted` `type`: `once` (default) or `condition` (open while it holds).
 
 | Trigger | Is |
 | --- | --- |
-| `break:` `enter:` `exit:` `interact:` `animate:` `event:` `locked:` `unlock:` | level events |
-| `spawn:<group>` `defeated:<group>` `arrive:<state>` | design events |
+| `break:` `enter:` `exit:` `interact:` `animate:` `event:` `locked:` `unlock:` `lock:` | level events |
+| `spawn:<group>` `defeated:<group>` `fled:<group>` `arrive:<state>` | design events |
+| `take:` `use:` `drop:` `combine:` `look:` `talk:` | player events, every time |
 | `case:<name>`, `state:<name>` | conditions |
 
-Reports: `state:`, `case:` (turns true), `spawn:`, `defeated:`, `arrive:`, `unlock:`,
-and `animate:<layer>` when a moving layer arrives.
+Reports: `state:`, `case:` (turns true), `spawn:`, `defeated:`, `fled:`, `arrive:`,
+`unlock:`, `lock:`, and `animate:<layer>` when a moving layer arrives.
 No `version`: a draft, converted with notes.
+
+## Items ([inventory](docs/inventory.md))
+
+Catalog (a test's `"items"`, such as `config/debug/items.json`):
+`{ "slots": 8, "items": { "<id>": { name, art, look, stack, use, consume, combine } } }`.
+`use`: `{ "heal": 25 }`, `{ "scatter": 1 }`, `{ "say": "..." }`.
+
+| Key | Does |
+| --- | --- |
+| E at an item | what it is; take it? YES / NO |
+| I or Tab | the item screen: USE, CHECK, COMBINE; Esc back |
+| Ctrl+I | the command line: `look`, `talk`, `use <item>`, `take <item>`, `inventory`, `help` |
 
 ## Characters ([character-assets](docs/character-assets.md))
 
@@ -76,6 +98,6 @@ Playback: sandbox `levelMap.animate`: `{ "<asset>": { "mode": "loop" | "yoyo" | 
 ## Sandbox ([sandbox](docs/sandbox.md))
 
 `config/debug/sandbox.json`: `{ "active", "tests": { "<key>": { level, scene,
-design, spawn, cfg, levelMap, enterables, enemies, checklist } } }`. Read on every
-RESTART. Console: map table and warnings. **Show Hitboxes**: outlines and the
-design's state box.
+design, items, inventory, spawn, cfg, levelMap, enterables, enemies, checklist } } }`.
+Read on every RESTART. Console: map table and warnings. **Show Hitboxes**: outlines
+and the design's state box. ITEMS block: GIVE, USE, DROP.
