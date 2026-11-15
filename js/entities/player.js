@@ -256,9 +256,12 @@ class Player extends Entity {
 
             if (this.grounded) {
                 const run = Keys['ShiftLeft'] || Keys['ShiftRight'];
+                // Running only speeds up left and right; changing lanes stays
+                // at walk pace whether Shift is held or not.
+                const sx = CFG.playerSpeed * (run ? CFG.playerRunSpeed : 1);
                 this.vx = 0; this.vy = 0;
-                if (left)  { this.vx = -CFG.playerSpeed; this.facing = -1; }
-                if (right) { this.vx =  CFG.playerSpeed; this.facing =  1; }
+                if (left)  { this.vx = -sx; this.facing = -1; }
+                if (right) { this.vx =  sx; this.facing =  1; }
                 if (up)    this.vy = -CFG.playerSpeed * 0.6;
                 if (down)  this.vy =  CFG.playerSpeed * 0.6;
 
@@ -295,9 +298,12 @@ class Player extends Entity {
                     this.setState('idle');
                 }
             } else {
-                // Air strafe (horizontal only, reduced by air control factor)
-                if (left)  { this.vx = -CFG.playerSpeed * CFG.playerAirControl; this.facing = -1; }
-                if (right) { this.vx =  CFG.playerSpeed * CFG.playerAirControl; this.facing =  1; }
+                // Air strafe (horizontal only, reduced by air control factor).
+                // A jump taken from a run keeps the run's speed: isRun is only
+                // updated on the ground, so it still says how the jump began.
+                const ax = CFG.playerSpeed * CFG.playerAirControl * (this.isRun ? CFG.playerRunSpeed : 1);
+                if (left)  { this.vx = -ax; this.facing = -1; }
+                if (right) { this.vx =  ax; this.facing =  1; }
                 else if (!left) this.vx = this.vx * 0.92;
             }
 

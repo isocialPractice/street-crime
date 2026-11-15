@@ -9,7 +9,7 @@
 //   node scripts/checkAssetCase.js
 //
 // What it checks, against the real names in each folder:
-//   - src and href in index.html
+//   - src and href in index.html and config/debug/renders.html
 //   - every quoted assets/, config/ or js/ path in the game's JavaScript
 //   - every such path in config/**/*.json (sandbox levels, scenes, interiors, designs)
 //   - each enemy's art: ENEMY_DEFS "img" names, and every suffix in
@@ -79,9 +79,12 @@ function walk(dir, test, out = []) {
 
 const PATH_RE = /['"`]((?:assets|config|js)\/[^'"`$\s]+?\.(?:svg|json|js|css|png))['"`]/g;
 
-// index.html
-const index = fs.readFileSync('index.html', 'utf8');
-for (const m of index.matchAll(/(?:src|href)="([^"#?:]+)"/g)) checkPath(m[1], 'index.html');
+// index.html, and the debug pages published beside it, whose paths are from
+// the site root too (config/debug/renders.html sets <base href="../../">)
+for (const page of ['index.html', 'config/debug/renders.html']) {
+    const html = fs.readFileSync(page, 'utf8');
+    for (const m of html.matchAll(/(?:src|href)="([^"#?:]+)"/g)) checkPath(m[1], page);
+}
 
 // The game's JavaScript
 const scripts = ['game.js', 'assets.js', ...walk('js', f => f.endsWith('.js'))];

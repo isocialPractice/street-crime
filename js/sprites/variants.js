@@ -349,3 +349,14 @@ function variantFrameText(path, svgText, render) {
     }
     return _variantFrames.get(key).text;
 }
+
+// variantFrameReport - what a render did to one frame file, as
+// renderSvgVariant says it ({ recolored, missing, fallbacks, problems }), or
+// null when that file has not been rendered with that render. What the render
+// view (config/debug/renders.html) writes under each frame.
+function variantFrameReport(path, render) {
+    const result = _variantFrames.get(`${path}|${variantRenderKey(render)}`);
+    if (!result) return null;
+    const { recolored, missing, fallbacks, problems } = result;
+    return { recolored, missing: [...missing], fallbacks: fallbacks.map(f => ({ ...f })), problems: [...problems] };
+}

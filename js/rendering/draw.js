@@ -24,10 +24,12 @@ function draw() {
     const depthKey = item => {
         if (item === player)           return player.y + player.h + 0.5;
         if (item instanceof Enemy)     return item.y + item.h;
-        /* BreakableObj, WorldItem */  return item.y;
+        /* BreakableObj, WorldItem, LevelDepthArt */  return item.y;
     };
-    // Items lying in the level sort by the ground under them, as a crate does.
-    [...enemies, player, ...breakables, ...(levelRuntime ? levelRuntime.worldItems() : [])]
+    // Items lying in the level sort by the ground under them, as a crate does,
+    // and art standing on it (DEPTH- layers) by its bottom edge.
+    [...enemies, player, ...breakables, ...(levelRuntime ? levelRuntime.worldItems() : []),
+     ...levelSceneDepthArt(stageData?.scene)]
         .sort((a, b) => depthKey(a) - depthKey(b))
         .forEach(item => item.draw());
 
@@ -230,6 +232,7 @@ const LEVEL_MAP_DEBUG_STYLE = {
     'REQUIRE':        { stroke: 'rgba(255,120,120,0.95)', dash: [1, 3] },
     'EVENT':          { stroke: 'rgba(80,200,255,0.95)',  fill: 'rgba(80,200,255,0.12)', dash: [4, 3] },
     'INVENTORY':      { stroke: 'rgba(120,255,255,0.95)', fill: 'rgba(120,255,255,0.12)', dash: [2, 2] },
+    'DEPTH':          { stroke: 'rgba(180,150,255,0.95)', dash: [8, 3] },
 };
 // MISSING-, SWITCH- and USABLE- are drawn alike until they do something:
 // grey, so a reserved name reads as present but inert.

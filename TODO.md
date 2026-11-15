@@ -445,6 +445,14 @@ in `scripts/`:
     an empty `config/debug/sandbox.json` with one commented example, and the docs
     remain; the sample level, its design and its art are gone.
   - From: Template Repo
+- [ ] The template ships the `level-design` agent skill
+  - **Issue**: `skills/level-design/` points at this repository's paths and at
+    `theStreets` as its worked example (`config/levels/theStreets/level-brief.md`),
+    and a template user would want it from the first day.
+  - **Goal**: The template keeps `skills/`, `package.json`, `scripts/installSkills.js`
+    and the check scripts; the skill's worked example becomes the sample level; the
+    first-run script runs `npm run skills` for the agents the new repository uses.
+  - From: Template Repo
 
 ---
 
@@ -535,7 +543,60 @@ Intent: a level is art plus one design file, with no code.
     cannot happen.
   - **Goal**: Decide whether to keep them as written, or also bring the warehouse
     crew back in from the edges when the player leaves the bar mid-fight in
-    `gate-breaks`, which can happen in play.
+    `gate-breaks`, which can happen in play. (The action matrix reports
+    `crew-returns` as never entered; `config/levels/theStreets/level-brief.md`
+    lists it as meant for now.)
+  - From: Level Design Config
+- [ ] theStreets: the warehouse door stays open after the gate is mended
+  - **Issue**: `gate-reset` locks the warehouse again, but the door's glass and
+    handles, slid apart when the gate broke, stay apart; breaking the gate again
+    does not slide them, since a layer sent where it already is stays put.
+  - **Goal**: Decide whether `gate-reset` also puts them back, with `reset`
+    `animate:door-glass-left` and the other three door layers.
+  - From: Level Design Config
+- [ ] theStreets: leaving the bar mends the gate before the response crew has gone
+  - **Issue**: In `response-flees`, the step on `exit:bad-bar` to `gate-reset`
+    does not wait for the response crew to finish running off: ducking into the bar
+    while they look, then walking out, mends the gate at once.
+  - **Goal**: Decide whether that step also needs `"response-crew-down": true` in
+    its `when` (`alive` does not count enemies that ran off, so the case turns true
+    once they are gone).
+  - From: Level Design Config
+- [ ] Keep a building's enemies when the player walks out
+  - **Issue**: The level runtime keeps only the street's enemies while the player
+    is elsewhere: `_exitScene` in `js/level/level-runtime.js` takes the street's
+    list back, and every interior starts empty. A crew fighting inside a building is
+    dropped when the player walks out, but its group still counts it, so
+    `defeated:<group>` never comes, while plain `alive` drops to 0 at once.
+  - **Goal**: Each scene keeps its own enemies, held still while the player is in
+    another, as the street's are. Then the `level-design` skill's "Ambush when you
+    take it" pattern needs no waiting states, and the action matrix
+    (`scripts/lib/levelMatrix.js`) stops modelling lost crews.
+  - From: Level Design Config
+- [ ] `design-9-conditions` can get stuck in `gate-watch`
+  - **Issue**: The gate can be broken before the runners have fled, since no state
+    before `gate-watch` has a step for it; `gate-watch`'s only step then waits on a
+    `break:parking-gate-arm` that cannot happen again. Found by
+    `node scripts/checkLevelDesign.js design-9-conditions --matrix`.
+  - **Goal**: `gate-watch` also moves on when the gate is already broken (a step
+    with `when` on a case set by the break, or a `reset` of the gate on entering
+    it), or its brief says the dead end is meant.
+  - From: Level Design Config
+- [ ] Briefs for the sandbox step designs
+  - **Issue**: `design-8-crews`, `design-9-conditions` and `design-10-inventory`
+    show 1, 3 and 2 gaps in the action matrix, mostly "doing it again does
+    nothing", and none has a brief to say which are meant.
+  - **Goal**: A `<n>-<name>.brief.md` beside each design in `config/debug/designs/`,
+    with its "Nothing on purpose", and a fix for any gap that is not meant, so
+    `node scripts/checkLevelDesign.js --all --matrix` exits 0.
+  - From: Level Design Config
+- [ ] Try the `level-design` skill in Copilot and Codex
+  - **Issue**: The skill was tried by agents in Claude Code only; Copilot CLI and
+    Codex were not installed where it was built. Both read the same `SKILL.md`
+    format, from `.github/skills/` and `.agents/skills/`.
+  - **Goal**: `npm run skills -- copilot` and `-- codex`, describe a level in each,
+    check what it writes with `node scripts/checkLevelDesign.js <test> --matrix`,
+    and fix anything in `skills/level-design/` that one agent reads differently.
   - From: Level Design Config
 - [ ] Friendly and neutral characters in a design
   - **Issue**: `characters.friendly` and `characters.neutral` are reserved and
@@ -575,13 +636,16 @@ Intent: a level is art plus one design file, with no code.
   - **Issue**: The validator, draft migration, suggestions and director were
     checked by hand-run headless browser pages kept in the git-ignored `.tmp/`
     (now also crews, conditions, the inventory, the item screen, the command line
-    and the real `theStreets` file, played through its doors); only
-    `scripts/checkLevelDesignVocab.js` is in the repository.
+    and the real `theStreets` file, played through its doors). In the repository,
+    `scripts/checkLevelDesign.js --all --matrix` runs the validator and the action
+    matrix in node for every sandbox test, and `scripts/checkLevelDesignVocab.js`
+    checks the vocabulary, the schema and the `level-design` skill; nothing runs
+    them on a push.
   - **Goal**: `node` tests for `validateLevelDesign`, `migrateLevelDesign` (with
     `config/debug/designs/5-draft.json`), `levelDesignClosest`, the condition
-    parser, `Inventory` and the command line's parser, and the vocabulary against
-    the schema, plus a headless run of each sandbox step's checklist, all run by a
-    workflow on every push.
+    parser, `Inventory` and the command line's parser, plus a headless run of each
+    sandbox step's checklist, all run by a workflow on every push, with the two
+    check scripts above.
   - From: Level Design Config
 
 ---
@@ -624,5 +688,180 @@ Intent: the docs never describe a game that no longer exists.
   - **Goal**: `docs/asset-scripts.md`, with a quickstart and a cheatsheet, a menu
     entry, and `scripts/README.md` reduced to a pointer.
   - From: version.control = null
+
+---
+
+## 12. Bug Fix Running List
+
+> Bugs found in play that were too large to fix on the spot, or that touched files
+> other work had open. Each item says what goes wrong, where in the code, how to see
+> it, and what proves it fixed.
+
+Intent: patch-sized fixes; nothing here changes a format or a public name.
+
+- [x] **User only**: `player-run`: holding Shift to run plays the run animation but the player crosses the level no faster than walking
+  - **Issue**: In `Player.update` (`js/entities/player.js`, the grounded branch of
+    the Movement block) `run` (Shift) is read only to choose the animation state
+    (`runstart`, `run`, `runstop`, `walk`) and to set `isRun` for the running kick.
+    The velocity is set from `CFG.playerSpeed` alone (`vx = +/-CFG.playerSpeed`,
+    `vy = +/-CFG.playerSpeed * 0.6`) whether Shift is held or not, and
+    `Entity.moveXY` (`js/entities/entity.js`) applies it unscaled. There is no run
+    speed in `CFG` (`js/core/config.js`) at all, though the comment in that block
+    ("speed still changes on the same frame the key is pressed") expects one. So a
+    run is the walk at 220 px/s with faster legs (`playerRunFPS` 12 against
+    `playerWalkFPS` 5).
+  - **Goal**: Running moves the player across the level noticeably, but only
+    slightly, faster than walking. Add a multiplier to `CFG` in
+    `js/core/config.js` under Movement, for example `playerRunSpeed` ("run speed
+    as a multiple of playerSpeed"), and in `Player.update` scale the grounded
+    `vx` (and `vy`, if decided below) by it when `run` is held. Expose it in
+    `js/ui/debug.js` under `PLAYER MOVEMENT` beside `playerSpeed`, with a label
+    that does not clash with the enemy section's `Run Speed ×` (`enemyFleeSpeed`),
+    for example `Player Run ×`. `config/configuration.json` and its copy in
+    `config/defaults/` need no edit for it to work, since a key they lack keeps
+    its built-in value, but a debug export will write it there.
+  - **Decide first**: how much faster, and in which directions. (a) The multiplier:
+    1.3 reads as "slightly noticeable" at 220 px/s (286 px/s), 1.5 is a clear
+    sprint (330 px/s). (b) Whether running also speeds up the up and down depth
+    movement, or only left and right. (c) Whether a jump started from a run keeps
+    the run speed in the air (air strafe in the same block uses
+    `CFG.playerSpeed * CFG.playerAirControl` and would stay at walk pace unless
+    changed). A faster run also carries the player further into a running kick,
+    so `runningKickRange` may want a look afterwards.
+  - **Repro**: any level or sandbox test. Hold Right for two seconds, then hold
+    Right with Shift for two seconds from the same spot: the camera and the
+    player cover the same ground both times.
+  - **Done when**: a headless page under `.tmp/` (the pattern of
+    `.tmp/response-check.html`) places the player on open ground, holds
+    `ArrowRight` on `window` for 60 steps of `update(1 / 60)` and reads `player.x`,
+    then resets and holds `ArrowRight` with `ShiftLeft` for 60 steps: the run's
+    distance is the walk's times the chosen multiplier (both are 220 px today);
+    every sandbox test keeps its status (`node scripts/checkLevelDesign.js --all`)
+  - **Waited because**: triage row 5, one right answer: the run speed is game feel
+    (a speed), so the owner picks the multiplier and whether it applies to depth
+    and air movement. The change also spans `js/core/config.js`,
+    `js/entities/player.js` and `js/ui/debug.js`, a new `CFG` key the debug export
+    writes to the config files.
+  - **Evidence**: `.bug-fix/gifs/player-run.gif` (local only; two recordings side
+    by side, walking on top and running below, over 4.2 s: from about 1.9 s both
+    move right, and the red car and lane lines scroll past at almost the same rate,
+    the running one only about 45 px further along by 3.7 s)
+  - From: Bug Fix Running List
+- [x] **User only**: `Add`: a render debug mode, since there is no way to look at a level design's recolored character frames one by one, outside of play
+  - **Issue**: A level design's pool entry can recolor an enemy
+    (`{ "enemy": "JumpingJunkie", "render": { "left-vest": "gray" } }`), but the
+    only way to see the result is to play: the `design-7-render` sandbox test
+    spawns the crew and they walk, attack and fall at game speed, so a frame that
+    stays as drawn (CrimeGuy's `_attack`, `_preDefeat` and `_defeat`, which name no
+    vest layer) flashes past, and the console warning from `variantFrameText` in
+    `js/sprites/variants.js` is the only record of it. Nothing is broken: the view
+    does not exist. The parts it would build on are all there:
+    `levelDesignEnemyVariants(design)` in `js/level/level-design.js` lists every
+    `{ enemy, render }` a design's pools and groups draw, `enemyVariant(enemy, render)`
+    in `js/entities/enemy.js` registers it, `enemyCharImages(charKey)` in
+    `js/sprites/enemies.js` gives its decoded frames, and `variantFrameText` /
+    `renderSvgVariant` in `js/sprites/variants.js` say which parts a frame is missing.
+  - **Goal**: A debug view that draws, still and side by side, every frame of every
+    animation of each character a level design recolors, next to the same frame as
+    drawn, with the frame's file name and any part it has no layer for written under
+    it. No player, no enemies moving, no level logic: read the design, register its
+    variants as the sandbox already does (`_sandboxVariantImages` in
+    `js/ui/sandbox.js`), wait for the images to decode, and draw them in a grid on
+    the canvas. Picking a design reuses the sandbox's list.
+  - **Decide first**: where the view lives and what it covers.
+    - Where: (a) a new sandbox test kind, such as `"view": "renders"` on an entry in
+      `config/debug/sandbox.json`, which changes that file's format and its schema;
+      (b) a new focus mode in the debug panel (`_DEBUG_FOCUS_ROWS` and
+      `_renderFocusContent` in `js/ui/debug.js`) that pauses the game and draws the
+      grid over it; or (c) a standalone page under `docs/` or `config/debug/` that
+      loads the scripts and needs no game at all.
+    - Which designs: the chosen sandbox test's design only, or every
+      `config/levels/<level>/level-design.json` and `config/debug/designs/*.json`.
+    - Which characters: enemies only (the only ones with a render today), or the
+      player too, once the outfit select under Asset Scripts exists.
+    - Layout: every frame of every animation, or one chosen animation stepped a frame
+      at a time with the arrow keys; with the as-drawn frame beside it or not.
+  - **Repro**: start the `design-7-render` sandbox test (SANDBOX TEST menu) and try to
+    see the gray JumpingJunkie's `defeat` frames: they only show for a moment when he
+    is beaten.
+  - **Done when**: the view opens for `design-7-render` and for `theStreets`, shows
+    each variant's frames recolored beside the originals, and names the frames that
+    keep a part as drawn (the gray CrimeGuy's `_attack`, `_preDefeat` and `_defeat`
+    vest); a headless check loads the view, waits for decode and reads one pixel of a
+    recolored part per variant; every sandbox test keeps its status
+    (`node scripts/checkLevelDesign.js --all`)
+  - **Waited because**: it is a new feature, not a defect, and where it lives and what
+    it shows are the owner's choice (triage row 5); any of the options also needs a
+    new file, a new UI or a `sandbox.json` format change (row 6)
+  - **Evidence**: none
+  - From: Bug Fix Running List
+- [x] **User only**: `foreshortening`: a character walking behind the parked red car is drawn over it, so they look like they walk on top of the car
+  - **Issue**: Since the `negative-space` fix, the player can walk the thin sidewalk
+    strip behind the parked red car on theStreets (feet at world y 359.5, while the
+    car's hole spans x 690 to 967, y 363.6 to 398.4). The car should hide the
+    player's legs there, but it is drawn under them. The car is static art: the
+    `vehicle-red-i` group in `assets/levels/theStreets/level-theStreets.svg` is baked
+    into the scene's background image (`_svgSceneBackground` in
+    `js/level/svg-scenes.js` drops only the ids in the map's `stripIds`, which
+    `parseLevelMap` in `js/level/level-map.js` fills with ANIMATE, BREAKABLE and
+    INVENTORY pieces). `draw()` in `js/rendering/draw.js` paints that background
+    first, then depth-sorts only enemies, the player, breakables and world items by
+    their feet. No piece of static art takes part in the sort, so every character is
+    drawn in front of the car wherever they stand. Nothing in the map ties the car to
+    its hole either: the `negative-space` rect is the sibling just before
+    `vehicle-red-i` in the file, not inside it.
+  - **Goal**: Art that stands on the ground (the car first) is cut out of the
+    background and drawn in the depth sort, so a character whose feet are behind its
+    front edge is drawn under it, and one in front of it is drawn over it. In
+    `parseLevelMap`, for each piece of such art: push its id onto `stripIds`, make a
+    sprite with `_levelMapSpriteMarkup` (as breakables do), and record it with a
+    depth line in world y; leave it out of every moving-layer slab too (the `skip`
+    set `_levelMapMovingLayers` passes to `_levelMapSlab`), or the door's slab could
+    paint part of it back over the characters. Load the sprite where breakable
+    sprites are loaded (`js/entities/level-objects.js`) and add it to the list
+    `draw()` sorts, keyed by its depth line, with `cam.x` applied as the background
+    does. With the depth line at the hole's bottom edge (y 398.4), the player at
+    y 359.5 draws behind the car and one at y 410 in front of it.
+  - **Decide first**: (1) Which art draws in the depth sort. (a) Automatic: the
+    element right after each `negative-space` in the file (here `vehicle-red-i`),
+    no renaming and no new vocabulary, but it relies on layer order, and art over a
+    flat hole (a pit, a puddle) is cut out too. (b) Automatic by nesting: the group a
+    `negative-space` sits inside, which means moving the car's hole into
+    `vehicle-red-i` in the SVG (art). (c) A new map name for art that stands on the
+    ground (for example a `DEPTH-` prefix), which also covers art with no hole
+    (lamp posts, the "foreground overlay elements" item under Background Elements),
+    but adds to `LEVEL_MAP_RULES`, `docs/level-naming.md` and
+    `scripts/checkLevelDesignVocab.js`, and the owner renames layers. (2) The depth
+    line: the hole's bottom edge, or the bottom of the art's own box (the tyres).
+    They agree for this car and can differ for other art.
+  - **Repro**: sandbox test `level-mapping` (The Streets). Walk right past the
+    warehouse door, then up onto the sidewalk strip behind the parked red car and
+    along it: the whole player is drawn over the car's body and wheels.
+  - **Done when**: a headless check under `.tmp/` that wraps each sorted item's
+    `draw` to log the order shows, with the player's feet at y 359.5 and x inside 690
+    to 967, the car drawn after the player, and with the feet at y 410 the player
+    drawn after the car; enemies sort the same way; the car still shows where it did
+    when no one is near it; every sandbox test keeps its status
+    (`node scripts/checkLevelDesign.js --all`), and
+    `node scripts/checkLevelDesignVocab.js` reports the same as before (or lists the
+    new name, for option (c))
+  - **Waited because**: triage row 5, one right answer: which art joins the depth
+    sort, and by what line, is a naming and behavior choice for the owner (and option
+    (b) is an art change). Row 9 would fail too for now: `docs/level-naming.md`,
+    which describes `negative-space`, has uncommitted work from another task
+  - **Evidence**: `.bug-fix/gifs/foreshortening.gif` (local only; 16.7 s, debug
+    overlay on: at about 1.5 s, 4.5 s and 6 s the player walks along the strip behind
+    the red car with their legs and feet painted over its hood and wheels, and at
+    about 7.5 s and 9 s, below the car, they are correctly in front of it)
+  - From: Bug Fix Running List
+- [ ] **User only**: `Update`: the "Local Weather" mode always shows the same night storm (rain, clouds, lightning) instead of the weather where the player is
+  - **Issue**: Nothing in the game reads real weather. The weather layer in `js/rendering/weather.js` (`drawWeatherSky()`, `drawWeatherFront()`) only reads fixed `CFG` keys from the `Local weather` block of `js/core/config.js` (`weatherNight`, `weatherTone`, `weatherPrecip`, and the rest), which `config/configuration.json` and `config/defaults/configuration.json` overlay with `night` / `hot` / `stormy`. No script calls a weather service (the only network calls are the sprite, item, sequence and level loaders), so the "Local Weather" toggle (`dbg-weather` in `js/ui/debug.js`) can only switch that one storm on or off. The renderer also has no day or snow art: `js/sprites/weather.js` loads only `cloud.svg`, `rain.svg` and `moon.svg` from `assets/levels/weather/`, and its own comment says a day render needs `sun.svg` and a cold render needs `snow.svg`, neither of which exists.
+  - **Goal**: When local weather is on and the player is in the US, ask `https://api.weather.gov` for the current conditions at the player's location (`/points/{lat},{lon}` gives the forecast and observation station URLs; the first period of the hourly forecast, or the latest station observation, gives temperature, `isDaytime` and a short forecast text) and map them onto the existing keys: `weatherNight` from `isDaytime`, `weatherTone` from the temperature, `weatherPrecip` from the forecast text (rain or thunder to `stormy`, clouds or overcast to `cloudy`, clear or sunny to `sunny`), following the directive table already used for the weather layer. Outside the US, or when the request fails or there is no location, keep today's rainy storm. A small new script (for example `js/core/local-weather.js`, loaded before `js/rendering/weather.js` in `index.html`) would fetch once at start, set the `CFG` keys and leave the render code as it is; `js/sprites/weather.js` and `js/rendering/weather.js` then need `sun.svg` and `snow.svg` drawn for day and cold renders.
+  - **Decide first**: (1) Where the location comes from: browser geolocation (asks the player for permission; denied means the rainy fallback), a third-party IP lookup (no prompt, but sends the player's IP to another service), or a lat/lon the owner sets in `config/configuration.json`. (2) How "not in US" is decided: a 404 from `/points/{lat},{lon}` (api.weather.gov answers only for US points, so no extra service is needed), or a country field from the IP lookup. (3) The temperature bands for `hot` / `medium` / `cold` (for example below 45 F cold, above 80 F hot). (4) Whether the art for a day sky (`sun.svg`) and snow (`snow.svg`) is added first, or day and cold renders ship without a sun and with rain until it is. (5) Whether `CFG.weather` still defaults to on (the `Turn` item asks to turn local weather off by default). Note that a browser cannot set the `User-Agent` header api.weather.gov asks clients for, so requests go out with the browser's own.
+  - **Repro**: start the game at any stage with local weather on (debug panel, "Local Weather" checked): the sky is always night with storm clouds, heavy rain and lightning, whatever the real weather is.
+  - **Done when**: with a stubbed `fetch` in a headless page under `.tmp/` returning a sunny daytime forecast for a US point, the `CFG` weather keys read day / sunny after start; a stubbed 404 (a point outside the US) and a rejected request both leave `night` / `stormy`; `node --check` passes on each changed script; every sandbox test keeps its status (`node scripts/checkLevelDesign.js --all`)
+  - **Waited because**: triage row 4 (art): a live day or cold render needs `sun.svg` and `snow.svg`, which are not in `assets/levels/weather/`; and row 5: the location source, the US test and the temperature bands are the owner's choices. It would also exceed row 6 (a new script and a change to `index.html`'s script order) and row 9 (`js/core/config.js` and `js/ui/debug.js` had uncommitted work from the `player-run` fix)
+  - **Evidence**: none (no GIF or image was attached; the behavior is read from the code)
+  - From: Bug Fix Running List
 
 ---

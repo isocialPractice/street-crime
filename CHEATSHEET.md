@@ -22,6 +22,7 @@ or `_`. `-2` copies keep their type.
 | `BREAKABLE-<name>` | `OBJECT` | breaks; `_damaged`, `_broken` art | `break:<name>` |
 | `INVENTORY-<item>` | `OBJECT` | an item to take, E: CHECK | `take:<item>` |
 | `EVENT-<name>` | any | trigger area | `event:<name>` |
+| `DEPTH-<name>` | any | stands on the ground, depth-sorted by its bottom edge | |
 
 **Planned:** `ENTER-vehicle`, `MISSING-`, `SWITCH-`, `USABLE-`.
 Paths: `PARENT/CHILD`, such as `RESTRICTED-storage-room/ENTER-building`.
@@ -58,6 +59,15 @@ out, all at once after a door. Conditions: `alive`, `alive:<group>`, `fled:<grou
 Reports: `state:`, `case:` (turns true), `spawn:`, `defeated:`, `fled:`, `arrive:`,
 `unlock:`, `lock:`, and `animate:<layer>` when a moving layer arrives.
 No `version`: a draft, converted with notes.
+
+## Level design skill ([level-design-skill](docs/level-design-skill.md))
+
+| Command | Does |
+| --- | --- |
+| `npm run skills -- claude` (`copilot`, `codex`, `all`) | install the `level-design` skill for that agent; `npm run skills:check` says if a copy is current |
+| `/level-design <what should happen>` (Codex: `$level-design`) | writes the brief, the design, a sandbox test and the art to-do |
+| `node scripts/checkLevelDesign.js <level> --matrix` | the sandbox's status line, then what every action does in every state, and the gaps |
+| `node scripts/checkLevelDesign.js <level> --layers` | the art's layers by kind, with the paths a design writes |
 
 ## Items ([inventory](docs/inventory.md))
 

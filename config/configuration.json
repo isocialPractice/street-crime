@@ -105,7 +105,7 @@
   "enemyHurtTime": 0.55,
   "scoreMultiplier": 1,
   "bgAmbience": true,
-  "weather": true,
+  "weather": false,
   "weatherNight": true,
   "weatherTone": "hot",
   "weatherPrecip": "stormy",

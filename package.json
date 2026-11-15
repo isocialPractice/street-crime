@@ -1,0 +1,13 @@
+{
+  "name": "street-crime",
+  "private": true,
+  "description": "Scripts for working on Street Crime. The game itself needs no install and no build step: serve the folder and open index.html.",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "skills": "node scripts/installSkills.js",
+    "skills:check": "node scripts/installSkills.js --check",
+    "level:check": "node scripts/checkLevelDesign.js"
+  }
+}

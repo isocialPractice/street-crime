@@ -32,6 +32,7 @@ Illustrator SVG export, **Object IDs: Layer Names**. Prefixes are upper case;
 | `BREAKABLE-<name>` | `OBJECT` | cut out, breaks; `_damaged`, `_broken` art | `break:<name>` |
 | `INVENTORY-<item>` | `OBJECT` | an item to take (E: CHECK); empty layer: the catalog's art | `take:<item>` |
 | `EVENT-<name>` | any | trigger area | `event:<name>` |
+| `DEPTH-<name>` | any | stands on the ground: drawn behind whoever is below its bottom edge, over whoever is above it | |
 
 **Planned:** `ENTER-vehicle`, `MISSING-`, `SWITCH-`, `USABLE-`. Items: [inventory.md](inventory.md).
 

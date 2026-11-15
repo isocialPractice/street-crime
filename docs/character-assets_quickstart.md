@@ -54,5 +54,6 @@ fight. The browser console warns if a named file cannot be found.
 - **Recolor a part:** name the part's tone layers (`jacket-light`, `jacket-mid`,
   `jacket-dark`), then spawn `{ "enemy": "CrimeGuy", "render": { "jacket": "gray" } }`
   from a level design's pool; see [character-assets.md](character-assets.md#recoloring-parts).
+  `config/debug/renders.html` shows every frame recolored beside the original.
 
 The full tables are in [character-assets_cheatsheet.md](character-assets_cheatsheet.md).

@@ -20,6 +20,7 @@ const CFG = {
     jumpKickDmg:             30,
     // ── Movement ────────────────────────────────────────────────────────────
     playerSpeed:            220,
+    playerRunSpeed:         1.3,   // run speed as a multiple of playerSpeed (left and right only; a jump taken from a run keeps it)
     jumpSpeed:              500,
     gravity:                900,
     playerAirControl:      0.75,   // air strafe speed multiplier (fraction of playerSpeed)
@@ -198,7 +199,7 @@ const CFG = {
     // Render layer driven by the weather server directives. See
     // local-weather-style/STYLE.md for the directive to key mapping.
     // Current render: night / hot / stormy.
-    weather:               true,
+    weather:              false,
     weatherNight:          true,    // true: moon.svg  false: sun.svg + sky lift
     weatherTone:          'hot',    // 'hot' | 'medium' | 'cold'
     weatherPrecip:     'stormy',    // 'stormy' | 'cloudy' | 'sunny'

@@ -39,6 +39,11 @@ Tests are set up in `config/debug/sandbox.json`; see [docs/sandbox.md](docs/sand
 4. Give a character a new animation:
    [docs/character-assets_quickstart.md](docs/character-assets_quickstart.md)
 
+Or describe the level and let an agent write step 2: `npm run skills -- claude` (or
+`copilot`, `codex`) installs the `level-design` skill, then
+`/level-design <what should happen>`:
+[docs/level-design-skill_quickstart.md](docs/level-design-skill_quickstart.md)
+
 ## Where things are
 
 | Path | Holds |

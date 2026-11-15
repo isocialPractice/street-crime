@@ -261,6 +261,7 @@ const _DEBUG_FOCUS_ROWS = {
         { key:'inputBufferTime',      label:'Input Buffer (s)',   min:0,   max:0.5,  step:0.02 },
         { section: 'PLAYER MOVEMENT' },
         { key:'playerSpeed',          label:'Player Speed',       min:50,  max:600,  step:5    },
+        { key:'playerRunSpeed',       label:'Player Run ×',       min:1,   max:3,    step:0.05 },
         { key:'jumpSpeed',            label:'Jump Speed',         min:100, max:1200, step:10   },
         { key:'gravity',              label:'Gravity',            min:100, max:2500, step:10   },
         { key:'playerAirControl',     label:'Air Control',        min:0.1, max:1.5,  step:0.05 },

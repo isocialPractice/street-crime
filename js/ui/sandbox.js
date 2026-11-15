@@ -197,9 +197,9 @@ function _sandboxVariantImages(design) {
         .flatMap(id => enemyCharImages(ENEMY_DEFS[id].img));
 }
 
-// Every image a scene draws, animation frames, breakables and moving layers
-// included, so a start can wait for them to decode and the first frame is the
-// level rather than a blank canvas.
+// Every image a scene draws, animation frames, breakables, moving layers and
+// depth-sorted art included, so a start can wait for them to decode and the
+// first frame is the level rather than a blank canvas.
 function _sandboxSceneImages(scene) {
     return [
         scene.img,
@@ -208,6 +208,7 @@ function _sandboxSceneImages(scene) {
         ...Object.values(levelSceneBreakableSprites(scene)).flatMap(Object.values),
         ...levelSceneLayerImages(scene),
         ...Object.values(levelSceneItemSprites(scene)),
+        ...levelSceneDepthArt(scene).map(piece => piece.sprite),
     ].filter(Boolean);
 }
 

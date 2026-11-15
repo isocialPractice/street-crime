@@ -1,5 +1,13 @@
 .claude/
 .prompts/
+
+# A local bug inbox: notes, GIFs and screenshots of bugs seen in play.
+.bug-fix/
+
+# Agent skills installed from skills/ (npm run skills). skills/ is the copy to
+# edit and commit; these are made from it. .claude/ above covers Claude Code's.
+.github/skills/level-design/
+.agents/skills/level-design/
 updateAssets.bat
 updateAnimate.bat
 updateAll.bat

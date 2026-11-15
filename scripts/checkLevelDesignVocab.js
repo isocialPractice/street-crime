@@ -3,7 +3,10 @@
 // js/level/level-design.js and config/schema/level-design.schema.json allow
 // the same keys and values. The validator reads the first, editors read the
 // second, and a word added to one but not the other would be accepted by one
-// and flagged by the other. Run from the repo root:
+// and flagged by the other. Then checks the level-design skill
+// (skills/level-design/) against the engine: its generated vocabulary page,
+// the names on its pages, and every design it offers (scripts/lib/skillChecks.js).
+// Run from the repo root:
 //
 //   node scripts/checkLevelDesignVocab.js
 //
@@ -60,5 +63,12 @@ same('condition sources', [...V.conditions.count, ...V.conditions.flag], /\(([a-
   }
 }
 if (V.version !== S.properties.version.const) diffs.push(`version: vocab ${V.version} vs schema ${S.properties.version.const}`);
-console.log(diffs.length ? 'DIFFERENCES\n' + diffs.join('\n') : 'vocab and schema agree');
+
+// The level-design skill: its vocabulary page, the names its pages give, and
+// every design it offers, checked against the engine (scripts/lib/skillChecks.js).
+const { checkSkill } = require('./lib/skillChecks');
+const skill = checkSkill();
+diffs.push(...skill.problems);
+console.log(diffs.length ? 'DIFFERENCES\n' + diffs.join('\n')
+  : `vocab and schema agree; the level-design skill agrees (${skill.patterns.length} designs checked)`);
 process.exit(diffs.length ? 1 : 0);

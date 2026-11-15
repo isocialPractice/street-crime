@@ -20,6 +20,9 @@
 //                           of the level, or, for an empty layer, the item
 //                           catalog's art (js/entities/items.js)
 //   EVENT-<name>            a trigger area; the player walking in reports it
+//   DEPTH-<name>            art that stands on the ground, such as a parked car:
+//                           cut out and drawn in depth order with the characters,
+//                           so whoever stands above its bottom edge is behind it
 //   negative-space          a hole in #field that nobody can walk into
 //
 // MISSING-, SWITCH- and USABLE- are reserved: recognised, listed, and warned
@@ -50,6 +53,7 @@ const LEVEL_MAP_RULES = [
     { kind: 'breakable', label: 'BREAKABLE',      re: /^BREAKABLE[-_](.+)$/ },
     { kind: 'event',     label: 'EVENT',          re: /^EVENT[-_](.+)$/ },
     { kind: 'item',      label: 'INVENTORY',      re: /^INVENTORY[-_](.+)$/ },
+    { kind: 'depth',     label: 'DEPTH',          re: /^DEPTH[-_](.+)$/ },
     { kind: 'reserved',  label: 'MISSING',        re: /^MISSING[-_](.+)$/ },
     { kind: 'reserved',  label: 'SWITCH',         re: /^SWITCH[-_](.+)$/ },
     { kind: 'reserved',  label: 'USABLE',         re: /^USABLE[-_](.+)$/ },
@@ -453,8 +457,8 @@ function levelMapFrameMarkup(frameText, viewBox) {
 //   slab:  under | layer 1 | between | layer 2 | over
 //
 // The under slice paints the same art over the background there, so a slab
-// at rest is the level as drawn. Live pieces (ANIMATE, BREAKABLE) are left out
-// of every slice, since they are drawn on their own.
+// at rest is the level as drawn. Live pieces (ANIMATE, BREAKABLE, INVENTORY,
+// DEPTH) are left out of every slice, since they are drawn on their own.
 //
 // A slice is its own image, so an element above a layer that uses
 // mix-blend-mode blends with nothing inside its slice rather than with the art
@@ -752,6 +756,8 @@ function _levelMapMovingLayers(map, root, vb, requests, worldWidth, worldHeight)
 //                 states: { damaged, broken } }
 //   items       { id, name, object, box, world, spriteBox, spriteWorld, markup }, the
 //               sprite fields null for an empty layer (the catalog's art is drawn)
+//   depths      { id, name, box, world, spriteBox, spriteWorld, markup, line }, line
+//               the world y of the art's bottom edge, which it is depth-sorted by
 //   holes       { id, box, world, normalizedPoints }
 //   layers      { id, name, paths, box, world, reach }, the layers a design moves
 //   slabs       { box, world, layers: [ids], slices: [markup], sprites: [markup] }
@@ -765,8 +771,8 @@ function parseLevelMap(svgText, { worldWidth = 800, worldHeight = 600, levelDir 
                                   layers = [] } = {}) {
     const map = {
         vb: null, scale: { x: 0, y: 0 }, levelDir,
-        enterables: [], hotspots: [], objects: [], animations: [], breakables: [], items: [], holes: [],
-        events: [], reserved: [], layers: [], slabs: [], layerRequests: [], ids: [],
+        enterables: [], hotspots: [], objects: [], animations: [], breakables: [], items: [], depths: [],
+        holes: [], events: [], reserved: [], layers: [], slabs: [], layerRequests: [], ids: [],
         regions: [], stripIds: [], warnings: [],
     };
     const warn = text => map.warnings.push(text);
@@ -917,6 +923,26 @@ function parseLevelMap(svgText, { worldWidth = 800, worldHeight = 600, levelDir 
                                                                 _levelMapParentMatrix(el, root, vb)) : null,
                     });
                     if (painted) map.stripIds.push(id);
+                    break;
+                }
+                case 'depth': {
+                    // Cut out and drawn in the depth sort, by the bottom edge
+                    // of its own box: the ground it stands on. A live piece
+                    // inside it would be drawn twice, in it and on its own.
+                    const inner = Array.from(el.querySelectorAll('[id]'))
+                        .map(child => child.getAttribute('id').trim())
+                        .find(childId => ['animate', 'breakable', 'item', 'depth'].includes(levelMapRule(childId)?.kind));
+                    if (inner) warn(`${id} holds ${inner}, which is drawn on its own too; move it out of the DEPTH- layer`);
+                    const spriteBox = _levelMapPad(box, LEVEL_MAP_SPRITE_PAD);
+                    map.depths.push({
+                        id, name: rule.name, box, world,
+                        spriteBox,
+                        spriteWorld: _levelMapWorld(spriteBox, vb, worldWidth, worldHeight),
+                        markup: _levelMapSpriteMarkup(el, spriteBox, defsMarkup,
+                                                      _levelMapParentMatrix(el, root, vb)),
+                        line: world.y + world.h,
+                    });
+                    map.stripIds.push(id);
                     break;
                 }
                 case 'hole': {

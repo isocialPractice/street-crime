@@ -436,14 +436,20 @@ function _warnMissingEnemyAsset(fileBase) {
 //
 // transform, when given, is (path, text) => text, applied before the text
 // becomes an image: how a variant's frames are recolored (enemyVariant).
+// The image carries its file as svgPath, as loadSvgFile's sprites do, so a
+// frame can be named and its render looked up (variantFrameReport).
 function _loadEnemyFrame(fileBase, transform = null) {
     const path = _enemyAssetPath(fileBase);
     const src = _enemyAssetSource(path);
+    let img;
     if (!src.ok) {
         _warnMissingEnemyAsset(fileBase);
-        return loadSvgImg('<svg xmlns="http://www.w3.org/2000/svg"/>');
+        img = loadSvgImg('<svg xmlns="http://www.w3.org/2000/svg"/>');
+    } else {
+        img = loadSvgImg(typeof transform === 'function' ? transform(path, src.text) : src.text);
     }
-    return loadSvgImg(typeof transform === 'function' ? transform(path, src.text) : src.text);
+    img.svgPath = path;
+    return img;
 }
 
 // _enemyAnimFileBases - resolve one animation state to the list of sprite file

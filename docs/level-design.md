@@ -127,6 +127,8 @@ Today a design runs in SANDBOX TEST, named by a test's `"design"` key (see
       "svg": "none",
       "spawn": [{ "group": "response-crew", "type": "enemy", "then": "flee" }],
       "next": [
+        { "on": "exit:import-export-warehouse", "when": { "has-key": true }, "to": "response-fights" },
+        { "on": "exit:import-export-warehouse", "to": "response-flees" },
         { "on": "exit:bad-bar", "when": { "warehouse-crew-down": true }, "to": "gate-reset" },
         { "on": "exit:bad-bar", "when": { "warehouse-crew-down": false }, "to": "crew-returns" }
       ]
@@ -134,7 +136,7 @@ Today a design runs in SANDBOX TEST, named by a test's `"design"` key (see
     "gate-reset": {
       "svg": "none",
       "reset": ["break:parking-gate-arm"],
-      "set": { "has-gate": true },
+      "set": { "has-gate": true, "enemies-defeated": false },
       "next": [{ "on": "break:parking-gate-arm", "to": "gate-breaks" }]
     },
     "crew-returns": {
@@ -159,23 +161,25 @@ Read as a story:
    `groups`, walks out 0.8 s apart: a JumpingJunkie, a CrimeGuy and a CrimeGuy with
    his vest and legs in gray, in random order. From here on, `enemies-defeated` is
    true while no enemy is left to beat.
-3. When the last of them is down, the warehouse opens: its lock follows
-   `enemies-defeated`. `defeated:warehouse-crew` moves the level to
-   **enemy-defeat**, which stores the player's health and what they carry. A key
-   lies inside the warehouse.
+3. As the last of them falls, the warehouse opens (its lock follows
+   `enemies-defeated`) and `defeated:warehouse-crew` moves the level to
+   **enemy-defeat**, in the same moment. That state stores the player's health and
+   what they carry. A key lies inside the warehouse.
 4. Walking out of the warehouse **with the key** moves the level to
    **response-fights**: the response crew (a JammingJabber, a BadGirl and two
    SassyGirls, one in dark gray) walks in from both edges of the view at once, and
    the warehouse locks again while they stand.
 5. Walking out **without it** moves the level to **response-flees**: the same crew
-   walks in, stands a moment, and runs off.
+   walks in, stands a moment, and runs off. They come every time the player walks
+   out, until they have been fought: **response-flees** has the same two steps, so
+   going back in for the key and out again brings them to fight.
 6. Leaving the bar then decides the rest:
 
 | The response crew | The warehouse crew | On leaving the bar | Written as |
 | --- | --- | --- | --- |
 | fought and beaten | standing | everything as it was left | no step: what you leave is what you find |
 | fighting, standing | beaten | everything as it was left | no step |
-| ran off | beaten | the gate is whole again; breaking it starts the crew again | `response-flees` to `gate-reset` |
+| ran off | beaten | the gate is whole again and the warehouse locked; breaking the gate starts the crew again | `response-flees` to `gate-reset` |
 | ran off | standing | the warehouse crew comes back in from the edges, with the health they had | `response-flees` to `crew-returns` |
 | fought and beaten | beaten | the screen fades and the level starts over | `response-fights` to `replay` |
 
@@ -238,6 +242,11 @@ How they fire depends on where they are written:
 - In `next`, an **event** counts only if it is heard while that state is the
   current one. A **condition** fires as soon as it holds while that state is
   current, which can be the moment the state is entered.
+- So an event heard in any other state is not kept for later. When the player
+  can do the same thing again after a step has moved the level on (walk out of
+  the same door, take another item), give the state it leads to the same step,
+  or doing it again does nothing. theStreets' **response-flees** repeats
+  **enemy-defeat**'s two warehouse steps for that reason.
 - In `restricted`'s `until`, a trigger holds once it has been true at any point
   in the run, events included, unless the entry is `"type": "condition"`.
 
@@ -400,8 +409,10 @@ layer is in: if they are inside a building, the group waits for them to come bac
 out.
 
 The level reports `spawn:<group>` when the first one appears, and, once all of them
-have appeared and are gone, `defeated:<group>`, or `fled:<group>` if any of them ran
-off.
+have appeared and are beaten or gone, `defeated:<group>`, or `fled:<group>` if any
+of them ran off. Beaten means the moment the last one falls, not once its body has
+faded: that is the same moment `alive:<group> = 0` turns true, so a door that opens
+on the fight and a state that starts on it never disagree.
 
 ### Groups
 
@@ -568,8 +579,8 @@ What a level design adds to the events a level reports:
 | `state:<name>` | a state is entered |
 | `case:<name>` | a case becomes true |
 | `spawn:<group>` | the first of a group appears |
-| `defeated:<group>` | all of a group have appeared and are gone, none having run off |
-| `fled:<group>` | all of a group have appeared and are gone, some having run off |
+| `defeated:<group>` | all of a group have appeared and the last has fallen, none having run off |
+| `fled:<group>` | all of a group have appeared and are beaten or gone, some having run off |
 | `arrive:<state>` | the player has finished coming on for that state |
 | `unlock:<name>` | a `RESTRICTED` layer unlocks (reported by the level, opened by the design) |
 | `lock:<name>` | a `RESTRICTED` that follows a condition locks again |
@@ -662,8 +673,21 @@ player's entrance, and what was stored. Each area that moving layers are redrawn
 has a dashed outline labelled `MOVES` and the layers' ids, and the console lists the
 moving layers and how far each goes.
 
+The same checks run without a browser, with the game's own code, and print the same
+status line:
+
+```sh
+node scripts/checkLevelDesign.js theStreets            # a level, a sandbox test's key, or a design file
+node scripts/checkLevelDesign.js theStreets --matrix   # and what every action does in every state
+```
+
+`--matrix` plays the design over what the files say and reports the gaps a
+validator cannot see: an action that moved the level on and does nothing the second
+time, a state that can get stuck, a state never entered, a step that never fires.
+See [level-design-skill.md](level-design-skill.md#the-checks).
+
 The schema and the game's own list of words are kept in step by a check, which also
-runs sample conditions through both:
+runs sample conditions through both, and checks the level-design skill against them:
 
 ```sh
 node scripts/checkLevelDesignVocab.js

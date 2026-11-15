@@ -69,6 +69,7 @@ exactly as written**, so ordinary art names such as `enter-sign` or
 | `BREAKABLE-<name>` | `OBJECT` | Cut out of the scenery: blocks movement, takes hits and breaks like a crate | `BREAKABLE-parking-gate-arm` |
 | `INVENTORY-<item>` | `OBJECT` | An item lying there, for the player to take: its own art cut out of the scenery, or for an empty layer the item catalog's art | `INVENTORY-key`, in the warehouse interior |
 | `EVENT-<name>` | anything | A trigger area. The player walking into it reports `event:<name>` | |
+| `DEPTH-<name>` | anything | Art that stands on the ground: cut out of the scenery and drawn in depth order with the characters, so whoever stands above its bottom edge is behind it | `DEPTH-vehicle-red-i`, the parked red car |
 | `negative-space` | inside `field` | A hole in the field that neither the player nor enemies can walk into | the parked red car |
 | `MISSING-`, `SWITCH-`, `USABLE-` | `OBJECT` | **Planned.** Recognised and listed, with a "not built yet" warning | |
 
@@ -233,6 +234,26 @@ player's feet are in it (walking or jumping across), it reports `event:<name>`,
 once per run. On its own it does nothing else; a level design waits on it, for
 example to start an ambush.
 
+### DEPTH: art that stands on the ground
+
+Scenery is painted under the characters, so without a `DEPTH-` name a character
+walking behind a parked car is drawn over it, as if walking on its roof. A
+`DEPTH-<name>` layer is cut out of the scenery and drawn with the characters, in
+order of depth, by the bottom edge of its own box: whoever's feet are above that
+edge is drawn behind it, and whoever's are below it is drawn in front.
+
+```text
+negative-space               the car's footprint, which nobody can walk into
+DEPTH-vehicle-red-i          the car itself, drawn over whoever walks behind it
+```
+
+It can go anywhere and needs no `OBJECT`. Art nobody can walk through also needs a
+`negative-space` hole, as `theStreets` gives its parked red car; art people walk
+past, such as a lamp post, needs only the `DEPTH-` name. Keep `ANIMATE-`,
+`BREAKABLE-` and `INVENTORY-` layers out of a `DEPTH-` layer: they are drawn on
+their own, so inside it they would be drawn twice, which is warned about. A level
+design cannot move a `DEPTH-` layer with `animate-layers`.
+
 ### negative-space: holes in the field
 
 A `negative-space` layer (or `negative-space-2`, and so on) is a hole: nobody can
@@ -240,6 +261,11 @@ walk into it. Use a rect, polygon or polyline; any other shape is replaced by it
 box, with a warning. It must sit inside `#field`, or movement around it breaks
 (that is warned about too). Rushing enemies walk around holes; flanking and
 holding enemies doing the same is **planned**.
+
+Field left between a hole and the edge of `#field` stays walkable however thin it
+is: where it is narrower than the border padding on both sides
+(`CFG.fieldBorderPadding`), a character walks along its middle. In `theStreets` the
+sidewalk behind the parked red car is such a strip.
 
 ## Naming a layer by path
 
@@ -285,7 +311,7 @@ of what the player does with items and on the command line
 With **Show Hitboxes** on in debug mode, every map id is outlined on the level
 with its id: doors in green, objects in orange, animations in magenta,
 breakables in yellow, items in cyan, holes in red, trigger areas in blue, locks in
-pink, planned layers in grey.
+pink, depth-sorted art in purple, planned layers in grey.
 
 SANDBOX TEST also prints the map as a table in the browser console (each id, its
 kind, its parent and where it landed in the world) and warns about anything that
@@ -298,6 +324,7 @@ will not work as its name suggests:
 - two layers of one kind with the same name, whose events could not be told apart
 - an `ENTER-` type that is not `building`, `exit` or `vehicle`
 - an `ANIMATE` layer with no frames, or only one
+- an `ANIMATE-`, `BREAKABLE-` or `INVENTORY-` layer inside a `DEPTH-` layer
 - a hole outside `#field`, or a hole that is not a rect, polygon or polyline
 - a layer with nothing to measure, such as an empty group
 - a planned prefix (`SWITCH-lever`: recognised, but not built yet)

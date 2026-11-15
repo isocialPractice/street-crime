@@ -618,6 +618,7 @@ class LevelMapRuntime {
             ...Object.values(levelSceneBreakableSprites(scene)).flatMap(Object.values),
             ...levelSceneLayerImages(scene),
             ...Object.values(levelSceneItemSprites(scene)),
+            ...levelSceneDepthArt(scene).map(piece => piece.sprite),
         ].filter(Boolean) : [];
         const fade = { phase: 'out', t: 0, swap, ready: false };
         Promise.all(images.map(img => (img.decode ? img.decode().catch(() => {}) : null)))

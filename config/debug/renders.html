@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Every path below, and every path the game scripts read (assets/, config/),
+         is from the site root, two folders up, wherever the site is served. -->
+    <base href="../../">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Street Crime renders</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <style>
+        :root {
+            --bg: #14161a; --panel: #1d2026; --line: #30343b; --control: #2a2e35;
+            --text: #e6e6e6; --muted: #9aa0a6; --warn: #ffb347; --cell: #e9e6df;
+        }
+        body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.4 Consolas, ui-monospace, monospace; overflow-wrap: anywhere; }
+        header {
+            position: sticky; top: 0; z-index: 1; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+            padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line);
+        }
+        h1 { margin: 0 8px 0 0; font-size: 15px; letter-spacing: 0.1em; }
+        select, button { font: inherit; color: var(--text); background: var(--control); border: 1px solid var(--line); padding: 3px 6px; max-width: 100%; }
+        button { cursor: pointer; }
+        main { padding: 12px 16px 40px; }
+        ul { margin: 6px 0; padding-left: 18px; }
+        details { margin: 6px 0; }
+        h3 { margin: 18px 0 6px; font-size: 13px; }
+        .rv-row { display: flex; flex-wrap: wrap; gap: 12px; }
+        .rv-frame { margin: 0; padding: 6px; max-width: 100%; box-sizing: border-box; background: var(--panel); border: 1px solid var(--line); }
+        .rv-frame.rv-keeps { border-color: var(--warn); }
+        .rv-pair { display: flex; align-items: flex-end; gap: 4px; }
+        /* A frame wider than the screen (a pose lying down) shrinks to fit, keeping its shape. */
+        .rv-pair canvas { min-width: 0; max-width: 100%; height: auto; flex: 0 1 auto; background: var(--cell); }
+        .rv-blank { outline: 1px dashed var(--warn); }
+        figcaption { margin-top: 4px; max-width: 260px; overflow-wrap: anywhere; }
+        .rv-summary { margin: 4px 0 0; }
+        .rv-warn { color: var(--warn); }
+        .rv-muted { color: var(--muted); }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>RENDERS</h1>
+        <label>test <select id="rv-test"></select></label>
+        <button id="rv-prev" title="Previous character (Left)">&#9664;</button>
+        <select id="rv-page" aria-label="character"></select>
+        <button id="rv-next" title="Next character (Right)">&#9654;</button>
+        <span id="rv-status" class="rv-muted">loading...</span>
+    </header>
+    <main>
+        <p class="rv-muted">Each frame as drawn, then with the level design's render. Left and Right change the character.</p>
+        <ul id="rv-notes"></ul>
+        <details hidden><summary>design warnings</summary><ul id="rv-warnings"></ul></details>
+        <div id="rv-grid"></div>
+    </main>
+
+    <!-- What the view needs of the game: sprites, the palettes, enemies and
+         their variants, the level design reader and the sandbox's test list
+         (which listens on the level map's events). No canvas, game loop or level. -->
+    <script src="js/sprites/loader.js"></script>
+    <script src="js/sprites/player.js"></script>
+    <script src="js/sprites/enemies.js"></script>
+    <script src="js/sprites/variants.js"></script>
+    <script src="js/level/level-map.js"></script>
+    <script src="js/sprites/ready.js"></script>
+    <script src="js/core/config.js"></script>
+    <script src="js/entities/entity.js"></script>
+    <script src="js/entities/inventory.js"></script>
+    <script src="js/entities/items.js"></script>
+    <script src="js/entities/enemy.js"></script>
+    <script src="js/level/data.js"></script>
+    <script src="js/level/level-design.js"></script>
+    <script src="js/ui/sandbox.js"></script>
+    <script src="js/ui/render-view.js"></script>
+</body>
+</html>

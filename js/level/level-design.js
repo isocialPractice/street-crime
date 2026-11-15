@@ -279,17 +279,20 @@ function _levelDesignDistance(a, b) {
 
 // levelDesignClosest - the option nearest to word, or null when none is near
 // enough: within a third of the word's length (at least 2 edits), or one
-// containing the other ("parking-gate" for "parking-gate-arm").
+// containing the other ("parking-gate" for "parking-gate-arm"). Case does not
+// count ("STATES" finds "states"); the option comes back as it is written.
 function levelDesignClosest(word, options) {
     const text = String(word ?? '');
     if (!text) return null;
+    const lower = text.toLowerCase();
     let best = null;
     let bestScore = Infinity;
     for (const option of options) {
         if (option === text) return option;
-        const contains = text.length >= 4 && option.length >= 4
-            && (option.includes(text) || text.includes(option));
-        const score = contains ? Math.abs(option.length - text.length) * 0.5 : _levelDesignDistance(text, option);
+        const other = String(option).toLowerCase();
+        const contains = text.length >= 4 && other.length >= 4
+            && (other.includes(lower) || lower.includes(other));
+        const score = contains ? Math.abs(other.length - text.length) * 0.5 : _levelDesignDistance(lower, other);
         const limit = Math.max(2, Math.floor(text.length / 3));
         if ((contains || score <= limit) && score < bestScore) {
             best = option;
@@ -1784,7 +1787,8 @@ function _levelDesignFieldPoint(stage, feet) {
 // and run off. A group only spawns while the player is in the scene its layer
 // is in; inside a building, its timer waits. "spawn:<group>" is reported when
 // the first one appears, "defeated:<group>" once all of them have appeared
-// and are gone, or "fled:<group>" when any of them ran off.
+// and are beaten (as the last one falls, not once its body has faded), or
+// "fled:<group>" when any of them ran off.
 //
 // A state's "animate-layers" are sent when the state is entered, each once
 // its "after" is up, and the runtime slides them (LevelMapRuntime.moveLayer).
@@ -1986,6 +1990,10 @@ class LevelDirector {
         const rules = _levelDesignIsObject(state.player) ? state.player : null;
         if (fades) {
             this.runtime.fadeThrough(this._player(), () => {
+                // What the black hides: bodies still playing their defeat,
+                // since a state entered on "defeated:" starts as the last
+                // one falls.
+                if (typeof enemies !== 'undefined') enemies = enemies.filter(enemy => !enemy.dead);
                 if (state.reset === LEVEL_DESIGN_VOCAB.values.resetAll) {
                     this._resetLevel();
                     return;
@@ -2396,10 +2404,15 @@ class LevelDirector {
                     group.nextAt += group.every;
                 }
             }
-            // Finished once every member has come out and is gone: beaten and
-            // faded, or run off. "fled:" when any of them ran.
+            // Finished once every member has come out and is beaten or has
+            // run off: the moment the last one falls, which is the moment
+            // "alive" says nobody is left and a lock that follows it opens.
+            // Not once the last body has faded: that takes seconds, and stops
+            // while the player is inside a building, so a door opened by
+            // the fight could be used before the state it leads to began.
+            // "fled:" when any of them ran.
             if (!group.finished && group.spawned === group.total
-                && group.enemies.every(enemy => enemy.isDone)) {
+                && group.enemies.every(enemy => enemy.dead || enemy.fled)) {
                 group.finished = true;
                 this._report(group.enemies.some(enemy => enemy.fled) ? 'fled' : 'defeated', group.name);
             }

@@ -1,0 +1,77 @@
+{
+  "$schema": "../../schema/level-design.schema.json",
+  "version": 1,
+  "start": "night-shift",
+  "groups": {
+    "enemy": {
+      "regulars": {
+        "count": 2,
+        "pick": "random",
+        "order": "random",
+        "pool": ["CrimeGuy", "JumpingJunkie"],
+        "from": "ENTERABLE-bad-bar/ENTER-building",
+        "animation": "walk",
+        "after": 0.5,
+        "every": 1
+      },
+      "guards": {
+        "from": "edges",
+        "order": "load",
+        "pool": [
+          { "enemy": "CrimeGuy", "name": "gray-guard", "count": 2, "render": { "left-vest": "gray", "right-vest": "gray" } }
+        ]
+      }
+    }
+  },
+  "cases": {
+    "regulars-down": false
+  },
+  "restricted": {
+    "import-export-warehouse": { "until": "case:regulars-down" }
+  },
+  "states": {
+    "night-shift": {
+      "svg": "loads",
+      "player": { "spawn": "left", "after": 1, "animation": "walk", "inventory": "empty", "health": "full" },
+      "next": [{ "on": "break:parking-gate-arm", "to": "regulars-out" }]
+    },
+    "regulars-out": {
+      "svg": "none",
+      "cases": { "regulars-down": { "condition": "alive:regulars = 0" } },
+      "spawn": [{ "group": "regulars", "type": "enemy" }],
+      "next": [{ "on": "defeated:regulars", "to": "warehouse-open" }]
+    },
+    "warehouse-open": {
+      "svg": "none",
+      "next": [{ "on": "take:key", "to": "guards-in" }]
+    },
+    "guards-in": {
+      "svg": "none",
+      "spawn": [{ "group": "guards", "type": "enemy" }],
+      "next": [
+        { "on": "defeated:guards", "to": "guards-down" },
+        { "on": "exit:import-export-warehouse", "to": "guards-waiting" }
+      ]
+    },
+    "guards-waiting": {
+      "svg": "none",
+      "next": [{ "on": "enter:import-export-warehouse", "to": "guards-back" }]
+    },
+    "guards-back": {
+      "svg": "none",
+      "spawn": [{ "group": "guards", "type": "enemy", "inherit": true }],
+      "next": [
+        { "on": "defeated:guards", "to": "guards-down" },
+        { "on": "exit:import-export-warehouse", "to": "guards-waiting" }
+      ]
+    },
+    "guards-down": {
+      "svg": "none",
+      "next": [{ "on": "exit:import-export-warehouse", "to": "night-over" }]
+    },
+    "night-over": {
+      "svg": "fade-out",
+      "reset": "level"
+    }
+  }
+}

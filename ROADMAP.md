@@ -25,12 +25,13 @@ Measured 2026.11.14.
 | --- | --- |
 | What it is | A 2.5D side-scrolling beat-em-up in plain HTML5 Canvas and JavaScript, with no build step: 38 scripts under `js/` plus `game.js`, about 14,200 lines |
 | What it plays | Three stages defined in `STAGES` (`js/level/data.js`), run by `LevelMgr`; debug mode with live tuning; SANDBOX TEST, which loads one level from its SVG's layer names and runs its `level-design.json` |
-| Levels from art | One: `theStreets`, with a door, a locked warehouse, a breakable gate, an animated sign, a hole, a key to take, and a design in which the gate breaking sends a crew out of the warehouse, and the key decides whether a second crew fights or runs. Items, an item screen and a command line come with it. Proven in eleven sandbox tests, step by step |
+| Levels from art | One: `theStreets`, with a door, a locked warehouse, a breakable gate, an animated sign, a hole, a key to take, and a design in which the gate breaking sends a crew out of the warehouse, and the key decides whether a second crew fights or runs. Items, an item screen and a command line come with it. Proven in twelve sandbox tests, step by step, the last written by the `level-design` skill from a paragraph |
+| Agent skill | `level-design`, in `skills/`, installed for Claude Code, Copilot or Codex by `npm run skills`: turns a description or a level brief into a design, a sandbox test and an art to-do, and checks what every action does in every state |
 | Characters | 24 enemies in `ENEMY_DEFS`: 12 configured in `config/enemy-assets.json`, 13 listed as work in progress |
-| Size | 20M, of which `assets/` is 18M (426 SVGs). Illustrator sources live in the git-ignored `support/` |
-| Docs | 15 pages in `docs/`, plus `QUICKSTART.md` and `CHEATSHEET.md`. The site is built by `.github/workflows/pages.yml` and not yet deployed: Pages still publishes in legacy mode |
-| Tests | None automated. `scripts/checkLevelDesignVocab.js`, `scripts/checkAssetCase.js` and `scripts/stageDocs.js` are checks, the last two run by the Pages workflow. The level design was verified with headless browser runs kept out of the repository |
-| Queue | 165 open items and 37 done. 42 are under `## Current`, of which 7 are the user's own (`User Only - Update Assets`) and are not counted as work for anyone else |
+| Size | 20M, of which `assets/` is 17M (425 SVGs). Illustrator sources live in the git-ignored `support/` |
+| Docs | 18 pages in `docs/`, plus `QUICKSTART.md` and `CHEATSHEET.md`. The site is built by `.github/workflows/pages.yml` and not yet deployed: Pages still publishes in legacy mode |
+| Tests | None automated. Checks, run by hand: `scripts/checkLevelDesign.js` (the game's validator and an action matrix, in node, for any design or every sandbox test), `scripts/checkLevelDesignVocab.js` (vocabulary, schema and the skill's pages and designs), `scripts/installSkills.js --check`, and `scripts/checkAssetCase.js` and `scripts/stageDocs.js`, which the Pages workflow runs. Play is verified with headless browser runs kept out of the repository |
+| Queue | 172 open items and 37 done. 42 are under `## Current`, of which 7 are the user's own (`User Only - Update Assets`) and are not counted as work for anyone else |
 | Release mode | Dated: `CHANGELOG.md` entries are `[YYYY.MM.DD]`, with no versions, tags or releases |
 
 **The level format is further along than the game that uses it.** A level built
@@ -109,7 +110,17 @@ asset loaders updates its page in the same commit.
 
 Section 10 › **Automated tests for the level design code**, and section 8's CI
 workflow. They have to land before the template, which hands this code to people
-who did not write it.
+who did not write it. The node checks they need already exist
+(`scripts/checkLevelDesign.js --all --matrix`, `scripts/checkLevelDesignVocab.js`);
+what is missing is a workflow that runs them, and section 10's **Briefs for the
+sandbox step designs**, without which the first exits 1.
+
+### Alongside: the level-design skill
+
+Section 10 › **Try the `level-design` skill in Copilot and Codex**, then
+**Keep a building's enemies when the player walks out** once open decision 6 is
+answered. The skill checks itself against the engine on every
+`checkLevelDesignVocab.js` run, so a format change that breaks it shows at once.
 
 ### Then: the template
 
@@ -138,11 +149,18 @@ None can be settled by working an item.
    with rooms of its own; today it is one SVG. Blocks nested enterables.
 5. **Whether the template ships its docs site on.** It needs the Pages source
    switched by each new repository's owner, so it cannot simply be on.
+6. **Whether a building keeps its enemies when the player walks out.** Today only
+   the street does; a crew fighting inside a building is dropped, and a design has
+   to bring it back with `inherit`. Keeping them is an engine change (section 10 ›
+   **Keep a building's enemies when the player walks out**) that simplifies the
+   skill's pattern and the action matrix.
 
 ## Not planned, on purpose
 
 - **A build step or bundler for the game.** Serving the folder is the whole
-  install, and the template depends on that staying true.
+  install, and the template depends on that staying true. `package.json` holds
+  scripts for working on the game (installing the agent skill, checking a level)
+  and has no dependencies; the game never reads it.
 - **A site generator beyond GitHub Pages' own Jekyll.** No toolchain to install
   and nothing to keep versioned.
 - **Coordinates in `level-design.json`, or timing in layer names.** The SVG says

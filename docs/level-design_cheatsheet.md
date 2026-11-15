@@ -109,7 +109,7 @@ state moves per frame.
 ## Reports
 
 `state:<name>` · `case:<name>` (becomes true) · `spawn:<group>` (first out) ·
-`defeated:<group>` (all gone) · `fled:<group>` (all gone, some ran) · `arrive:<state>`
+`defeated:<group>` (the last one falls) · `fled:<group>` (all gone, some ran) · `arrive:<state>`
 (player in place) · `unlock:<name>` · `lock:<name>` · `animate:<layer>` (a moving
 layer arrived). Once per run each, except what can happen again: a group starting
 again, a `reset`, a lock locking again, a case turning false. Player events: every time.

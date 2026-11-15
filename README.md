@@ -82,7 +82,7 @@ A level SVG can describe more than its look. The id a layer exports with tells t
 | `EVENT-<name>` | A trigger area the player walks into |
 | `negative-space` | A hole in `#field` that nobody can walk into |
 
-When things happen (the gate breaks, enemies come out of a door) is written in `config/levels/<level>/level-design.json`: see [docs/level-design.md](docs/level-design.md). The full layer rules are in [docs/level-naming.md](docs/level-naming.md), also as a [quickstart](docs/level-naming_quickstart.md) and a [cheatsheet](docs/level-naming_cheatsheet.md).
+When things happen (the gate breaks, enemies come out of a door) is written in `config/levels/<level>/level-design.json`: see [docs/level-design.md](docs/level-design.md). The full layer rules are in [docs/level-naming.md](docs/level-naming.md), also as a [quickstart](docs/level-naming_quickstart.md) and a [cheatsheet](docs/level-naming_cheatsheet.md). Or describe a level in plain words and let the `level-design` agent skill write the design for Claude Code, Copilot or Codex: [docs/level-design-skill.md](docs/level-design-skill.md).
 
 ## Asset Sources and Scripts
 

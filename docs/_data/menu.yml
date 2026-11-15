@@ -17,6 +17,9 @@
     - { title: Quickstart, url: /level-design_quickstart.html, sub: true }
     - { title: Cheatsheet, url: /level-design_cheatsheet.html, sub: true }
     - { title: Items and inventory, url: /inventory.html }
+    - { title: Level design skill, url: /level-design-skill.html }
+    - { title: Quickstart, url: /level-design-skill_quickstart.html, sub: true }
+    - { title: Cheatsheet, url: /level-design-skill_cheatsheet.html, sub: true }
 
 - group: Assets
   items:

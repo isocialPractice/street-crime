@@ -1,0 +1,37 @@
+{
+  "$schema": "../../schema/level-design.schema.json",
+  "version": 1,
+  "start": "arrive",
+  "groups": {
+    "enemy": {
+      "alley-gang": { "count": 2, "pick": "random", "pool": ["CrimeGuy", "JumpingJunkie"], "after": 0.5, "every": 0.8 }
+    }
+  },
+  "cases": {
+    "street-clear": false
+  },
+  "restricted": {
+    "back-room": { "until": "case:street-clear", "type": "condition" }
+  },
+  "look": {
+    "newsstand": "Yesterday's paper. Nobody reads it."
+  },
+  "states": {
+    "arrive": {
+      "svg": "loads",
+      "player": { "spawn": "left", "after": 1, "animation": "walk", "inventory": "empty", "health": "full" },
+      "next": [{ "on": "break:front-grille", "to": "gang-arrives" }]
+    },
+    "gang-arrives": {
+      "svg": "none",
+      "cases": { "street-clear": { "condition": "alive = 0" } },
+      "spawn": [{ "group": "alley-gang", "type": "enemy", "from": "ENTERABLE-corner-shop/ENTER-building", "animation": "walk" }],
+      "next": [{ "on": "defeated:alley-gang", "to": "cleared" }]
+    },
+    "cleared": {
+      "svg": "none",
+      "next": [{ "on": "exit:back-room", "to": "the-end" }]
+    },
+    "the-end": { "svg": "fade-out", "reset": "level" }
+  }
+}

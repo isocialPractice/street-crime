@@ -24,6 +24,7 @@ ENTERABLE-corner-shop          a group: the shop front artwork...
 OBJECT-crate-stack             a group: the crates' area...
   BREAKABLE-crate-stack        ...with the crates as their own group inside it
 EVENT-alley-ambush             a rect on the ground, further along
+DEPTH-dumpster                 a dumpster on the ground: drawn over whoever walks behind it
 ```
 
 Everything else can be named however you like.

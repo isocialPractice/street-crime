@@ -473,16 +473,21 @@ function _fieldBorderPadding() {
     return Math.max(0, CFG.fieldBorderPadding || 0);
 }
 
+// A span narrower than the padding on both sides keeps its middle line rather
+// than going away: a thin strip of field between the field's edge and a hole
+// (the sidewalk behind a parked car) is still ground to walk along, and with
+// no span there the nearest one, past the hole, would take the move instead.
 function _applySpanPadding(spans, minKey, maxKey) {
     const padding = _fieldBorderPadding();
     if (padding <= 0) return spans;
 
-    return spans
-        .map(span => ({
-            [minKey]: span[minKey] + padding,
-            [maxKey]: span[maxKey] - padding,
-        }))
-        .filter(span => span[maxKey] > span[minKey]);
+    return spans.map(span => {
+        const min = span[minKey] + padding;
+        const max = span[maxKey] - padding;
+        if (max >= min) return { [minKey]: min, [maxKey]: max };
+        const middle = (span[minKey] + span[maxKey]) * 0.5;
+        return { [minKey]: middle, [maxKey]: middle };
+    });
 }
 
 function _pickSpan(spans, anchorValue, targetValue, minKey, maxKey, { allowNearest = false } = {}) {

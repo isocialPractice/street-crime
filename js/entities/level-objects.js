@@ -191,6 +191,39 @@ function levelMapBreakables(scene) {
     return (scene?.map?.breakables || []).map(entry => new LevelBreakable(entry, sprites[entry.id]));
 }
 
+// ── Art that stands on the ground (DEPTH-<name>) ─────────────────────────────
+// LevelDepthArt - a piece of level art cut out of the background and drawn in
+// the depth sort with the characters (draw() in js/rendering/draw.js), so
+// whoever's feet are above its bottom edge is drawn behind it, and whoever's
+// are below it in front. y is that edge, the line it sorts by, as a crate's
+// bottom is. Nothing about it changes in play, so a scene keeps its pieces.
+class LevelDepthArt {
+    constructor(entry) {
+        this.id   = entry.id;
+        this.name = entry.name;
+        this.y    = entry.line;
+        this.spriteWorld = entry.spriteWorld;
+        this.sprite = loadSvgImg(entry.markup);
+    }
+
+    draw() {
+        const img = this.sprite;
+        if (!img || !img.naturalWidth) return;
+        const r = this.spriteWorld;
+        const sx = r.x - cam.x;
+        if (sx > W || sx + r.w < 0) return;
+        ctx.drawImage(img, sx, r.y, r.w, r.h);
+    }
+}
+
+// levelSceneDepthArt - a scene's DEPTH- pieces, made the first time they are
+// asked for and kept on the scene, like its animations.
+function levelSceneDepthArt(scene) {
+    if (!scene?.map?.depths?.length) return [];
+    if (!scene.depthArt) scene.depthArt = scene.map.depths.map(entry => new LevelDepthArt(entry));
+    return scene.depthArt;
+}
+
 // levelSceneAnimations - a scene's animated pieces, built the first time they
 // are asked for and kept on the scene, so a cached scene does not decode its
 // frames again on every restart.

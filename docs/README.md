@@ -20,6 +20,7 @@ it, and how characters and objects are named so the game can find them.
 | [level-naming.md](level-naming.md) | What a level SVG says through its layer names: the walkable field, doors, locks, animated and breakable scenery, trigger areas, holes. Also as a [quickstart](level-naming_quickstart.md) and a [cheatsheet](level-naming_cheatsheet.md) |
 | [level-design.md](level-design.md) | When things happen: states, cases and conditions, triggers, spawn groups and crews, player entrances, resets and drafts in `level-design.json`. Also as a [quickstart](level-design_quickstart.md) and a [cheatsheet](level-design_cheatsheet.md) |
 | [inventory.md](inventory.md) | Items: the catalog, items lying in a level, taking and carrying them, the item screen, the command line, and what a level design reads |
+| [level-design-skill.md](level-design-skill.md) | The `level-design` agent skill: describe a level in plain words, and it writes the design, a sandbox test and the art to-do, and checks every action in every state. Installing it for Claude Code, Copilot or Codex, the brief, and the checks. Also as a [quickstart](level-design-skill_quickstart.md) and a [cheatsheet](level-design-skill_cheatsheet.md) |
 
 ## Assets
 

@@ -100,6 +100,7 @@ with, one feature at a time on `theStreets`. Each step's own design file is in
 | `design-8-crews` | crews defined once under `groups`, a count from the pool, two SassyGirls of which one is recolored, `order` (reverse, and all at once after a door) |
 | `design-9-conditions` | condition cases, a lock that locks again, `when`, enemies from the edges, a crew coming back with its health, one running off, `reset` |
 | `design-10-inventory` | the item catalog, the key in the warehouse, the item screen, the whistle, the command line, and walking out with or without the key |
+| `design-11-skill` | a level the [level-design skill](level-design-skill.md) wrote from a paragraph: regulars out of the bar's door, guards brought into the warehouse by taking the key, who come back as hurt as they were when the player walks out and in again |
 | `level-design` | the real `config/levels/theStreets/level-design.json`, end to end: the key decides whether the response crew fights or runs |
 
 ## On the published site

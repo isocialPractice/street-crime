@@ -318,6 +318,36 @@
         { "label": "Walk out without it: one comes and runs off", "event": "state:without-key" }
       ]
     },
+    "design-11-skill": {
+      "label": "Design step 11: night shift at the docks",
+      "level": "assets/levels/theStreets/",
+      "scene": "level-theStreets.svg",
+      "design": "config/debug/designs/11-skill.json",
+      "items": "config/debug/items.json",
+      "sectionWidth": 800,
+      "worldHeight": 600,
+      "spawn": { "minX": 60, "maxX": 220 },
+      "panels": { "debug": true, "checklist": true },
+      "cfg": { "showHitboxes": true },
+      "levelMap": {
+        "enabled": true,
+        "animate": {
+          "default": { "mode": "loop", "fps": 6 },
+          "sign-badBar": { "mode": "yoyo", "fps": 6 }
+        }
+      },
+      "enterables": {
+        "bad-bar": "enterables/badBar.svg"
+      },
+      "checklist": [
+        { "label": "B1: Walk in from the left; the warehouse door says E: LOCKED", "event": "locked:import-export-warehouse" },
+        { "label": "B2: Break the parking gate arm: two regulars come out of the bar's door, one at a time", "event": "spawn:regulars" },
+        { "label": "B3: Beat both regulars: the warehouse unlocks", "event": "unlock:import-export-warehouse" },
+        { "label": "B4: Take the key in the warehouse (second screen, E: CHECK): two guards come in from both sides", "event": "spawn:guards" },
+        { "label": "B5: Walk out while they stand, then go back in: they close in again, as hurt as they were", "event": "state:guards-back" },
+        { "label": "B6: Beat both guards and walk out: the screen fades and the night starts over", "event": "state:night-over" }
+      ]
+    },
     "level-design": {
       "label": "Level design: gate breach (config/levels/theStreets)",
       "level": "assets/levels/theStreets/",

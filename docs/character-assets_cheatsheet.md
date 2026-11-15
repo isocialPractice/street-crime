@@ -70,4 +70,6 @@ frame `walk_0` › part `front-glove` › tone `glove-highlight` / `-light` / `-
 | tone | nearest `<tone>` / `*-<tone>` layer name; else nearest in lightness |
 | skipped | `outline` / `strokes` groups, shapes with no fill |
 
-Check it: SANDBOX TEST `design-7-render`.
+Check it: SANDBOX TEST `design-7-render`. Every frame, still, as drawn beside
+recolored, with the parts a frame lacks: `config/debug/renders.html`
+(`?test=<sandbox test>&page=<n>`).

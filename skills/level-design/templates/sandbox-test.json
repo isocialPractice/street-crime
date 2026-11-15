@@ -1,0 +1,20 @@
+{
+  "<level>": {
+    "label": "<Level name>",
+    "level": "assets/levels/<level>/",
+    "scene": "level-<level>.svg",
+    "design": "config/levels/<level>/level-design.json",
+    "items": "config/debug/items.json",
+    "sectionWidth": 800,
+    "worldHeight": 600,
+    "spawn": { "minX": 60, "maxX": 220 },
+    "panels": { "debug": true, "checklist": true },
+    "cfg": { "showHitboxes": true },
+    "levelMap": { "enabled": true, "animate": { "default": { "mode": "loop", "fps": 6 } } },
+    "enterables": {},
+    "checklist": [
+      { "label": "B1: <what the player sees happen>", "event": "state:<start state>" },
+      { "label": "B2: <what the player sees happen>", "event": "<kind>:<name>" }
+    ]
+  }
+}

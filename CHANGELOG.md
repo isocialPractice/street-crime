@@ -8,6 +8,39 @@ anything earlier, see the commit log.
 
 ---
 
+## [2026.11.15]
+
+### Added
+- **The render view** (`config/debug/renders.html`, `js/ui/render-view.js`). Pick a
+  SANDBOX TEST and see every frame of every animation of each character its level
+  design recolors, still, as drawn beside recolored, with the file name under each
+  and the parts a frame has no layer for. A page a character, Left and Right to
+  change it; the player has a page as drawn, and friendly and neutral characters
+  are listed for when a design can name them. No game runs. Enemy frames now carry
+  their file (`svgPath`), `variantFrameReport` says what a render did to a frame,
+  and `scripts/checkAssetCase.js` checks the page's paths as it does `index.html`'s.
+
+### Fixed
+- On theStreets, the player walking along the sidewalk behind the parked red car
+  stays there instead of being pushed to the street in front of it. A strip of
+  field thinner than the border padding on both sides is now walked along its
+  middle.
+- A level design key or name written in capitals, such as `"STATES"` or
+  `"START"`, gets its "did you mean" again: the suggestion ignores case and gives
+  the name as it is written.
+- Holding Shift to run now moves the player faster than walking, 1.3 times
+  `playerSpeed` (new setting `playerRunSpeed`, **Player Run ×** in the debug
+  panel's PLAYER MOVEMENT), left and right only; changing lanes stays at walk
+  pace. A jump taken from a run keeps the run's speed in the air.
+- Local weather is off by default: a fresh boot and debug mode's Reset to Defaults
+  both start with the Local Weather toggle unchecked.
+- On theStreets, a character walking behind the parked red car is drawn behind it,
+  not over it as if on its roof. Art that stands on the ground is named
+  `DEPTH-<name>` in the level SVG (the car is `DEPTH-vehicle-red-i`): it is cut out
+  of the scenery and drawn in depth order with the characters, by its bottom edge.
+
+---
+
 ## [2026.11.14]
 
 ### Added
@@ -44,6 +77,27 @@ anything earlier, see the commit log.
   test keys `items` and `inventory`, and an ITEMS block (GIVE, USE, DROP).
 - Settings: Stand Before Run, Run Speed, Text Speed, Look Range, Talk Range.
 - `docs/inventory.md`.
+- **The `level-design` agent skill** (`skills/level-design/`). Describe a level in
+  plain words, or fill in a level brief, and it writes the design, a SANDBOX TEST
+  entry and the list of layers the art still needs, using techniques from
+  survival-horror and adventure games, and checks every action in every state.
+  Its pattern library has 15 designs, each checked against the engine; its
+  vocabulary page is written from the engine's own tables.
+- **`npm run skills`** (`scripts/installSkills.js`, and a `package.json` of scripts
+  with no dependencies) installs the skill for Claude Code (`.claude/skills/`),
+  GitHub Copilot (`.github/skills/`) or Codex (`.agents/skills/`);
+  `npm run skills:check` says whether each copy is current, out of date or edited.
+- **`scripts/checkLevelDesign.js`** checks a design without a browser, with the
+  game's own code, and prints the sandbox's status line. `--layers` lists the art's
+  layers with the paths a design writes, interiors included; `--matrix` plays the
+  design over what the files say and reports what every action does in every state,
+  and the gaps: an action that led to a state and does nothing there, a state that
+  can get stuck, a state never entered, a step that never fires. `--all` checks
+  every sandbox test.
+- A level brief format (`config/levels/theStreets/level-brief.md` is the worked
+  example), whose "Nothing on purpose" tells the check which gaps are meant.
+- Sandbox step `design-11-skill`, written by the skill from a paragraph.
+- `docs/level-design-skill.md`, with a quickstart and a cheatsheet.
 
 ### Changed
 - `config/levels/theStreets/level-design.json` is rewritten from the shorthand it
@@ -60,9 +114,26 @@ anything earlier, see the commit log.
   conditions through both the game's parser and the schema's pattern.
 - The level design, level naming, sandbox and character asset pages, the
   cheatsheets, and the controls in the README and quickstart.
+- `scripts/checkLevelDesignVocab.js` also checks the `level-design` skill: its
+  vocabulary page, every name its pages give, and every design it offers.
+- `.gitignore` leaves out the skill's installed copies; `skills/` is the one kept.
 
 ### Fixed
 - `config/levels/theStreets/level-design.json` parses again.
+- theStreets' response crew came on the first way out of the warehouse only.
+  Walking out again, with or without the key, brought nobody, because
+  **response-flees** had no step for the warehouse door. It now has the same two
+  as **enemy-defeat**, so the crew comes every time until it has been fought.
+- Going into the warehouse straight after the fight could bring nobody at all.
+  The door opened as the last enemy fell, but `defeated:<group>` waited about
+  2 s more for the body to fade, and that wait stops while the player is inside,
+  so the way out was heard before **enemy-defeat** had started. A group is now
+  beaten as its last member falls, the same moment `alive` says nobody is left.
+  A `fade-out` state clears the bodies still on the ground while the screen is
+  black.
+- After leaving the bar with the response crew run off, the warehouse stayed open
+  but did nothing. **gate-reset** now locks it again until the gate is broken and
+  the new crew is beaten, so its door says `E: LOCKED`.
 
 ---
 
