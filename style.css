@@ -356,11 +356,22 @@ canvas {
     text-transform: uppercase;
 }
 
-#title-buttons {
+#title-buttons,
+.title-list {
     display: flex;
     flex-direction: column;
     gap: 16px;
     align-items: center;
+}
+
+/* The title screen shows one list at a time (TITLE_LISTS in game.js). */
+.title-list.hidden { display: none; }
+
+/* A setting's value, under its name: Left and Right step through it. */
+.title-value {
+    display: block;
+    margin-top: 6px;
+    font-size: 16px;
 }
 
 .title-btn {
@@ -426,6 +437,19 @@ canvas {
 }
 
 #pause-overlay.hidden { display: none; }
+
+/* The pause menu takes clicks, though the HUD layer it sits in (#ui) does not,
+   and is tighter than the title screen's so six entries fit under PAUSED. */
+#pause-overlay { pointer-events: auto; background: rgba(0,0,0,0.82); }
+#pause-overlay .title-list { gap: 10px; }
+/* Filled, so the paused scene (a stage intro's lettering, say) cannot read
+   through an entry; the highlight keeps the title screen's orange. */
+#pause-overlay .title-btn { padding: 9px 0; font-size: 18px; background: rgba(8,10,14,0.92); }
+#pause-overlay .title-btn:hover,
+#pause-overlay .title-btn.selected { background: var(--wx-accent); }
+#pause-overlay .title-value { margin-top: 4px; font-size: 14px; }
+#pause-overlay p.pause-note { font-size: 14px; color: var(--wx-accent); background: rgba(8,10,14,0.92); padding: 4px 10px; }
+#pause-overlay p.pause-hint { margin-top: 16px; font-size: 13px; opacity: 0.75; }
 
 #pause-overlay h2 {
     font-size: 54px;

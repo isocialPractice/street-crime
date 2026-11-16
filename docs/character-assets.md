@@ -215,16 +215,19 @@ it is. The level design's checks look for each part in the enemy's base frame,
 **Check it:** SANDBOX TEST, step `design-7-render`: a gold JumpingJunkie, then a
 gray-vested one, walk out of the warehouse door.
 
-**See every frame, still:** open `config/debug/renders.html` from the same server
-as the game (`http://localhost:8000/config/debug/renders.html`; the published
-demo serves it at the same path). Pick a SANDBOX TEST, and each character its
+**See every frame, still:** on the title screen, pick **DEBUG MODES**, then
+**DEBUG RENDER**. It opens `config/debug/renders.html`, which also opens on its own
+from the same server as the game (`http://localhost:8000/config/debug/renders.html`;
+the published demo serves it at the same path). Pick a SANDBOX TEST, and each character its
 level design recolors gets a page: every frame of every animation, as drawn
 beside recolored, with the file name under it. A frame with no layer for a part
 says so ("keeps as drawn: left-vest") and has an orange border, and the line at
 the top lists those files. Left and Right change the character. The player has a
 page too, as drawn, since nothing recolors the player yet. The address keeps the
 test and page (`renders.html?test=level-design&page=1`), so a link opens the same
-page.
+page. P, Escape or the pause button at the top right pause it with the game's
+pause menu: **EXIT** goes back to **DEBUG MODES** with **DEBUG RENDER**
+highlighted.
 
 ## Names that do not follow the pattern yet
 

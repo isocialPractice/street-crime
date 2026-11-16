@@ -12,7 +12,8 @@
 // does (enemyVariant), waits for their frames to decode, and draws each frame
 // on a canvas of its own.
 //
-// One character a page; Left and Right, or the list, change it. The pages
+// P, Escape or the pause button pause it, as any debug mode pauses (see Pause
+// below). One character a page; Left and Right, or the list, change it. The pages
 // come from RENDER_VIEW_KINDS, one source per kind of character:
 //   enemy     a page for each { enemy, render } the design's pools name
 //   player    the player as drawn; nothing recolors the player yet
@@ -312,15 +313,98 @@ function _renderViewWire() {
     document.getElementById('rv-page').addEventListener('change', e => _renderViewShow(Number(e.target.value)));
     document.getElementById('rv-prev').addEventListener('click', () => _renderViewShow(_renderView.index - 1));
     document.getElementById('rv-next').addEventListener('click', () => _renderViewShow(_renderView.index + 1));
-    window.addEventListener('keydown', e => {
-        // A focused list already moves with the arrows.
-        if (e.target.closest?.('select, input, textarea') || _renderView.state !== 'ready') return;
-        if (e.code === 'ArrowLeft')  { e.preventDefault(); _renderViewShow(_renderView.index - 1); }
-        if (e.code === 'ArrowRight') { e.preventDefault(); _renderViewShow(_renderView.index + 1); }
-    });
+}
+
+// ── Pause ─────────────────────────────────────────────────────────────────────
+// The render view is one of the debug modes, so P, Escape and the pause button
+// open the pause menu the game has (game.js), with the same entries. This page
+// runs no game, so the entries that start one go to the game's page and start
+// it there (index.html?start=<mode>), and EXIT goes back to the title screen's
+// DEBUG MODES list with DEBUG RENDER highlighted, where the view is opened
+// from (index.html?menu=debug). SETTINGS opens over the view, as over a run.
+const RENDER_VIEW_GAME = 'index.html';
+const RENDER_VIEW_SELF = 'config/debug/renders.html';
+let _renderViewPaused = false;
+
+const renderViewPauseMenu = new Menu({
+    main: {
+        el: 'rv-pause-main',
+        items: [
+            { id: 'rv-p-resume',      start: () => renderViewPause(false)                          },
+            { id: 'rv-p-game',        start: () => _renderViewGoTo({ start: 'game' })              },
+            { id: 'rv-p-settings',    start: () => renderViewPauseMenu.show('settings')            },
+            { id: 'rv-p-debug-modes', start: () => renderViewPauseMenu.show('debug')               },
+            { id: 'rv-p-sandbox',     start: () => _renderViewGoTo({ start: 'sandbox' })           },
+            { id: 'rv-p-exit',        start: () => _renderViewGoTo({ menu: 'debug', select: 'btn-debug-render' }) },
+        ],
+    },
+    settings: {
+        el: 'rv-pause-settings',
+        back: () => renderViewPauseMenu.show('main', 'rv-p-settings'),
+        items: [
+            { id: 'rv-p-set-difficulty', start: () => changeSetting('difficulty', 1),
+              change: dir => changeSetting('difficulty', dir) },
+            { id: 'rv-p-settings-back', start: () => renderViewPauseMenu.show('main', 'rv-p-settings') },
+        ],
+    },
+    debug: {
+        el: 'rv-pause-debug',
+        back: () => renderViewPauseMenu.show('main', 'rv-p-debug-modes'),
+        items: [
+            { id: 'rv-p-debug',        start: () => _renderViewGoTo({ start: 'debug' })        },
+            { id: 'rv-p-debug-level',  start: () => _renderViewGoTo({ start: 'debug-level' })  },
+            // This view, started afresh: its default test, first page.
+            { id: 'rv-p-debug-render', start: () => location.assign(RENDER_VIEW_SELF)          },
+            { id: 'rv-p-debug-back',   start: () => renderViewPauseMenu.show('main', 'rv-p-debug-modes') },
+        ],
+    },
+});
+
+function _renderViewGoTo(params) {
+    location.assign(`${RENDER_VIEW_GAME}?${new URLSearchParams(params)}`);
+}
+
+// renderViewPause - open the pause menu at RESUME, or close it. Whatever had
+// focus gives it up, so a focused list or button does not also take the keys.
+function renderViewPause(open) {
+    _renderViewPaused = open;
+    document.getElementById('rv-pause').classList.toggle('hidden', !open);
+    if (!open) return;
+    document.activeElement?.blur?.();
+    renderViewPauseMenu.show('main', 'rv-p-resume');
+}
+
+// _renderViewKey - every keydown on the page: P and Escape pause and resume
+// (Escape in one of the pause menu's own lists steps back out of it), the
+// pause menu takes the keys while it is open, and otherwise Left and Right
+// change the character.
+function _renderViewKey(e) {
+    if (e.code === 'KeyP' || e.code === 'Escape') {
+        e.preventDefault();
+        if (_renderViewPaused && e.code === 'Escape' && renderViewPauseMenu.back()) return;
+        renderViewPause(!_renderViewPaused);
+        return;
+    }
+    if (_renderViewPaused) {
+        renderViewPauseMenu.onKey(e, { escape: false });
+        return;
+    }
+    // A focused list already moves with the arrows.
+    if (e.target.closest?.('select, input, textarea') || _renderView.state !== 'ready') return;
+    if (e.code === 'ArrowLeft')  { e.preventDefault(); _renderViewShow(_renderView.index - 1); }
+    if (e.code === 'ArrowRight') { e.preventDefault(); _renderViewShow(_renderView.index + 1); }
+}
+
+function _renderViewWirePause() {
+    renderViewPauseMenu.wire();
+    showSettingValues();
+    document.getElementById('rv-pause-btn').addEventListener('click', () => renderViewPause(!_renderViewPaused));
+    window.addEventListener('keydown', _renderViewKey);
 }
 
 (async () => {
+    // Before anything that can fail, so the menu always leads back to the game.
+    _renderViewWirePause();
     try {
         await ASSETS_READY;
         const read = _readSandboxConfig();

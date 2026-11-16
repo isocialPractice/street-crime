@@ -71,5 +71,5 @@ frame `walk_0` › part `front-glove` › tone `glove-highlight` / `-light` / `-
 | skipped | `outline` / `strokes` groups, shapes with no fill |
 
 Check it: SANDBOX TEST `design-7-render`. Every frame, still, as drawn beside
-recolored, with the parts a frame lacks: `config/debug/renders.html`
-(`?test=<sandbox test>&page=<n>`).
+recolored, with the parts a frame lacks: DEBUG MODES > DEBUG RENDER, or
+`config/debug/renders.html` (`?test=<sandbox test>&page=<n>`).

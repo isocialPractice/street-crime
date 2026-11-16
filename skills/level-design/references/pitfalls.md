@@ -63,9 +63,10 @@ written that way. The action matrix reports a design without it as
 ## A lock that should close again
 
 A case that follows a condition keeps following it in every later state, until a
-state's `set` gives it a value. theStreets' `gate-reset` sets `enemies-defeated` to
-`false` so the warehouse locks again until the next crew is beaten; without it the
-warehouse stays open, does nothing, and the matrix reports no gap. Read each state's
+state's `set` gives it a value. A state that mends a gate and should lock the
+warehouse again until a new crew is beaten sets the lock's case (`enemies-defeated`)
+to `false`; without that the warehouse stays open, does nothing, and the matrix
+reports no gap. Read each state's
 `Doors:` line in the matrix against the brief's **Places**.
 
 ## Starting a group again while it stands

@@ -129,15 +129,8 @@ Today a design runs in SANDBOX TEST, named by a test's `"design"` key (see
       "next": [
         { "on": "exit:import-export-warehouse", "when": { "has-key": true }, "to": "response-fights" },
         { "on": "exit:import-export-warehouse", "to": "response-flees" },
-        { "on": "exit:bad-bar", "when": { "warehouse-crew-down": true }, "to": "gate-reset" },
         { "on": "exit:bad-bar", "when": { "warehouse-crew-down": false }, "to": "crew-returns" }
       ]
-    },
-    "gate-reset": {
-      "svg": "none",
-      "reset": ["break:parking-gate-arm"],
-      "set": { "has-gate": true, "enemies-defeated": false },
-      "next": [{ "on": "break:parking-gate-arm", "to": "gate-breaks" }]
     },
     "crew-returns": {
       "svg": "none",
@@ -179,7 +172,7 @@ Read as a story:
 | --- | --- | --- | --- |
 | fought and beaten | standing | everything as it was left | no step: what you leave is what you find |
 | fighting, standing | beaten | everything as it was left | no step |
-| ran off | beaten | the gate is whole again and the warehouse locked; breaking the gate starts the crew again | `response-flees` to `gate-reset` |
+| ran off | beaten | everything as it was left: the gate stays broken and the warehouse open, for the key and the fight still to come | no step: only the level starting over mends the gate |
 | ran off | standing | the warehouse crew comes back in from the edges, with the health they had | `response-flees` to `crew-returns` |
 | fought and beaten | beaten | the screen fades and the level starts over | `response-fights` to `replay` |
 

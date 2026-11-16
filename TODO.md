@@ -547,20 +547,27 @@ Intent: a level is art plus one design file, with no code.
     `crew-returns` as never entered; `config/levels/theStreets/level-brief.md`
     lists it as meant for now.)
   - From: Level Design Config
-- [ ] theStreets: the warehouse door stays open after the gate is mended
+- [x] theStreets: the warehouse door stays open after the gate is mended
   - **Issue**: `gate-reset` locks the warehouse again, but the door's glass and
     handles, slid apart when the gate broke, stay apart; breaking the gate again
     does not slide them, since a layer sent where it already is stays put.
   - **Goal**: Decide whether `gate-reset` also puts them back, with `reset`
     `animate:door-glass-left` and the other three door layers.
+  - **Decided** (2026.11.15): `gate-reset` is gone. The gate is mended only when the
+    whole run is done (gate broken, warehouse crew beaten, key taken, response crew
+    beaten, into the bar and out) and the level starts over (`replay`, `reset`
+    `level`), which puts the door back during the fade.
   - From: Level Design Config
-- [ ] theStreets: leaving the bar mends the gate before the response crew has gone
+- [x] theStreets: leaving the bar mends the gate before the response crew has gone
   - **Issue**: In `response-flees`, the step on `exit:bad-bar` to `gate-reset`
     does not wait for the response crew to finish running off: ducking into the bar
     while they look, then walking out, mends the gate at once.
   - **Goal**: Decide whether that step also needs `"response-crew-down": true` in
     its `when` (`alive` does not count enemies that ran off, so the case turns true
     once they are gone).
+  - **Decided** (2026.11.15): leaving the bar in `response-flees` no longer mends the
+    gate at all (the step is gone; the brief's B6 now says nothing changes); only the
+    level starting over (B7) does.
   - From: Level Design Config
 - [ ] Keep a building's enemies when the player walks out
   - **Issue**: The level runtime keeps only the street's enemies while the player
@@ -747,7 +754,7 @@ Intent: patch-sized fixes; nothing here changes a format or a public name.
     move right, and the red car and lane lines scroll past at almost the same rate,
     the running one only about 45 px further along by 3.7 s)
   - From: Bug Fix Running List
-- [x] **User only**: `Add`: a render debug mode, since there is no way to look at a level design's recolored character frames one by one, outside of play
+- [x] **User only**: `Add-4`: a render debug mode, since there is no way to look at a level design's recolored character frames one by one, outside of play
   - **Issue**: A level design's pool entry can recolor an enemy
     (`{ "enemy": "JumpingJunkie", "render": { "left-vest": "gray" } }`), but the
     only way to see the result is to play: the `design-7-render` sandbox test
@@ -854,7 +861,7 @@ Intent: patch-sized fixes; nothing here changes a format or a public name.
     the red car with their legs and feet painted over its hood and wheels, and at
     about 7.5 s and 9 s, below the car, they are correctly in front of it)
   - From: Bug Fix Running List
-- [ ] **User only**: `Update`: the "Local Weather" mode always shows the same night storm (rain, clouds, lightning) instead of the weather where the player is
+- [x] **User only**: `Update`: the "Local Weather" mode always shows the same night storm (rain, clouds, lightning) instead of the weather where the player is
   - **Issue**: Nothing in the game reads real weather. The weather layer in `js/rendering/weather.js` (`drawWeatherSky()`, `drawWeatherFront()`) only reads fixed `CFG` keys from the `Local weather` block of `js/core/config.js` (`weatherNight`, `weatherTone`, `weatherPrecip`, and the rest), which `config/configuration.json` and `config/defaults/configuration.json` overlay with `night` / `hot` / `stormy`. No script calls a weather service (the only network calls are the sprite, item, sequence and level loaders), so the "Local Weather" toggle (`dbg-weather` in `js/ui/debug.js`) can only switch that one storm on or off. The renderer also has no day or snow art: `js/sprites/weather.js` loads only `cloud.svg`, `rain.svg` and `moon.svg` from `assets/levels/weather/`, and its own comment says a day render needs `sun.svg` and a cold render needs `snow.svg`, neither of which exists.
   - **Goal**: When local weather is on and the player is in the US, ask `https://api.weather.gov` for the current conditions at the player's location (`/points/{lat},{lon}` gives the forecast and observation station URLs; the first period of the hourly forecast, or the latest station observation, gives temperature, `isDaytime` and a short forecast text) and map them onto the existing keys: `weatherNight` from `isDaytime`, `weatherTone` from the temperature, `weatherPrecip` from the forecast text (rain or thunder to `stormy`, clouds or overcast to `cloudy`, clear or sunny to `sunny`), following the directive table already used for the weather layer. Outside the US, or when the request fails or there is no location, keep today's rainy storm. A small new script (for example `js/core/local-weather.js`, loaded before `js/rendering/weather.js` in `index.html`) would fetch once at start, set the `CFG` keys and leave the render code as it is; `js/sprites/weather.js` and `js/rendering/weather.js` then need `sun.svg` and `snow.svg` drawn for day and cold renders.
   - **Decide first**: (1) Where the location comes from: browser geolocation (asks the player for permission; denied means the rainy fallback), a third-party IP lookup (no prompt, but sends the player's IP to another service), or a lat/lon the owner sets in `config/configuration.json`. (2) How "not in US" is decided: a 404 from `/points/{lat},{lon}` (api.weather.gov answers only for US points, so no extra service is needed), or a country field from the IP lookup. (3) The temperature bands for `hot` / `medium` / `cold` (for example below 45 F cold, above 80 F hot). (4) Whether the art for a day sky (`sun.svg`) and snow (`snow.svg`) is added first, or day and cold renders ship without a sun and with rain until it is. (5) Whether `CFG.weather` still defaults to on (the `Turn` item asks to turn local weather off by default). Note that a browser cannot set the `User-Agent` header api.weather.gov asks clients for, so requests go out with the browser's own.
@@ -862,6 +869,206 @@ Intent: patch-sized fixes; nothing here changes a format or a public name.
   - **Done when**: with a stubbed `fetch` in a headless page under `.tmp/` returning a sunny daytime forecast for a US point, the `CFG` weather keys read day / sunny after start; a stubbed 404 (a point outside the US) and a rejected request both leave `night` / `stormy`; `node --check` passes on each changed script; every sandbox test keeps its status (`node scripts/checkLevelDesign.js --all`)
   - **Waited because**: triage row 4 (art): a live day or cold render needs `sun.svg` and `snow.svg`, which are not in `assets/levels/weather/`; and row 5: the location source, the US test and the temperature bands are the owner's choices. It would also exceed row 6 (a new script and a change to `index.html`'s script order) and row 9 (`js/core/config.js` and `js/ui/debug.js` had uncommitted work from the `player-run` fix)
   - **Evidence**: none (no GIF or image was attached; the behavior is read from the code)
+  - From: Bug Fix Running List
+- [x] `Add-2`: the title menu lists DEBUG MODE and DEBUG LEVEL beside GAME and SANDBOX TEST, and has no way to open the render view; the debug entries should sit in one "Debug Modes" list
+  - **Issue**: The title screen shows four flat buttons, GAME, DEBUG MODE, DEBUG LEVEL
+    and SANDBOX TEST (`#title-buttons` in `index.html`: `btn-game`, `btn-debug`,
+    `btn-debug-level`, `btn-sandbox`). `game.js` drives them from one flat list,
+    `TITLE_ITEMS` (`{ id, start }`: `startGame(false)`, `startGame(true)`,
+    `startDebugLevel()`, `startSandbox()`), through `setTitleSelection`, `_onTitleKey`
+    and `initTitleMenu`. There is no submenu, and the render view
+    (`config/debug/renders.html`, logic in `js/ui/render-view.js`) has no entry at all:
+    it is reached only by typing its address.
+  - **Goal**: The opening menu reads GAME, SETTINGS, DEBUG MODES, SANDBOX TEST, where
+    SETTINGS is its own item (a Settings screen) and is not built here: leave its slot
+    in the title list, between GAME and DEBUG MODES, as a commented-out entry in
+    `TITLE_ITEMS` and in `index.html`, so adding it is one line in each. DEBUG MODES opens
+    a second list in the same place: DEBUG MODE (`startGame(true)`), DEBUG LEVEL
+    (`startDebugLevel()`), DEBUG RENDER (goes to `config/debug/renders.html`, relative
+    to the site root, so the same server serves it; the page picks its own default
+    test), and BACK, which returns to the first list with DEBUG MODES highlighted.
+    Escape on the second list does what BACK does. In `index.html`, keep the existing
+    button ids, add `btn-debug-modes`, `btn-debug-render` and `btn-debug-back`, and
+    group the buttons into two lists, the debug one hidden. In `game.js`, turn
+    `TITLE_ITEMS` into two lists (the title list, the debug list) with one
+    `titleList` pointer: `setTitleSelection` and `_onTitleKey` work on the shown
+    list, `initTitleMenu` wires both, and a `showTitleList(name)` swaps which group is
+    shown and resets the highlight. Up, Down, W, S, Enter, Space, hover and click keep
+    working as now, and the press that starts a mode still goes through
+    `clearJustPressed()`. `style.css` needs nothing new if the groups reuse
+    `#title-buttons`' column layout (a class rather than a second id). The pause menu
+    item `Add-3` builds on these lists, so land this first.
+  - **Repro**: load the game. The title screen shows four buttons, with DEBUG MODE and
+    DEBUG LEVEL in the main list and nothing that opens the render view.
+  - **Done when**: a headless check (a page copied from `index.html` with
+    `<base href="/">`) finds the first list in order GAME, DEBUG MODES, SANDBOX TEST
+    (GAME, SETTINGS, DEBUG MODES, SANDBOX TEST once the Settings item lands); Enter on DEBUG MODES shows DEBUG MODE, DEBUG LEVEL,
+    DEBUG RENDER, BACK; Enter on DEBUG MODE leaves `gameState` playing with
+    `debugMode` true; Escape and BACK each return to the first list with DEBUG MODES
+    highlighted; DEBUG RENDER's target is `config/debug/renders.html`. The docs that
+    name the menu entries (README.md, QUICKSTART.md, and the `docs/` pages that say
+    "open debug mode" or "DEBUG LEVEL") say how to reach them now. `node --check game.js`
+    passes, and every sandbox test keeps its status
+    (`node scripts/checkLevelDesign.js --all`)
+  - **Waited because**: row 9, `index.html` is a shared file the worker may not write
+    (the menu's markup lives there); `Add-3`'s worker was sent at the same time and
+    builds on the same `index.html` and `game.js` menu
+  - **Evidence**: none; the inbox item is a request for the menu above
+  - From: Bug Fix Running List
+- [x] **User only**: `Add-3`: the pause screen only says PAUSED, with no menu and no way back to the menu a mode was started from (GAME, a debug mode or SANDBOX TEST)
+  - **Issue**: Pausing (P, Escape or the pause button) shows `#pause-overlay` in
+    `index.html`, which holds only a `PAUSED` heading and `PRESS P TO RESUME`.
+    `togglePause()` in `game.js` just flips `gameState` between `'playing'` and
+    `'paused'` and shows or hides that overlay (called from the keydown handler in
+    `js/core/input.js` and from `pauseBtn`). Nothing in the game returns to a menu:
+    `startGame()`, `startDebugLevel()` and `startSandbox()` (`js/ui/sandbox.js`) all
+    hide `#title-screen` and show `pauseBtn`, and no routine undoes that, so the only
+    way to change mode is to reload the page. Nothing records which menu a mode was
+    started from either.
+  - **Goal**: The pause screen lists GAME, SETTINGS, DEBUG MODES, SANDBOX TEST and
+    EXIT, the title menu's entries (as the Debug Modes and Settings items reshape it)
+    plus EXIT, driven like the title menu (up/down or W/S, Enter or Space, mouse hover
+    and click, the highlight tracked in code rather than through DOM focus, as
+    `TITLE_ITEMS` and `_onTitleKey` in `game.js` do). EXIT goes back to the menu the
+    mode was entered from: GAME or SANDBOX TEST to the title menu, a debug mode to the
+    Debug Modes list with that mode highlighted. That needs each start to note where it
+    came from (a `menuOrigin` set by the menu entry that started it), and a
+    `returnToMenu()` in `game.js` that undoes what the starts set up:
+    `clearLevelDirector()`, `levelRuntime = null`, `levelMgr = null`, `GameUI.close()`,
+    hide `pauseOverlay`, `pauseBtn`, `#debug-panel` and `#debug-left-panel` (and the
+    sandbox's panels from `_buildSandboxPanels()`), set `debugMode = false`,
+    `debugRestart = null`, `_sandboxRun = null`, `_hideBossHUD()`, show `#title-screen`
+    opened at `menuOrigin`, and `gameState = 'title'`. Picking GAME, DEBUG MODES or
+    SANDBOX TEST from pause does the same teardown and then what the title menu's entry
+    does. The markup goes in `#pause-overlay` in `index.html`, reusing the `.title-btn`
+    styling. `startSandbox()` copies the test's `cfg` over `CFG` (`Object.assign(CFG,
+    run.test.cfg)`) and the debug panel's sliders and toggles write `CFG` directly, so
+    an exit that should leave a clean GAME needs `CFG` restored to what
+    `applyCfgFiles('config/')` laid down at boot (a snapshot taken in
+    `js/core/config.js` or in the boot handler in `game.js`).
+  - **Depends on**: the Debug Modes item (the title menu becomes GAME, SETTINGS, DEBUG
+    MODES, SANDBOX TEST, with DEBUG MODES opening a list of the debug modes) and the
+    Settings item (the SETTINGS screen). This item's menu copies the first and opens
+    the second, so it comes after both.
+  - **Decide first**: (1) whether EXIT restores `CFG` (a GAME started after leaving
+    SANDBOX TEST or a debug mode plays with the boot values) or keeps the changed values
+    for the session; (2) whether picking a mode, or EXIT, from pause asks to confirm
+    before it drops the run in progress; (3) whether pause keeps a RESUME entry or
+    leaves resuming to P and Escape as now; (4) whether SETTINGS from pause opens over
+    the paused game and returns to pause, or leaves the run like the other entries.
+  - **Repro**: Start GAME, press P: only PAUSED shows, and no key or button leads back
+    to a menu. The same in DEBUG MODE, DEBUG LEVEL and SANDBOX TEST.
+  - **Done when**: a headless check under `.tmp/` starts each mode from its menu,
+    pauses, picks EXIT and finds `gameState === 'title'`, the menu it was started from
+    shown (the Debug Modes list, with that mode highlighted, for a debug mode),
+    `pauseBtn`, both debug panels and `#pause-overlay` hidden, `debugMode === false`,
+    `levelDirector === null`, `_sandboxRun === null`; then picks GAME from pause in
+    SANDBOX TEST and finds a fresh stage 1 with no sandbox panels. Every sandbox test
+    keeps its status (`node scripts/checkLevelDesign.js --all`).
+  - **Waited because**: row 5 (One right answer): the four choices above are the
+    owner's. After them it still fails row 6 (Small): it is a new feature over
+    `index.html` (a shared file), `game.js`, `js/ui/sandbox.js`, `js/ui/debug.js` and
+    likely `js/core/config.js`, more than 3 files and 80 lines; and row 9: `index.html`
+    is shared, `js/ui/debug.js` and `js/core/config.js` had uncommitted work from the
+    `player-run` fix, and `game.js` and `index.html` are what the Debug Modes and
+    Settings items change. Do it after both land.
+  - **Evidence**: none.
+  - From: Bug Fix Running List
+- [x] **User only**: `Add`: the title menu has no SETTINGS entry, so the player cannot change any game option before playing
+  - **Issue**: The title list (`TITLE_ITEMS` in `game.js`, buttons in `#title-buttons`
+    in `index.html`) has no Settings entry and the game has no settings screen. The
+    Debug Modes item (`Add-2`) leaves a commented-out SETTINGS slot between GAME and
+    DEBUG MODES for this item to fill. The values a player would expect to set are
+    fixed in code today: the player starts with `this.lives = 3` (the `Player`
+    constructor in `js/entities/player.js`); screen shake always runs at full
+    strength (`screenShake(power)` in `js/core/camera.js`, called from
+    `js/entities/player.js` and elsewhere); there is no difficulty at all; and there
+    is no audio yet (no `AudioContext` or `Audio` anywhere), so a volume control would
+    have nothing to change. The only option screen is the debug panel
+    (`js/ui/debug.js`), which writes `CFG` directly and is debug tooling, not a player
+    screen.
+  - **Goal**: SETTINGS in the title list opens a settings list in the same place,
+    driven like the title menu (Up, Down, W, S move; Left, Right, A, D or Enter change
+    the highlighted value; hover and click work; the highlight is tracked in code as
+    `_onTitleKey` does, not through DOM focus), ending with BACK, which returns to the
+    title list with SETTINGS highlighted. Escape does what BACK does. Each setting
+    writes one value that the game reads when a run starts: for example a
+    `CFG.playerLives` read by the `Player` constructor in place of the literal 3, a
+    `CFG.screenShakeScale` that `screenShake()` multiplies `power` by, and a
+    `CFG.difficulty` that scales enemy HP, damage and spawn counts. Fill the
+    commented-out slot in `TITLE_ITEMS` and `index.html`, and add the settings list's
+    markup beside the Debug Modes list, reusing the `.title-btn` styling. Fold in or
+    close the existing items this covers: "Create a difficulty selection system (Easy
+    / Normal / Hard)" (Major), "Add keyboard remapping support" (Minor), "Implement a
+    master volume slider and mute toggle in the pause menu" (Audio) and "Implement a
+    settings menu for toggling hitbox display, screen shake, and damage numbers" (UI &
+    HUD), as the owner picks below. The pause menu item `Add-3` opens this screen too,
+    so land this before it.
+  - **Decide first**: (1) Which settings the screen holds. Common beat-em-up options:
+    difficulty (Easy / Normal / Hard, scaling enemy HP, damage and spawn counts, none
+    of which exists yet), lives (for example 1 to 5, default 3), continues, screen
+    shake (on / off or a strength), damage number popups (not built yet), master volume
+    and mute (no audio exists yet, so these would be placeholders until it does), and
+    key remapping (the largest of these: every key read in `js/core/input.js` would go
+    through a mapping). (2) Whether the settings persist across reloads
+    (`localStorage`) or reset on each load. (3) Whether a setting changed mid-run
+    (from the pause menu, `Add-3`) applies at once or from the next run. (4) Whether
+    debug modes and SANDBOX TEST obey the player's settings or keep their own `CFG`
+    values (the sandbox copies its test's `cfg` over `CFG` on start).
+  - **Repro**: load the game. The title screen has no SETTINGS entry, and nothing on
+    it changes lives, difficulty or screen shake.
+  - **Done when**: a headless check under `.tmp/` (a page copied from `index.html`
+    with `<base href="/">`) finds SETTINGS between GAME and DEBUG MODES; Enter on it
+    shows the chosen settings and BACK; changing each value and starting GAME gives a
+    run that uses it (for lives, `player.lives` equals the chosen value); BACK and
+    Escape return to the title list with SETTINGS highlighted; if persistence is
+    chosen, a reload keeps the values. `node --check` passes on each changed script,
+    and every sandbox test keeps its status (`node scripts/checkLevelDesign.js --all`)
+  - **Waited because**: row 5 (One right answer): which settings, persistence and how
+    they apply are the owner's choices. After them it still fails row 6 (Small): a new
+    screen over `index.html` (a shared file), `game.js`, `js/core/config.js`,
+    `js/entities/player.js` and `js/core/camera.js`, more than 3 files and 80 lines;
+    and row 9: `index.html`, `game.js`, `js/core/config.js` and
+    `js/entities/player.js` were being edited by the Debug Modes (`Add-2`) work. Do it
+    after `Add-2` lands.
+  - **Evidence**: none; the inbox item is a request for a new menu entry
+  - From: Bug Fix Running List
+- [x] `accidental-copilot-keypress`: pressing the Copilot key while holding an arrow keeps the player moving that way after the arrow is let go
+  - **Issue**: The Copilot key on Windows keyboards sends Shift + Windows + F23 and opens
+    the Copilot app, so the game's window loses focus while the arrow is still down. The
+    arrow's `keyup` then goes to the other window and the game never hears it.
+    `js/core/input.js` sets `Keys[e.code]` on `keydown` and clears it only on `keyup`,
+    and nothing in the game listens for `blur` or `visibilitychange`, so `Keys.ArrowRight`
+    stays `true` for good and the player walks on with no key held. The chord's own
+    `ShiftLeft` keydown sticks too, so the player is often left running, not walking,
+    until the stuck keys are pressed and released again. The same happens on any focus
+    loss with a key held (Alt+Tab, a click into another window, a system dialog).
+  - **Goal**: Release every held key when the window loses focus. In
+    `js/core/input.js`, beside the `keyup` listener, add a `window` `blur` listener that
+    sets each `Keys[k]` to `false` and calls `clearJustPressed()`, the same two lines
+    `GameUI.close()` in `js/ui/overlay.js` uses. No new globals, no change to `Keys` or
+    `JustPressed`. Whether losing focus should also pause the game (`togglePause` while
+    `gameState === 'playing'`, as many browser games do) is a separate choice for the
+    owner; the key release above does not depend on it.
+  - **Repro**: In the game or the `level-design` sandbox test, hold ArrowRight on open
+    ground, press the Copilot key (or Alt+Tab away), let go of ArrowRight, come back: the
+    player is still moving right. Headless, the same thing: after the walk-in entrance,
+    put the player's feet at x 1300 on theStreets, dispatch `keydown` ArrowRight on
+    `window`, step `update(1 / 60)` 10 times, dispatch `keydown` ShiftLeft, MetaLeft and
+    F23, dispatch a `blur` Event on `window` with no `keyup`, step 5 frames, then 60 more.
+    Today the player moves 286 px in those 60 frames in state `run`, with ArrowRight,
+    ShiftLeft, MetaLeft and F23 all still `true` in `Keys`. A control run that sends the
+    `keyup` moves 0 px. (Local only: `.tmp/bug-fix-copilot-keypress/run.js` runs this
+    headless; `run.js fix` adds the blur listener from the page and gives 0 px, state
+    `idle`, nothing held.)
+  - **Done when**: the headless repro above gives 0 px of drift, state `idle`, and no key
+    `true` in `Keys` after the blur; `node --check js/core/input.js` passes; every sandbox
+    test keeps its status (`node scripts/checkLevelDesign.js --all`)
+  - **Waited because**: row 9, `js/core/input.js` had uncommitted work from another task
+    (passing the key to `togglePause`) and is in that session's files in use
+  - **Evidence**: `.bug-fix/gifs/accidental-copilot-keypress.gif` (local only; 3.7 s on
+    theStreets by the lamp post: the player keeps his walk cycle facing right through
+    every frame while the owner holds no key)
   - From: Bug Fix Running List
 
 ---

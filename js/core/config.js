@@ -313,3 +313,53 @@ function resetCfgToDefaults(keys = null) {
     }
     return { count, missing };
 }
+
+// ── Player settings ──────────────────────────────────────────────────────────
+// What a player picks on the title screen's SETTINGS list, kept apart from CFG:
+// CFG is the game's tuning, which debug mode edits and exports to config/, and
+// these are one player's choices, kept in their browser (localStorage). A
+// private window, or cleared site data, starts from the defaults.
+//
+// A run reads them once, when it starts (startRunSettings), so a change made
+// mid-run waits for the next one. GAME plays at the player's settings; the
+// debug modes and SANDBOX TEST play at the defaults, so tuning and tests stay
+// reproducible whatever a player has picked.
+
+// Difficulty scales what enemies bring, on top of CFG's multipliers: their
+// health when they spawn, and the damage of each hit that lands.
+const DIFFICULTIES = {
+    easy:   { label: 'EASY',   health: 0.75, damage: 0.6 },
+    normal: { label: 'NORMAL', health: 1,    damage: 1   },
+    hard:   { label: 'HARD',   health: 1.35, damage: 1.4 },
+};
+const SETTINGS_DEFAULTS = Object.freeze({ difficulty: 'normal' });
+const SETTINGS_STORAGE_KEY = 'sc-settings';
+
+// readSettings - the saved settings, each checked: one missing, unknown or
+// unreadable is at its default.
+function readSettings() {
+    const settings = { ...SETTINGS_DEFAULTS };
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) || 'null'); } catch (e) { saved = null; }
+    if (saved && Object.hasOwn(DIFFICULTIES, saved.difficulty)) settings.difficulty = saved.difficulty;
+    return settings;
+}
+
+// saveSettings - keep SETTINGS for the next visit. Where the browser will not
+// store them, they last until the page is closed.
+function saveSettings() {
+    try { localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(SETTINGS)); } catch (e) { /* this visit only */ }
+}
+
+const SETTINGS = readSettings();       // the player's choices, changed on the SETTINGS list
+let runSettings = { ...SETTINGS_DEFAULTS };   // what the run in progress plays at
+
+// startRunSettings - fix what a run plays at, as it starts: the player's
+// settings, or the defaults.
+function startRunSettings(useSettings) {
+    runSettings = useSettings ? { ...SETTINGS } : { ...SETTINGS_DEFAULTS };
+}
+
+function runDifficulty() {
+    return DIFFICULTIES[runSettings.difficulty] || DIFFICULTIES.normal;
+}

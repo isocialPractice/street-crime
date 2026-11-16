@@ -36,24 +36,29 @@ B3. The warehouse crew beaten: the warehouse opens, as the last one falls.
 B4. Walking out of the warehouse with the key: the response crew comes in to
     fight, and the warehouse locks while they stand.
 B5. Walking out without it: the response crew comes in, looks, and runs off.
-B6. The response crew ran off, then leaving the bar: the gate is whole again and
-    the warehouse locked; breaking the gate starts again from B2.
+B6. The response crew ran off, then leaving the bar: nothing changes. The gate
+    stays broken and the warehouse open; the key and the response crew are still
+    to come (B4), and the gate is only mended when the whole level starts over
+    (B7).
 B7. Both crews beaten, then leaving the bar: the screen fades and the level
-    starts over at B1.
+    starts over at B1, the gate whole and the warehouse locked again.
 
 ## Again and again
 
 - Walking out of the warehouse: every time, until the response crew has been
   fought (B4 with the key, B5 without).
 - The key: taken once, and it stays taken for the run.
-- The gate: breaks again every time B6 has mended it.
+- The gate: breaks once a run; only the level starting over (B7) mends it.
 
 ## Nothing on purpose
 
 - `exit:import-export-warehouse` in `response-fights`: once the response crew
   has been fought, walking out of the warehouse again brings nobody.
-- `exit:bad-bar` in `gate-reset`: the bar has done its part; the gate has to be
-  broken again (B6).
+- `exit:bad-bar` in `response-flees`, with the warehouse crew beaten: the gate is
+  only mended, and the warehouse only locked, at the end of the whole run (gate
+  broken, warehouse crew beaten, key taken, response crew beaten, into the bar and
+  out: B7), so leaving the bar while the response crew has only run off changes
+  nothing (B6).
 - `crew-returns`: cannot happen in this level, since the warehouse stays locked
   until its crew is beaten, so that crew is always down by the time the response
   crew comes. Kept so the table of outcomes is whole; sandbox step 9
@@ -75,5 +80,5 @@ while the last of the warehouse crew is still on the ground.
 | B3 | `enemy-defeat` | `gate-breaks` on `defeated:warehouse-crew`; case `enemies-defeated` follows `alive = 0` |
 | B4 | `response-fights` | on `exit:import-export-warehouse` when `has-key`, in `enemy-defeat` and `response-flees` |
 | B5 | `response-flees` | on `exit:import-export-warehouse` otherwise, in the same two states; `then` `flee` |
-| B6 | `gate-reset` | `response-flees` on `exit:bad-bar` when `warehouse-crew-down`; `reset` the gate; `set` `enemies-defeated` false |
+| B6 | `response-flees` | no step on `exit:bad-bar` when `warehouse-crew-down`: the state stays |
 | B7 | `replay` | `response-fights` on `exit:bad-bar` when both crews are down; `reset` `level` |

@@ -16,11 +16,26 @@
     <!-- Title / mode-select screen (shown before game starts) -->
     <div id="title-screen">
         <h1 id="title-heading">STREET<br>CRIME</h1>
+        <!-- Lists shown one at a time: the first, and the ones SETTINGS and
+             DEBUG MODES open. game.js (TITLE_LISTS) drives them. -->
         <div id="title-buttons">
-            <button class="title-btn" id="btn-game">&#9654; GAME</button>
-            <button class="title-btn" id="btn-debug">&#9881; DEBUG MODE</button>
-            <button class="title-btn" id="btn-debug-level">&#9635; DEBUG LEVEL</button>
-            <button class="title-btn" id="btn-sandbox">&#9874; SANDBOX TEST</button>
+            <div class="title-list" id="title-list-main">
+                <button class="title-btn" id="btn-game">&#9654; GAME</button>
+                <button class="title-btn" id="btn-settings">&#9881; SETTINGS</button>
+                <button class="title-btn" id="btn-debug-modes">&#9776; DEBUG MODES</button>
+                <button class="title-btn" id="btn-sandbox">&#9874; SANDBOX TEST</button>
+            </div>
+            <div class="title-list hidden" id="title-list-settings">
+                <button class="title-btn" id="btn-set-difficulty">DIFFICULTY
+                    <span class="title-value">&#9664; <span data-setting="difficulty">NORMAL</span> &#9654;</span></button>
+                <button class="title-btn" id="btn-settings-back">&#9664; BACK</button>
+            </div>
+            <div class="title-list hidden" id="title-list-debug">
+                <button class="title-btn" id="btn-debug">&#9881; DEBUG MODE</button>
+                <button class="title-btn" id="btn-debug-level">&#9635; DEBUG LEVEL</button>
+                <button class="title-btn" id="btn-debug-render">&#9680; DEBUG RENDER</button>
+                <button class="title-btn" id="btn-debug-back">&#9664; BACK</button>
+            </div>
         </div>
     </div>
 
@@ -80,9 +95,36 @@
             <button id="pause-btn" class="hidden">&#9646;&#9646;</button>
 
             <!-- Pause overlay -->
+            <!-- The pause menu: lists shown one at a time, driven by game.js
+                 (pauseMenu), as the title screen's are. -->
             <div id="pause-overlay" class="hidden">
                 <h2>PAUSED</h2>
-                <p class="blink">PRESS P TO RESUME</p>
+                <div class="title-list" id="pause-list-main">
+                    <button class="title-btn" id="pbtn-resume">&#8617; RESUME</button>
+                    <button class="title-btn" id="pbtn-game">&#9654; GAME</button>
+                    <button class="title-btn" id="pbtn-settings">&#9881; SETTINGS</button>
+                    <button class="title-btn" id="pbtn-debug-modes">&#9776; DEBUG MODES</button>
+                    <button class="title-btn" id="pbtn-sandbox">&#9874; SANDBOX TEST</button>
+                    <button class="title-btn" id="pbtn-exit">&#10006; EXIT</button>
+                </div>
+                <div class="title-list hidden" id="pause-list-settings">
+                    <button class="title-btn" id="pbtn-set-difficulty">DIFFICULTY
+                        <span class="title-value">&#9664; <span data-setting="difficulty">NORMAL</span> &#9654;</span></button>
+                    <p class="pause-note">A change applies from the next run.</p>
+                    <button class="title-btn" id="pbtn-settings-back">&#9664; BACK</button>
+                </div>
+                <div class="title-list hidden" id="pause-list-debug">
+                    <button class="title-btn" id="pbtn-debug">&#9881; DEBUG MODE</button>
+                    <button class="title-btn" id="pbtn-debug-level">&#9635; DEBUG LEVEL</button>
+                    <button class="title-btn" id="pbtn-debug-render">&#9680; DEBUG RENDER</button>
+                    <button class="title-btn" id="pbtn-debug-back">&#9664; BACK</button>
+                </div>
+                <div class="title-list hidden" id="pause-list-confirm">
+                    <p class="pause-note">QUIT THIS GAME? IT WILL BE LOST.</p>
+                    <button class="title-btn" id="pbtn-no">NO</button>
+                    <button class="title-btn" id="pbtn-yes">YES</button>
+                </div>
+                <p class="pause-hint">P: RESUME &nbsp; ESC: BACK</p>
             </div>
 
             <!-- Controls hint (bottom-left, small) -->
@@ -114,6 +156,7 @@
     <!-- ── Core: canvas refs, config, input, camera ─────────────────────────── -->
     <script src="js/core/canvas.js"></script>
     <script src="js/core/config.js"></script>
+    <script src="js/core/local-weather.js"></script>
     <script src="js/core/input.js"></script>
     <script src="js/core/camera.js"></script>
 
@@ -143,6 +186,7 @@
     <script src="js/ui/parser.js"></script>
     <script src="js/ui/debug.js"></script>
     <script src="js/ui/sandbox.js"></script>
+    <script src="js/ui/menu.js"></script>
 
     <!-- ── Rendering: background draw, main scene draw, debug overlay ────────── -->
     <script src="js/rendering/background.js"></script>

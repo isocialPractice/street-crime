@@ -385,7 +385,6 @@
         { "label": "Or walk out without it: they come, look, and run off", "event": "state:response-flees" },
         { "label": "The response crew comes in from both edges", "event": "spawn:response-crew" },
         { "label": "The warehouse locks again while they stand", "event": "lock:import-export-warehouse" },
-        { "label": "They ran off, then leave the bar: the gate is whole again", "event": "state:gate-reset" },
         { "label": "Both crews beaten, then leave the bar: the level starts over", "event": "state:replay" }
       ]
     }

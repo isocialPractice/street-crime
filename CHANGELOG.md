@@ -19,8 +19,43 @@ anything earlier, see the commit log.
   are listed for when a design can name them. No game runs. Enemy frames now carry
   their file (`svgPath`), `variantFrameReport` says what a render did to a frame,
   and `scripts/checkAssetCase.js` checks the page's paths as it does `index.html`'s.
+- **Debug Modes.** The title screen lists GAME, DEBUG MODES and SANDBOX TEST;
+  DEBUG MODES opens DEBUG MODE, DEBUG LEVEL, DEBUG RENDER (the render view) and BACK,
+  and Escape goes back too.
+- **Settings.** SETTINGS, between GAME and DEBUG MODES, holds DIFFICULTY: EASY
+  (enemies at 0.75 health and 0.6 damage), NORMAL or HARD (1.35 and 1.4), on top of
+  `CFG`'s enemy multipliers. Left and Right change it, it is kept in the browser
+  between visits, and a GAME started after a change plays at it; the debug modes and
+  SANDBOX TEST always play at NORMAL. In `js/core/config.js`, apart from `CFG`.
+- **Pause menu.** Pausing (P, Escape or the pause button) lists RESUME, GAME,
+  SETTINGS, DEBUG MODES, SANDBOX TEST and EXIT, RESUME highlighted. EXIT returns to
+  the title screen at the entry the mode was started from (a debug mode to the
+  DEBUG MODES list); the other modes start fresh; SETTINGS opens over the paused run.
+  In GAME, leaving asks QUIT THIS GAME? first, NO highlighted. Leaving a run puts
+  `CFG` back to what `config/` gave at startup. The title and pause menus, and the
+  render view's, share one `Menu` class (`js/ui/menu.js`).
+- **Live Local Weather** (`js/core/local-weather.js`). While the weather layer is on,
+  it asks the browser for the player's location, then api.weather.gov for that
+  point's hourly forecast, and sets day or night, the tone (cold below 45°F, hot
+  above 80°F) and stormy, cloudy or sunny from the hour in progress, asking again
+  hourly. Outside the US, with the location refused, or with no network, the
+  stormy night stays. `sun.svg` and `snow.svg` in `assets/levels/weather/` are
+  optional: with them a day sky shows the sun, and cold weather falls as snow.
 
 ### Fixed
+- On theStreets, leaving the bar after the response crew has run off no longer
+  mends the gate and locks the warehouse again (the `gate-reset` state is gone).
+  The gate is mended only when the whole run is done (gate broken, warehouse crew
+  beaten, key taken, response crew beaten, into the bar and out) and the level
+  starts over.
+- A key held when the game window loses focus (the Copilot key opening its app,
+  Alt+Tab, a click into another window) no longer stays down, which kept the player
+  walking or running with nothing pressed: every held key is let go, and a run in
+  progress pauses at RESUME.
+- The render view (DEBUG RENDER) pauses: P, Escape or its pause button open the
+  same pause menu as the game. EXIT returns to the DEBUG MODES list with DEBUG
+  RENDER highlighted; GAME, a debug mode or SANDBOX TEST open the game and start
+  it there (`index.html?start=<mode>`; `?menu=<list>&select=<entry>` opens a list).
 - On theStreets, the player walking along the sidewalk behind the parked red car
   stays there instead of being pushed to the street in front of it. A strip of
   field thinner than the border padding on both sides is now walked along its

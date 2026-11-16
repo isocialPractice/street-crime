@@ -11,7 +11,7 @@
     <style>
         :root {
             --bg: #14161a; --panel: #1d2026; --line: #30343b; --control: #2a2e35;
-            --text: #e6e6e6; --muted: #9aa0a6; --warn: #ffb347; --cell: #e9e6df;
+            --text: #e6e6e6; --muted: #9aa0a6; --warn: #ffb347; --cell: #e9e6df; --accent: #ff8a2b;
         }
         body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.4 Consolas, ui-monospace, monospace; overflow-wrap: anywhere; }
         header {
@@ -36,6 +36,26 @@
         .rv-summary { margin: 4px 0 0; }
         .rv-warn { color: var(--warn); }
         .rv-muted { color: var(--muted); }
+
+        /* The pause menu: the game's, in this page's colors. */
+        #rv-pause-btn { margin-left: auto; }
+        #rv-pause {
+            position: fixed; inset: 0; z-index: 2; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 10px; padding: 16px;
+            background: rgba(8, 10, 14, 0.9); overflow-y: auto;
+        }
+        #rv-pause.hidden, .rv-menu.hidden { display: none; }
+        #rv-pause h2 { margin: 0 0 8px; font-size: 40px; letter-spacing: 5px; color: var(--accent); }
+        .rv-menu { display: flex; flex-direction: column; align-items: center; gap: 10px; width: min(300px, 100%); }
+        .rv-menu-btn {
+            width: 100%; padding: 9px 0; font-size: 17px; font-weight: bold; letter-spacing: 3px;
+            text-transform: uppercase; color: var(--accent); background: var(--panel);
+            border: 2px solid var(--accent); cursor: pointer;
+        }
+        .rv-menu-btn:hover, .rv-menu-btn.selected { color: #000; background: var(--accent); }
+        .rv-menu-value { display: block; margin-top: 4px; font-size: 14px; }
+        .rv-menu-note { margin: 0; font-size: 13px; color: var(--accent); }
+        .rv-menu-hint { margin: 6px 0 0; font-size: 12px; color: var(--muted); }
     </style>
 </head>
 <body>
@@ -46,6 +66,7 @@
         <select id="rv-page" aria-label="character"></select>
         <button id="rv-next" title="Next character (Right)">&#9654;</button>
         <span id="rv-status" class="rv-muted">loading...</span>
+        <button id="rv-pause-btn" title="Pause (P)" aria-label="pause">&#10074;&#10074;</button>
     </header>
     <main>
         <p class="rv-muted">Each frame as drawn, then with the level design's render. Left and Right change the character.</p>
@@ -53,6 +74,32 @@
         <details hidden><summary>design warnings</summary><ul id="rv-warnings"></ul></details>
         <div id="rv-grid"></div>
     </main>
+
+    <!-- The pause menu, as the game's (js/ui/render-view.js, Pause). -->
+    <div id="rv-pause" class="hidden">
+        <h2>PAUSED</h2>
+        <div class="rv-menu" id="rv-pause-main">
+            <button class="rv-menu-btn" id="rv-p-resume">&#8617; RESUME</button>
+            <button class="rv-menu-btn" id="rv-p-game">&#9654; GAME</button>
+            <button class="rv-menu-btn" id="rv-p-settings">&#9881; SETTINGS</button>
+            <button class="rv-menu-btn" id="rv-p-debug-modes">&#9776; DEBUG MODES</button>
+            <button class="rv-menu-btn" id="rv-p-sandbox">&#9874; SANDBOX TEST</button>
+            <button class="rv-menu-btn" id="rv-p-exit">&#10006; EXIT</button>
+        </div>
+        <div class="rv-menu hidden" id="rv-pause-settings">
+            <button class="rv-menu-btn" id="rv-p-set-difficulty">DIFFICULTY
+                <span class="rv-menu-value">&#9664; <span data-setting="difficulty">NORMAL</span> &#9654;</span></button>
+            <p class="rv-menu-note">A change applies from the next run.</p>
+            <button class="rv-menu-btn" id="rv-p-settings-back">&#9664; BACK</button>
+        </div>
+        <div class="rv-menu hidden" id="rv-pause-debug">
+            <button class="rv-menu-btn" id="rv-p-debug">&#9881; DEBUG MODE</button>
+            <button class="rv-menu-btn" id="rv-p-debug-level">&#9635; DEBUG LEVEL</button>
+            <button class="rv-menu-btn" id="rv-p-debug-render">&#9680; DEBUG RENDER</button>
+            <button class="rv-menu-btn" id="rv-p-debug-back">&#9664; BACK</button>
+        </div>
+        <p class="rv-menu-hint">P: RESUME &nbsp; ESC: BACK</p>
+    </div>
 
     <!-- What the view needs of the game: sprites, the palettes, enemies and
          their variants, the level design reader and the sandbox's test list
@@ -71,6 +118,7 @@
     <script src="js/level/data.js"></script>
     <script src="js/level/level-design.js"></script>
     <script src="js/ui/sandbox.js"></script>
+    <script src="js/ui/menu.js"></script>
     <script src="js/ui/render-view.js"></script>
 </body>
 </html>

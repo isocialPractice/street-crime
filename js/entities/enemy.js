@@ -265,7 +265,7 @@ class Enemy extends Entity {
         super(x, y, def.w, def.h);
         this.typeId    = typeId;
         this.def       = def;
-        this.hp        = Math.round(def.hp * CFG.enemyHealthMultiplier);
+        this.hp        = Math.round(def.hp * CFG.enemyHealthMultiplier * runDifficulty().health);
         this.maxHp     = this.hp;
         this.speed     = def.spd;
         this.atkCD     = 1.0 + Math.random() * 2;
@@ -566,7 +566,7 @@ class Enemy extends Entity {
         const pdx = Math.abs(player.x - this.x);
         const pdy = Math.abs((player.y + player.h) - (this.y + this.h));
         if (pdx < range && pdy < CFG.enemyAtkDepthTol)
-            player.takeDamage(Math.round(this.def.dmg * CFG.enemyDmgMultiplier), facing,
+            player.takeDamage(Math.round(this.def.dmg * CFG.enemyDmgMultiplier * runDifficulty().damage), facing,
                               0, this._powerAttackEffect(), this._appliedPlayerAnims());
     }
 

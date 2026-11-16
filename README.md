@@ -31,7 +31,7 @@ A classic 2.5D side-scrolling beat-em-up built entirely in vanilla HTML5 Canvas 
 | Take an item | E at it, then YES |
 | Items (use, check, combine) | I or Tab |
 | Command line (look, talk, use, take) | Ctrl+I |
-| Pause | P |
+| Pause menu | P or Esc (P resumes; Esc steps back, or resumes); switching to another window pauses too |
 
 ## Features
 
@@ -47,8 +47,11 @@ A classic 2.5D side-scrolling beat-em-up built entirely in vanilla HTML5 Canvas 
 - Boss and sub-boss encounters with dedicated health bars
 - Breakable objects that drop health pickups
 - Data-driven enemy asset animation configuration
+- Difficulty setting (Easy / Normal / Hard) on the title screen's Settings list, kept between visits
+- Local Weather (off by default; the debug panel's **Local Weather** box, or `"weather": true` in `config/configuration.json`): the weather where the player is, from api.weather.gov
 - Debug mode with live tuning sliders and sandbox spawning
 - Debug Level mode that loads an SVG scene, uses its `#field` shape for walkable bounds, and steps through ordered `section_*` scene panels
+- Debug Render, a page that shows every frame a level design recolors, as drawn beside recolored (`config/debug/renders.html`)
 - Level map: doors into buildings, breakable scenery, animated signs and no-go areas, all set up by how layers are named in the level SVG (see [Level Map Ids](#level-map-ids))
 - Sandbox Test mode for trying one feature at a time, configured from `config/debug/sandbox.json`, with a checklist that ticks as each feature reports in
 
@@ -60,7 +63,9 @@ Enemy asset wiring now lives in `config/enemy-assets.json`, while gameplay tunin
 
 Tuning lives in three files, `config/configuration.json`, `config/enemies.json` and `config/objects.json`, laid over the built-in values in `js/core/config.js` at startup, in that order. Debug mode's export buttons write those files. `config/defaults/` holds the same three files as the game ships them, and is what debug mode's **Reset to Defaults** buttons go back to: **Reset All to Defaults** in the right panel puts back every value, and each Debug Focus mode has its own button for just its sliders. Both ask for a second click. Exports never write to `config/defaults/`, so to make your current tuning the new default, export it and copy the file in.
 
-The title screen now includes a `DEBUG LEVEL` entry that loads `assets/levels/Test_ItWorked.svg`. The scene image is drawn from ordered `section_[0-9]+` groups, starting on `section_1`, so the player can scroll through the SVG one screen at a time. If a section contains a `border` rect, that rect defines the screen slice; otherwise the slice is derived from the section's child geometry. A level with no `section_*` groups takes its screens from its `border` rects instead, ordered left to right. Any SVG shape with `id="field"` remains the authoritative gameplay area for movement, and the same field geometry is used for debug object and enemy spawn sampling.
+The title screen lists `GAME`, `SETTINGS`, `DEBUG MODES` and `SANDBOX TEST`. `SETTINGS` holds `DIFFICULTY` (`EASY`, `NORMAL`, `HARD`, scaling enemy health and damage; Left and Right change it), kept in the browser between visits; a `GAME` started after a change plays at it, and the debug modes and `SANDBOX TEST` always play at `NORMAL`. `DEBUG MODES` opens a second list, `DEBUG MODE`, `DEBUG LEVEL`, `DEBUG RENDER` and `BACK` (Escape goes back too); `DEBUG RENDER` opens the render view, `config/debug/renders.html`. Pausing opens the same entries over the run, with `RESUME` first and `EXIT` last: `EXIT` goes back to the title screen at the entry the mode was started from (a debug mode to the `DEBUG MODES` list), `SETTINGS` opens over the paused run, and the other entries leave the run and start that mode. In `GAME`, leaving the run asks `QUIT THIS GAME?` first. Leaving a run puts the tuning back to what `config/` gave at startup, so a sandbox test's `cfg` and the debug sliders do not carry into the next mode. The render view pauses the same way, with the same entries; as it is a page of its own, `EXIT` goes back to the `DEBUG MODES` list with `DEBUG RENDER` highlighted, and the entries that start a mode open the game and start it there (`index.html?start=<mode>`). The `DEBUG LEVEL` entry loads `assets/levels/Test_ItWorked.svg`. The scene image is drawn from ordered `section_[0-9]+` groups, starting on `section_1`, so the player can scroll through the SVG one screen at a time. If a section contains a `border` rect, that rect defines the screen slice; otherwise the slice is derived from the section's child geometry. A level with no `section_*` groups takes its screens from its `border` rects instead, ordered left to right. Any SVG shape with `id="field"` remains the authoritative gameplay area for movement, and the same field geometry is used for debug object and enemy spawn sampling.
+
+Local Weather draws sky, clouds, rain and a color grade over every stage (`js/rendering/weather.js`, from the `weather*` keys in `CFG`). While it is on, `js/core/local-weather.js` asks the browser for the player's location (the browser asks the player first), then api.weather.gov for that point's hourly forecast, and sets day or night, the tone (cold below 45°F, hot above 80°F) and the sky (stormy, cloudy or sunny) from the hour in progress; it asks again hourly. The location goes to weather.gov only. weather.gov covers the US only, so anywhere else, or with the location refused or no network, the stormy night `config/` gives stays. `assets/levels/weather/sun.svg` and `snow.svg` are optional: with them, a day sky shows the sun and cold weather falls as snow.
 
 The `SANDBOX TEST` entry runs a test from `config/debug/sandbox.json`. Each entry under `"tests"` names a level folder and scene, where the player spawns, any `CFG` values to override, enemies to spawn, and a checklist of events to wait for; `"active"` picks the one the menu starts, and the panel can restart into any other. Adding a test for a new feature means adding an entry there, not changing code. If the file cannot be read, the sandbox runs a built-in test of `assets/levels/theStreets/` and says why on its status line. See [docs/sandbox.md](docs/sandbox.md).
 

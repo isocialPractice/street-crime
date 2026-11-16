@@ -40,10 +40,26 @@ window.addEventListener('keydown', e => {
         e.preventDefault();
     if ((e.code === 'KeyP' || e.code === 'Escape') &&
         (gameState === 'playing' || gameState === 'paused'))
-        togglePause();
+        togglePause(e.code);
 });
 
 window.addEventListener('keyup', e => { Keys[e.code] = false; });
+
+// releaseAllKeys - let go of every key. A key held when the window loses focus
+// (the Copilot key opening its app, Alt+Tab, a click into another window) has
+// its keyup delivered to the other window, so without this it stays down for
+// good and the player walks on with nothing pressed.
+function releaseAllKeys() {
+    for (const k in Keys) Keys[k] = false;
+    clearJustPressed();
+}
+
+// Losing focus mid-run also pauses, so nothing hits the player while they are
+// in another window; they come back to the pause menu, at RESUME.
+window.addEventListener('blur', () => {
+    releaseAllKeys();
+    if (gameState === 'playing') togglePause();
+});
 
 // clearJustPressed is called at the END of each game loop iteration so that
 // each "just pressed" signal lasts for exactly one frame, then disappears.

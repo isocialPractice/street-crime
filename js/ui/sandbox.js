@@ -444,6 +444,9 @@ async function startSandbox(requestedKey) {
         run.itemWarnings = _sandboxItems(run.test);
 
         debugMode = true;
+        runMode = 'sandbox';
+        // A test plays at the default settings, whatever the player picked.
+        startRunSettings(false);
         document.getElementById('title-screen').classList.add('hidden');
         pauseBtn.classList.remove('hidden');
         // Before the panels, so their sliders and toggles show the test's values.

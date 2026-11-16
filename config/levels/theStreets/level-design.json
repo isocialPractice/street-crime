@@ -92,15 +92,8 @@
       "next": [
         { "on": "exit:import-export-warehouse", "when": { "has-key": true }, "to": "response-fights" },
         { "on": "exit:import-export-warehouse", "to": "response-flees" },
-        { "on": "exit:bad-bar", "when": { "warehouse-crew-down": true }, "to": "gate-reset" },
         { "on": "exit:bad-bar", "when": { "warehouse-crew-down": false }, "to": "crew-returns" }
       ]
-    },
-    "gate-reset": {
-      "svg": "none",
-      "reset": ["break:parking-gate-arm"],
-      "set": { "has-gate": true, "enemies-defeated": false },
-      "next": [{ "on": "break:parking-gate-arm", "to": "gate-breaks" }]
     },
     "crew-returns": {
       "svg": "none",

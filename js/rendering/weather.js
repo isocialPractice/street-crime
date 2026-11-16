@@ -119,11 +119,15 @@ function _wxStrike(t) {
 // ── Sky pass ─────────────────────────────────────────────────────────────────
 function drawWeatherSky(stageData) {
     if (!CFG.weather) return;
+    // The real weather where the player is, asked for when the layer first
+    // shows and hourly after (js/core/local-weather.js).
+    localWeatherTick();
     const t     = performance.now() / 1000;
     const bgIdx = stageData?.bgIdx ?? 0;
 
     _wxSkyTone();
-    if (CFG.weatherNight) _wxMoon(bgIdx, stageData);
+    if (CFG.weatherNight) _wxSkyBody(WEATHER_SPRITES.moon, 'moon', bgIdx, stageData);
+    else if (WEATHER_SPRITES.sun) _wxSkyBody(WEATHER_SPRITES.sun, 'sun', bgIdx, stageData);
     if (CFG.weatherClouds && CFG.weatherPrecip !== 'sunny') _wxClouds(t);
 }
 
@@ -138,14 +142,15 @@ function _wxSkyTone() {
     ctx.fillRect(0, 0, W, CFG.groundMin);
 }
 
-// The moon rides the background tile at the same 0.45 parallax as drawBg, so on
-// stages 0 and 1 it lands on the disc already painted into the scene SVG.
-// A custom SVG scene stage has no tile grid, so it falls back to a fixed slot.
-function _wxMoon(bgIdx, stageData) {
-    const img = WEATHER_SPRITES.moon;
+// The moon, or by day the sun, rides the background tile at the same 0.45
+// parallax as drawBg, so on stages 0 and 1 it lands on the disc already painted
+// into the scene SVG. A custom SVG scene stage has no tile grid, so it falls
+// back to a fixed slot.
+function _wxSkyBody(img, name, bgIdx, stageData) {
+    const sun  = name === 'sun';
     const slot = WEATHER_SKY_BODY[bgIdx] || WEATHER_SKY_BODY_DEFAULT;
     const size = slot.r * 2.15;
-    const disc = _wxPlain(`moon${bgIdx}`, img, size, size);
+    const disc = _wxPlain(`${name}${bgIdx}`, img, size, size);
     if (!disc) return;
 
     const isScene = !!stageData?.scene?.img;
@@ -158,9 +163,10 @@ function _wxMoon(bgIdx, stageData) {
         if (cx + size < 0 || cx - size > W) continue;
 
         // Warm halo. On a hot render the moon glows amber through the haze
-        // instead of the cold silver it would have on a temperate night.
+        // instead of the cold silver it would have on a temperate night; the
+        // sun always glows gold.
         const halo = ctx.createRadialGradient(cx, cy, slot.r * 0.4, cx, cy, slot.r * 3.6);
-        const hot  = CFG.weatherTone === 'hot';
+        const hot  = sun || CFG.weatherTone === 'hot';
         halo.addColorStop(0, hot ? 'rgba(255,190,120,0.30)' : 'rgba(200,220,255,0.26)');
         halo.addColorStop(1, hot ? 'rgba(255,150,60,0)'     : 'rgba(180,210,255,0)');
         ctx.fillStyle = halo;
@@ -209,12 +215,45 @@ function drawWeatherFront() {
     if (!CFG.weather) return;
     const t = performance.now() / 1000;
 
-    if (CFG.weatherPrecip === 'stormy') {
+    // In the cold, stormy or cloudy weather falls as snow (STYLE.md), once
+    // there is a snow sprite; until then it stays rain.
+    const snowing = CFG.weatherTone === 'cold' && !!WEATHER_SPRITES.snow
+        && (CFG.weatherPrecip === 'stormy' || CFG.weatherPrecip === 'cloudy');
+    if (snowing) {
+        _wxSnow(t);
+    } else if (CFG.weatherPrecip === 'stormy') {
         _wxRain(t);
         _wxSplashes(t);
     }
     _wxTemperatureGrade(t);
     if (CFG.weatherLightning && CFG.weatherPrecip === 'stormy') _wxLightning(t);
+}
+
+// Snow, in place of rain in the cold. Flakes fall far slower than drops and
+// drift with the wind held to 0.12 (STYLE.md), swaying side to side as they
+// go, and come and go with the same easing amount as the rain.
+function _wxSnow(t) {
+    const wind  = Math.min(CFG.weatherWind, 0.12);
+    const speed = CFG.weatherRainSpeed * 0.16;
+    const flake = _wxPlain('snow', WEATHER_SPRITES.snow, 12, 12);
+    if (!flake) return;
+
+    const amount = _wxRainAmount(t);
+    const span   = H + 40;
+    const count  = Math.round(CFG.weatherRainCount * 0.7);
+    for (let i = 0; i < count; i++) {
+        const share = _wxShare(i, amount);
+        if (share <= 0) continue;
+        const near  = 0.55 + _wxRand(i + 401) * 0.8;
+        const fall  = (_wxRand(i) * span + t * speed * near) % span - 20;
+        const sway  = Math.sin(t * (0.8 + _wxRand(i + 211)) + i) * 10 * near;
+        const drift = t * speed * wind * near + cam.x;
+        const x = ((_wxRand(i + 131) * (W + 240) - drift) % (W + 240) + (W + 240)) % (W + 240) - 120 + sway;
+        const size = 9 * near;
+        ctx.globalAlpha = 0.85 * share;
+        ctx.drawImage(flake, x - size / 2, fall - size / 2, size, size);
+    }
+    ctx.globalAlpha = 1;
 }
 
 // _wxRainAmount - how much of the rain is falling right now, as a share of
